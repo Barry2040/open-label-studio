@@ -1,0 +1,9 @@
+# Netlify: veröffentlicht den Ordner label-studio, ohne Build-Schritt
+[build]
+  publish = "label-studio"
+
+# Die Startadresse „/“ zeigt direkt die App
+[[redirects]]
+  from = "/"
+  to = "/label-studio.html"
+  status = 200
