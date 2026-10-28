@@ -122,6 +122,8 @@ details.subsec>summary::-webkit-details-marker{display:none}
 details.subsec>summary::before{content:"▸";color:var(--muted);transition:transform .15s}
 details.subsec[open]>summary::before{transform:rotate(90deg)}
 details.subsec:not([open])>summary{margin-bottom:0}
+.diag{margin:10px 0 0;padding:8px 10px;max-height:200px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;white-space:pre-wrap;word-break:break-word}
 .badge{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
 progress{width:100%;height:8px}
@@ -224,6 +226,8 @@ progress{width:100%;height:8px}
           <select id="align"><option value="right">Rechts (M220)</option><option value="center">Mittig (M221)</option><option value="left">Links</option></select>
         </div>
         <button class="primary" id="btnPrint" style="width:100%">Per Bluetooth drucken</button>
+        <pre id="btDiag" class="diag" hidden></pre>
+        <button id="btDiagCopy" hidden style="width:100%;margin-top:6px">Diagnose kopieren</button>
       </details>
 
       <div class="subsec row">
@@ -278,7 +282,7 @@ const PRINTERS = {
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
 const PRESETS = [[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
 const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
-const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,
+const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0xfff0,0xff12,
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
 const LS_DRAFT = 'labelstudio.draft', LS_TPL = 'labelstudio.templates', LS_PRINT = 'labelstudio.print';
 
@@ -889,19 +893,39 @@ async function connect(){
     alert('Dieser Browser unterstützt kein Web Bluetooth.\n\nPC: Chrome oder Edge verwenden.\nAndroid: Chrome verwenden.\niPhone: die App „Bluefy“ verwenden.');
     return;
   }
+  $('btDiag').textContent = '';
+  let step = 'Gerät auswählen';
   try {
     setStatus(false, 'Suche …');
     const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:BLE_SERVICES });
+    diag(`Gerät: ${device.name || '(ohne Namen)'}`);
     bt.device = device;
-    device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); });
-    setStatus(false, 'Verbinde …');
-    const server = await device.gatt.connect();
-    const services = await server.getPrimaryServices();
+    device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); diag('Verbindung wurde getrennt'); });
+
+    // Android/Windows scheitern beim ersten Verbindungsaufbau öfter – bis zu 3 Versuche
+    step = 'Verbinden';
+    let server;
+    for (let a = 1; a <= 3; a++){
+      setStatus(false, `Verbinde … (${a}/3)`);
+      try { server = await withTimeout(device.gatt.connect(), 10000, 'Verbinden'); diag(`Verbunden (Versuch ${a})`); break; }
+      catch(e){ diag(`Versuch ${a} fehlgeschlagen: ${e.message}`); if (a === 3) throw e; await sleep(800); }
+    }
+
+    step = 'Dienste lesen';
+    const services = await withTimeout(server.getPrimaryServices(), 10000, 'Dienste lesen');
+    diag(`${services.length} bekannte(r) Dienst(e) gefunden`);
+    if (!services.length) throw new Error('Der Drucker meldet keinen der bekannten Druckdienste.');
+
+    step = 'Kanal wählen';
     let found = null, fallback = null;
     for (const s of services){
-      for (const c of await s.getCharacteristics()){
+      diag(`Dienst ${shortUuid(s.uuid)}`);
+      for (const c of await withTimeout(s.getCharacteristics(), 5000, 'Kanäle lesen')){
         const p = c.properties;
-        if (p.notify){ try { await c.startNotifications(); c.addEventListener('characteristicvaluechanged', onNotify); } catch(e){} }
+        diag(`  Kanal ${shortUuid(c.uuid)}: ${['write','writeWithoutResponse','notify'].filter(k => p[k]).join(', ') || '–'}`);
+        if (p.notify){
+          try { await withTimeout(c.startNotifications(), 3000, 'Meldungen'); c.addEventListener('characteristicvaluechanged', onNotify); } catch(e){}
+        }
         if (p.write || p.writeWithoutResponse){
           if (!found && c.uuid.includes('ff02')) found = c;
           if (!fallback) fallback = c;
@@ -910,18 +934,31 @@ async function connect(){
     }
     bt.char = found || fallback;
     if (!bt.char) throw new Error('Kein beschreibbarer Kanal gefunden. Ist das der richtige Drucker?');
+    diag(`Druckkanal: ${shortUuid(bt.char.uuid)} – bereit`);
     setStatus(true, device.name || 'Verbunden');
     log('');
   } catch(err){
-    setStatus(false);
-    if (err.name !== 'NotFoundError') log('Fehler: ' + err.message);
+    if (err.name === 'NotFoundError'){ setStatus(false); return; }   // Auswahl abgebrochen
+    setStatus(false, 'Fehler: ' + step);
+    diag(`FEHLER bei „${step}“: ${err.name}: ${err.message}`);
+    log(`Bluetooth-Fehler bei „${step}“: ${err.message}`);
+    $('btSection').open = true;
   }
 }
+const withTimeout = (p, ms, what) => Promise.race([p,
+  new Promise((_, rej) => setTimeout(() => rej(new Error(`${what}: keine Antwort nach ${ms / 1000} s`)), ms))]);
+const shortUuid = u => { const m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i.exec(u); return m ? '0x' + m[1] : u; };
+function diag(line){ const d = $('btDiag'); d.hidden = false; $('btDiagCopy').hidden = false; d.textContent += line + '\n'; }
 function onNotify(ev){
   const b = new Uint8Array(ev.target.value.buffer);
   console.log('Drucker:', [...b].map(x => x.toString(16).padStart(2,'0')).join(' '));
 }
 $('btnConnect').addEventListener('click', connect);
+$('btDiagCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('btDiag').textContent); $('btDiagCopy').textContent = 'Kopiert ✓'; }
+  catch(e){ $('btDiagCopy').textContent = 'Kopieren nicht möglich – bitte Screenshot'; }
+  setTimeout(() => { $('btDiagCopy').textContent = 'Diagnose kopieren'; }, 2000);
+});
 
 async function sendBytes(data, onProgress){
   const c = bt.char, wo = c.properties.writeWithoutResponse;
