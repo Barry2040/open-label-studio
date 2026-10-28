@@ -29,9 +29,15 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 
 header .brand{font-size:17px;font-weight:700}
 /* Menü „Label Studio“ */
 .menu{position:relative;flex:1}
-.menu-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:4px 6px;margin-left:-6px}
-.menu-btn span[aria-hidden]{color:var(--muted);font-size:13px}
-.menu-btn:hover{background:var(--bg)}
+.menu-btn{display:inline-flex;align-items:center;gap:8px;padding:6px 10px 6px 8px;border-radius:10px;
+  background:var(--bg);border:1px solid var(--border)}
+.menu-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.menu-btn .menu-ico{color:var(--accent)}
+.menu-btn .menu-chev{color:var(--muted);width:16px;height:16px;transition:transform .15s}
+.menu-btn[aria-expanded="true"] .menu-chev{transform:rotate(180deg)}
+.menu-btn .menu-hint{font-size:12px;color:var(--muted);padding-left:8px;border-left:1px solid var(--border)}
+.menu-btn:hover,.menu-btn[aria-expanded="true"]{border-color:var(--accent)}
+@media (max-width:560px){ .menu-btn .menu-hint{display:none} }
 .menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:230px;background:var(--panel);
   border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
@@ -106,6 +112,17 @@ textarea{resize:vertical;min-height:60px}
 #cv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);border-radius:4px;touch-action:none;image-rendering:pixelated;max-width:100%}
 .addbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .addbar button{flex:1 1 auto}
+#btnImport{border-style:dashed;color:var(--muted)}
+#btnImport:hover{color:var(--text)}
+/* Unterbereiche im Drucken-Fenster */
+.subsec{border-top:1px solid var(--border);margin-top:12px;padding-top:12px}
+.subhead,details.subsec>summary{font-size:13px;font-weight:600;margin-bottom:10px}
+details.subsec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+details.subsec>summary::-webkit-details-marker{display:none}
+details.subsec>summary::before{content:"▸";color:var(--muted);transition:transform .15s}
+details.subsec[open]>summary::before{transform:rotate(90deg)}
+details.subsec:not([open])>summary{margin-bottom:0}
+.badge{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
 progress{width:100%;height:8px}
 #log{font-size:12px;color:var(--muted);margin-top:6px;min-height:1em;word-break:break-word}
@@ -124,7 +141,12 @@ progress{width:100%;height:8px}
 <body>
 <header>
   <div class="menu">
-    <button id="btnMenu" class="menu-btn" aria-haspopup="true" aria-expanded="false"><span class="brand">Label Studio</span><span aria-hidden="true">▾</span></button>
+    <button id="btnMenu" class="menu-btn" aria-haspopup="true" aria-expanded="false" title="Menü öffnen: Anleitung, Treiber, Drucker, Tipps">
+      <svg class="menu-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <span class="brand">Label Studio</span>
+      <span class="menu-hint">Menü &amp; Hilfe</span>
+      <svg class="menu-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <div id="menuList" class="menu-list" hidden></div>
   </div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Nicht verbunden</span></div>
@@ -174,31 +196,40 @@ progress{width:100%;height:8px}
       <div class="grid2">
         <div class="field"><label for="copies">Kopien</label><input id="copies" type="number" min="1" max="999" value="1"></div>
         <div class="field"><label for="startNr">{nr} beginnt bei</label><input id="startNr" type="number" value="1"></div>
-        <div class="field"><label for="density">Dichte (1–8)</label><input id="density" type="number" min="1" max="8" value="6"></div>
-        <div class="field"><label for="feed">Vorschub danach (mm)</label><input id="feed" type="number" min="0" max="30" step="0.5" value="4"></div>
+        <div class="field"><label for="offset">Versatz X (mm)</label><input id="offset" type="number" step="0.5" value="0"></div>
+        <label class="check" style="align-self:end;margin-bottom:14px"><input type="checkbox" id="rotate"> Um 90° drehen</label>
+      </div>
+
+      <div class="subsec">
+        <div class="subhead">Windows-Drucker (USB)</div>
+        <div class="field"><label for="sysPaper">Papierformat im Treiber</label>
+          <select id="sysPaper">
+            <option value="50x30">50 × 30 mm</option>
+            <option value="50x70">50 × 70 mm</option>
+            <option value="label">Wie Etikett</option>
+          </select>
+        </div>
+        <button class="primary" id="btnSysPrint" style="width:100%">Über Windows-Drucker drucken (USB)</button>
+        <p class="hint">Im Druckfenster dasselbe Papierformat wählen, Ränder „Keine“, Skalierung 100.</p>
+      </div>
+
+      <details class="subsec" id="btSection">
+        <summary>Bluetooth-Direktdruck <span class="badge">ungetestet</span></summary>
+        <div class="field"><label for="model">Druckermodell</label><select id="model"></select></div>
+        <div class="grid2">
+          <div class="field"><label for="density">Dichte (1–8)</label><input id="density" type="number" min="1" max="8" value="6"></div>
+          <div class="field"><label for="feed">Vorschub danach (mm)</label><input id="feed" type="number" min="0" max="30" step="0.5" value="4"></div>
+        </div>
         <div class="field"><label for="align">Lage am Druckkopf</label>
           <select id="align"><option value="right">Rechts (M220)</option><option value="center">Mittig (M221)</option><option value="left">Links</option></select>
         </div>
-        <div class="field"><label for="offset">Versatz X (mm)</label><input id="offset" type="number" step="0.5" value="0"></div>
+        <button class="primary" id="btnPrint" style="width:100%">Per Bluetooth drucken</button>
+      </details>
+
+      <div class="subsec row">
+        <button id="btnPng" style="flex:1">Als PNG speichern</button>
+        <button id="btnPrintReset" style="flex:1">Zurücksetzen</button>
       </div>
-      <div class="field"><label for="model">Druckermodell (Bluetooth)</label>
-        <select id="model"></select>
-      </div>
-      <label class="check"><input type="checkbox" id="rotate"> Um 90° drehen</label>
-      <div class="field"><label for="sysPaper">Papierformat im Windows-Treiber</label>
-        <select id="sysPaper">
-          <option value="50x30">50 × 30 mm</option>
-          <option value="50x70">50 × 70 mm</option>
-          <option value="label">Wie Etikett</option>
-        </select>
-      </div>
-      <button class="primary" id="btnSysPrint" style="width:100%">Über Windows-Drucker drucken (USB)</button>
-      <p class="hint" style="margin-bottom:10px">Im Druckfenster dasselbe Papierformat wählen, Ränder „Keine“, Skalierung 100.</p>
-      <div class="row">
-        <button class="primary" id="btnPrint" style="flex:1">Drucken</button>
-        <button id="btnPng">PNG</button>
-      </div>
-      <button id="btnPrintReset" style="width:100%;margin-top:8px">Druckeinstellungen zurücksetzen</button>
       <progress id="prog" value="0" max="1" hidden></progress>
       <div id="log"></div>
     </div>
@@ -212,6 +243,7 @@ progress{width:100%;height:8px}
         <button id="tplDel" class="danger">Löschen</button>
       </div>
       <div class="row" style="margin-top:8px">
+        <button id="tplLast" title="Das Etikett laden, an dem du zuletzt gearbeitet hast">Zuletzt bearbeitet</button>
         <button id="tplNew">Neu</button>
         <button id="tplExport">Export</button>
         <button id="tplImport">Import</button>
@@ -259,12 +291,20 @@ function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e)
 if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
 // ---------- Zustand ----------
-let design = lsGet(LS_DRAFT, null) || defaultDesign();
+// Beim Start immer das Startetikett zeigen; das zuletzt bearbeitete bleibt über „Zuletzt bearbeitet“ erreichbar
+const lastDraft = lsGet(LS_DRAFT, null);
+let design = defaultDesign();
 let sel = null, drag = null, guides = null, curNr = 1;
 
+// Startetikett beim ersten Öffnen: „Label Studio“ mittig in einem Rahmen auf 40 × 30 mm
 function defaultDesign(){
-  return { w:50, h:30, elements:[
-    { id:uid(), type:'text', x:40, y:80, text:'Hallo Label', font:'Arial', size:56, bold:true, italic:false, align:'center', invert:false }
+  const w = 40 * PX_PER_MM, h = 30 * PX_PER_MM, size = 44;
+  ctx.font = `bold ${size}px "Arial", sans-serif`;
+  const tw = Math.ceil(ctx.measureText('Label Studio').width), th = Math.ceil(size * 1.15);
+  return { w:40, h:30, elements:[
+    { id:uid(), type:'rect', x:6, y:6, w:w-12, h:h-12, lw:3, filled:false, radius:16 },
+    { id:uid(), type:'text', x:Math.round((w - tw) / 2), y:Math.round((h - th) / 2), text:'Label Studio',
+      font:'Arial', size, bold:true, italic:false, align:'center', invert:false }
   ]};
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }
@@ -1079,6 +1119,8 @@ $('tplDel').addEventListener('click', () => {
   const n = $('tplList').value; if (!n || !confirm(`Vorlage „${n}“ löschen?`)) return;
   const all = tplAll(); delete all[n]; lsSet(LS_TPL, all); refreshTplList();
 });
+$('tplLast').disabled = !(lastDraft && lastDraft.elements && lastDraft.elements.length);
+$('tplLast').addEventListener('click', () => loadDesign(lastDraft));
 $('tplNew').addEventListener('click', () => { if (confirm('Neues leeres Etikett anlegen?')) loadDesign({ w:design.w, h:design.h, elements:[] }); });
 $('tplExport').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({ current:design, templates:tplAll() }, null, 1)], { type:'application/json' });
@@ -1320,11 +1362,13 @@ const HELP = {
       <li><b>Bearbeiten</b> – Element auf dem Etikett antippen. Ziehen verschiebt es, das blaue Eck ändert die Größe.
         Alle Einstellungen stehen im Fenster „Element“. Pfeiltasten verschieben um 1 Punkt (mit Shift 8), Entf löscht.</li>
       <li><b>Platzhalter</b> im Text: <code>{datum}</code>, <code>{zeit}</code> und <code>{nr}</code> (zählt bei mehreren Kopien hoch).</li>
-      <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ <b>„Drucken“</b> per Bluetooth.</li>
+      <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ per Bluetooth (im Drucken-Fenster <b>„Bluetooth-Direktdruck“</b> aufklappen).</li>
       <li><b>Vorlagen</b> speichern, laden und als Datei exportieren (Sicherung oder Übertragung auf ein anderes Gerät).</li>
       <li><b>Fenster anordnen</b> – an der Titelzeile (⠿) ziehen, sie rasten an Rändern und anderen Fenstern ein.
         Der Griff unten rechts ändert die Breite. „Layout zurücksetzen“ stellt alles wieder her.</li>
     </ol>
+    <p class="hint">Beim Öffnen erscheint immer das Startetikett. Dein zuletzt bearbeitetes Etikett holst du im Fenster
+      „Vorlagen“ mit <b>„Zuletzt bearbeitet“</b> zurück.</p>
     <p class="hint">Alles wird im Browser gespeichert – in einem anderen Browser oder nach dem Löschen der Browserdaten
       ist es weg. Vorlagen deshalb ab und zu exportieren.</p>` },
   driver: { title: 'Treiber & Einrichtung', html: `
@@ -1357,7 +1401,7 @@ const HELP = {
       <li>Der 2-mm-Nullpunkt ist auf den M220 abgestimmt. Bei anderen Druckern über „Versatz X“ korrigieren.</li>
     </ul>
     <h3>Bluetooth-Direktdruck</h3>
-    <p>Unter „Druckermodell (Bluetooth)“ auswählbar:</p>
+    <p>Im Drucken-Fenster unter „Bluetooth-Direktdruck“ → „Druckermodell“ auswählbar:</p>
     <table>
       <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.head / PX_PER_MM} mm</td>
@@ -1374,7 +1418,7 @@ const HELP = {
       <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“ oder die Schwärzung erhöhen.
         Am meisten bringt eine fettere Schrift in der Vorlage.</li>
       <li><b>Bild steht falsch herum</b> – Bild anklicken und „↻ 90°“.</li>
-      <li><b>Regler verstellt</b> – „Zurücksetzen“ beim Bild bzw. „Druckeinstellungen zurücksetzen“.</li>
+      <li><b>Regler verstellt</b> – „Zurücksetzen“ beim Bild bzw. „Zurücksetzen“ unten im Drucken-Fenster.</li>
       <li><b>Bluetooth: Verbindungsfehler</b> – Drucker in den Windows-Bluetooth-Einstellungen entfernen,
         Drucker neu starten, Handy-Bluetooth aus. Hilft das nicht: USB nehmen.</li>
     </ul>` }
@@ -1398,6 +1442,9 @@ $('helpClose').addEventListener('click', () => $('help').close());
 $('help').addEventListener('click', ev => { if (ev.target === $('help')) $('help').close(); });
 
 // ---------- Start ----------
+// Auf-/Zugeklappt-Zustand des Bluetooth-Bereichs merken (nur Komfort)
+$('btSection').open = lsGet('labelstudio.btOpen', false);
+$('btSection').addEventListener('toggle', () => { lsSet('labelstudio.btOpen', $('btSection').open); });
 $('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
 $('model').addEventListener('change', () => { $('align').value = printer().align; savePrintSettings(); });
 const savedLayout = lsGet(LS_LAYOUT, DEFAULT_LAYOUT);

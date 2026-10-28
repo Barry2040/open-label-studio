@@ -1,11 +1,16 @@
 # Label Studio
 
 Eigene Web-App zum Gestalten und Drucken von Etiketten auf dem **Phomemo M220** – am PC und am Handy.
-Alles steckt in einer einzigen Datei: [`label-studio/index.html`](label-studio/index.html).
+Alles steckt in einer einzigen Datei: [`label-studio/label-studio.html`](label-studio/label-studio.html).
 
 ## Starten
 
-`label-studio/index.html` in **Chrome** oder **Edge** öffnen. Eine Installation ist nicht nötig.
+`label-studio/label-studio.html` in **Chrome** oder **Edge** öffnen. Eine Installation ist nicht nötig.
+
+## Datenschutz
+
+Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellungen speichert die App nur
+im Browser des jeweiligen Geräts – sie landen weder in der Datei noch auf GitHub.
 
 ## Funktionen
 
