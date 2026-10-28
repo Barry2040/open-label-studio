@@ -1,0 +1,1415 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Label Studio</title>
+<meta name="theme-color" content="#111827">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<style>
+:root{
+  --bg:#f3f4f6; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
+  --accent:#2563eb; --accent-text:#ffffff; --danger:#dc2626; --ok:#16a34a; --stage:#e5e7eb; --input:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0f17; --panel:#151b26; --text:#e5e7eb; --muted:#9ca3af; --border:#273042;
+    --accent:#3b82f6; --accent-text:#ffffff; --danger:#f87171; --ok:#4ade80; --stage:#0f141d; --input:#0f141d;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f17; --panel:#151b26; --text:#e5e7eb; --muted:#9ca3af; --border:#273042;
+  --accent:#3b82f6; --accent-text:#ffffff; --danger:#f87171; --ok:#4ade80; --stage:#0f141d; --input:#0f141d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+header .brand{font-size:17px;font-weight:700}
+/* Menü „Label Studio“ */
+.menu{position:relative;flex:1}
+.menu-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:4px 6px;margin-left:-6px}
+.menu-btn span[aria-hidden]{color:var(--muted);font-size:13px}
+.menu-btn:hover{background:var(--bg)}
+.menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:230px;background:var(--panel);
+  border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
+.menu-list button:hover{background:var(--bg)}
+/* Anleitung */
+#help{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+  border-radius:14px;background:var(--panel);color:var(--text)}
+#help::backdrop{background:rgba(0,0,0,.5)}
+.help-head{display:flex;gap:8px;align-items:flex-start;padding:12px 12px 0;position:sticky;top:0;background:var(--panel)}
+.help-tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.help-tabs button{padding:6px 10px;font-size:14px}
+.help-tabs button.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+#helpBody{padding:8px 20px 20px;line-height:1.55}
+#helpBody h3{font-size:15px;margin:16px 0 6px}
+#helpBody li{margin-bottom:6px}
+#helpBody code{background:var(--bg);padding:1px 5px;border-radius:4px}
+#helpBody table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:14px}
+#helpBody th,#helpBody td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+#helpBody th{color:var(--muted);font-weight:600}
+.status{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--ok)}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+button.danger{color:var(--danger)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--input);border:1px solid var(--border);border-radius:6px;padding:6px 8px;width:100%;min-width:0}
+input[type=checkbox]{width:auto}
+input[type=range]{padding:0}
+.range-row{display:flex;align-items:center;gap:8px}
+.range-row input[type=range]{flex:1}
+.range-row .range-num{width:68px;flex:none}
+textarea{resize:vertical;min-height:60px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;padding:16px;max-width:1300px;margin:0 auto}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px}}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px}
+.card h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+/* Fenster verschieben: Titelzeile ist der Griff */
+.col{min-height:120px}
+[data-panel] > h2{display:flex;align-items:center;gap:8px;cursor:grab;user-select:none;touch-action:none}
+[data-panel] > h2::before{content:"⠿";font-size:16px;letter-spacing:0;color:var(--muted)}
+[data-panel] > h2:hover{color:var(--text)}
+.card.dragging{position:fixed;z-index:50;margin:0;opacity:.92;pointer-events:none;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+.panel-ph{border:2px dashed var(--accent);border-radius:12px;margin-bottom:16px}
+/* Freie Anordnung (PC): Fenster absolut positioniert, Breite an der Ecke unten rechts ziehbar */
+.layout.free{display:block;position:relative;max-width:none}
+.layout.free .col{display:contents}
+.snap-guide{position:absolute;z-index:999;pointer-events:none;background:var(--accent);display:none}
+.snap-guide.v{top:0;bottom:0;width:1px}
+.snap-guide.h{left:0;right:0;height:1px}
+.layout:not(.free) .snap-guide{display:none !important}
+.layout.free [data-panel]{position:absolute;margin:0;min-width:260px}
+[data-panel]{position:relative}
+.resize-grip{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:ew-resize;touch-action:none;
+  background:linear-gradient(135deg,transparent 50%,var(--muted) 50%,var(--muted) 58%,transparent 58%,transparent 70%,var(--muted) 70%,var(--muted) 78%,transparent 78%);
+  border-bottom-right-radius:12px;opacity:.6}
+.resize-grip:hover{opacity:1}
+@media (max-width:860px){
+  .layout.free{display:grid;height:auto !important}
+  .layout.free .col{display:block}
+  .layout.free [data-panel]{position:static;width:auto !important;margin-bottom:16px}
+  .resize-grip{display:none}
+}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.field label{font-size:12px;color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.stage{background:var(--stage);border-radius:12px;padding:24px 16px;display:flex;justify-content:center;align-items:center;min-height:240px;overflow:hidden}
+#cv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);border-radius:4px;touch-action:none;image-rendering:pixelated;max-width:100%}
+.addbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.addbar button{flex:1 1 auto}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+progress{width:100%;height:8px}
+#log{font-size:12px;color:var(--muted);margin-top:6px;min-height:1em;word-break:break-word}
+.empty{color:var(--muted);font-size:14px}
+#printArea{display:none}
+@media print{
+  body{background:#fff}
+  body > *:not(#printArea){display:none !important}
+  #printArea{display:block}
+  #printArea .pg{position:relative;overflow:hidden;page-break-after:always}
+  #printArea .pg:last-child{page-break-after:auto}
+  #printArea img{position:absolute;top:0;image-rendering:pixelated}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="menu">
+    <button id="btnMenu" class="menu-btn" aria-haspopup="true" aria-expanded="false"><span class="brand">Label Studio</span><span aria-hidden="true">▾</span></button>
+    <div id="menuList" class="menu-list" hidden></div>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Nicht verbunden</span></div>
+  <button id="btnLayoutReset" title="Fenster wieder an ihre ursprüngliche Position setzen">Layout zurücksetzen</button>
+  <button class="primary" id="btnConnect">Verbinden</button>
+</header>
+
+<main class="layout">
+  <section class="col" data-col="main">
+    <div class="card" data-panel="editor">
+      <h2>Etikett</h2>
+      <div class="row" style="margin-bottom:12px">
+        <div class="field" style="flex:2 1 160px;margin:0">
+          <label for="preset">Etikett</label>
+          <select id="preset"></select>
+        </div>
+        <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="72" step="1"></div>
+        <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="5" max="300" step="1"></div>
+      </div>
+      <div class="stage" id="stage"><canvas id="cv"></canvas></div>
+      <div class="row" style="margin-top:8px;justify-content:space-between">
+        <label class="check" style="margin:0"><input type="checkbox" id="preview1bit"> Druckvorschau (schwarz/weiß)</label>
+        <span class="hint" id="sizeInfo"></span>
+      </div>
+      <div class="addbar">
+        <button data-add="text">+ Text</button>
+        <button data-add="qr">+ QR-Code</button>
+        <button data-add="barcode">+ Barcode</button>
+        <button data-add="image">+ Bild</button>
+        <button data-add="rect">+ Rahmen</button>
+        <button data-add="line">+ Linie</button>
+      </div>
+      <button id="btnImport" style="width:100%;margin-top:8px">Fertiges Etikett importieren (PNG, SVG, PDF)</button>
+      <input type="file" id="fileImg" accept="image/*" hidden>
+      <input type="file" id="fileLabel" accept=".png,.jpg,.jpeg,.svg,.pdf,image/*,application/pdf" hidden>
+    </div>
+  </section>
+
+  <aside class="col" data-col="side">
+    <div class="card" data-panel="element">
+      <h2>Element</h2>
+      <div id="props"><p class="empty">Tippe ein Element auf dem Etikett an, um es zu bearbeiten.</p></div>
+    </div>
+
+    <div class="card" data-panel="print">
+      <h2>Drucken</h2>
+      <div class="grid2">
+        <div class="field"><label for="copies">Kopien</label><input id="copies" type="number" min="1" max="999" value="1"></div>
+        <div class="field"><label for="startNr">{nr} beginnt bei</label><input id="startNr" type="number" value="1"></div>
+        <div class="field"><label for="density">Dichte (1–8)</label><input id="density" type="number" min="1" max="8" value="6"></div>
+        <div class="field"><label for="feed">Vorschub danach (mm)</label><input id="feed" type="number" min="0" max="30" step="0.5" value="4"></div>
+        <div class="field"><label for="align">Lage am Druckkopf</label>
+          <select id="align"><option value="right">Rechts (M220)</option><option value="center">Mittig (M221)</option><option value="left">Links</option></select>
+        </div>
+        <div class="field"><label for="offset">Versatz X (mm)</label><input id="offset" type="number" step="0.5" value="0"></div>
+      </div>
+      <div class="field"><label for="model">Druckermodell (Bluetooth)</label>
+        <select id="model"></select>
+      </div>
+      <label class="check"><input type="checkbox" id="rotate"> Um 90° drehen</label>
+      <div class="field"><label for="sysPaper">Papierformat im Windows-Treiber</label>
+        <select id="sysPaper">
+          <option value="50x30">50 × 30 mm</option>
+          <option value="50x70">50 × 70 mm</option>
+          <option value="label">Wie Etikett</option>
+        </select>
+      </div>
+      <button class="primary" id="btnSysPrint" style="width:100%">Über Windows-Drucker drucken (USB)</button>
+      <p class="hint" style="margin-bottom:10px">Im Druckfenster dasselbe Papierformat wählen, Ränder „Keine“, Skalierung 100.</p>
+      <div class="row">
+        <button class="primary" id="btnPrint" style="flex:1">Drucken</button>
+        <button id="btnPng">PNG</button>
+      </div>
+      <button id="btnPrintReset" style="width:100%;margin-top:8px">Druckeinstellungen zurücksetzen</button>
+      <progress id="prog" value="0" max="1" hidden></progress>
+      <div id="log"></div>
+    </div>
+
+    <div class="card" data-panel="templates">
+      <h2>Vorlagen</h2>
+      <div class="field"><select id="tplList"></select></div>
+      <div class="row">
+        <button id="tplLoad">Laden</button>
+        <button id="tplSave">Speichern…</button>
+        <button id="tplDel" class="danger">Löschen</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="tplNew">Neu</button>
+        <button id="tplExport">Export</button>
+        <button id="tplImport">Import</button>
+      </div>
+      <input type="file" id="fileTpl" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+</main>
+<dialog id="help">
+  <div class="help-head">
+    <div id="helpTabs" class="help-tabs"></div>
+    <button id="helpClose" aria-label="Schließen">✕</button>
+  </div>
+  <div id="helpBody"></div>
+</dialog>
+<div id="printArea"></div>
+<style id="pageStyle"></style>
+
+<script>
+'use strict';
+// ---------- Konstanten ----------
+const PX_PER_MM = 8;          // 203 dpi
+const HEAD_PX = 576;          // 72 mm Druckkopf (M220), Obergrenze für Bild-Importe
+// Bluetooth-Direktdruck: Daten aus dem phomymo-Projekt (Druckkopfbreite in Punkten, Lage der Rolle, Befehlssatz)
+const PRINTERS = {
+  m220:  { name:'Phomemo M220',        proto:'mseries', head:576, align:'right'  },
+  m221:  { name:'Phomemo M221',        proto:'mseries', head:576, align:'center' },
+  m200:  { name:'Phomemo M200',        proto:'mseries', head:608, align:'center' },
+  m110:  { name:'Phomemo M110 / M120', proto:'m110',    head:384, align:'center' },
+  m110s: { name:'Phomemo M110S',       proto:'m110',    head:384, align:'right'  }
+};
+const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
+const PRESETS = [[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
+const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
+const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+const LS_DRAFT = 'labelstudio.draft', LS_TPL = 'labelstudio.templates', LS_PRINT = 'labelstudio.print';
+
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+// ---------- Zustand ----------
+let design = lsGet(LS_DRAFT, null) || defaultDesign();
+let sel = null, drag = null, guides = null, curNr = 1;
+
+function defaultDesign(){
+  return { w:50, h:30, elements:[
+    { id:uid(), type:'text', x:40, y:80, text:'Hallo Label', font:'Arial', size:56, bold:true, italic:false, align:'center', invert:false }
+  ]};
+}
+function uid(){ return Math.random().toString(36).slice(2,9); }
+const W = () => Math.round(design.w * PX_PER_MM);
+const H = () => Math.round(design.h * PX_PER_MM);
+
+let saveT;
+function save(){ clearTimeout(saveT); saveT = setTimeout(() => lsSet(LS_DRAFT, design), 300); }
+
+// ---------- Zeichnen ----------
+function fillVars(t){
+  const d = new Date();
+  return String(t)
+    .replace(/\{datum\}/gi, d.toLocaleDateString('de-DE'))
+    .replace(/\{zeit\}/gi, d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}))
+    .replace(/\{nr\}/gi, String(curNr));
+}
+const fontStr = e => `${e.italic?'italic ':''}${e.bold?'bold ':''}${e.size}px "${e.font}", sans-serif`;
+
+function textBox(c, e){
+  c.font = fontStr(e);
+  const lines = fillVars(e.text || ' ').split('\n');
+  let w = 0;
+  for (const l of lines) w = Math.max(w, c.measureText(l).width);
+  const pad = e.invert ? Math.round(e.size*0.15) : 0;
+  return { lines, w: Math.max(4, Math.ceil(w)) + pad*2, h: Math.ceil(lines.length * e.size * 1.15) + pad*2, pad };
+}
+function bbox(e){
+  if (e.type === 'text'){ const b = textBox(ctx, e); return { x:e.x, y:e.y, w:b.w, h:b.h }; }
+  return { x:e.x, y:e.y, w:e.w, h:e.h };
+}
+
+function drawText(c, e){
+  const b = textBox(c, e);
+  if (e.invert){ c.fillStyle = '#000'; c.fillRect(e.x, e.y, b.w, b.h); }
+  c.fillStyle = e.invert ? '#fff' : '#000';
+  c.textBaseline = 'top';
+  b.lines.forEach((l, i) => {
+    const lw = c.measureText(l).width, inner = b.w - b.pad*2;
+    let lx = e.x + b.pad;
+    if (e.align === 'center') lx += (inner - lw) / 2;
+    else if (e.align === 'right') lx += inner - lw;
+    c.fillText(l, lx, e.y + b.pad + i * e.size * 1.15 + e.size * 0.05);
+  });
+}
+
+function drawQR(c, e){
+  let q;
+  try { q = qrcode(0, e.ecc || 'M'); q.addData(fillVars(e.value || ' ')); q.make(); }
+  catch(err){ errorBox(c, e, 'QR: Inhalt zu lang'); return; }
+  const n = q.getModuleCount(), s = Math.max(1, Math.floor(e.w / n)), off = Math.floor((e.w - s*n) / 2);
+  c.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++)
+    if (q.isDark(r, k)) c.fillRect(e.x + off + k*s, e.y + off + r*s, s, s);
+}
+
+const barCache = new Map();
+function barcodeBars(format, value){
+  const key = format + '|' + value;
+  if (barCache.has(key)) return barCache.get(key);
+  let bars = null;
+  try {
+    const t = document.createElement('canvas');
+    JsBarcode(t, value, { format, width:1, height:1, margin:0, displayValue:false, background:'#fff', lineColor:'#000' });
+    const d = t.getContext('2d').getImageData(0, 0, t.width, 1).data;
+    bars = [];
+    for (let i = 0; i < t.width; i++) bars.push(d[i*4] < 128);
+  } catch(err){ bars = null; }
+  barCache.set(key, bars);
+  return bars;
+}
+function drawBarcode(c, e){
+  const value = fillVars(e.value || '');
+  const bars = barcodeBars(e.format, value);
+  if (!bars || !bars.length){ errorBox(c, e, 'Ungültiger Barcode'); return; }
+  const n = bars.length, k = Math.max(1, Math.floor(e.w / n)), ox = e.x + Math.floor((e.w - k*n) / 2);
+  const textH = e.showText ? Math.max(12, Math.round(e.h * 0.22)) : 0, barH = e.h - textH;
+  c.fillStyle = '#000';
+  for (let i = 0; i < n; i++) if (bars[i]) c.fillRect(ox + i*k, e.y, k, barH);
+  if (e.showText){
+    c.font = `${Math.round(textH*0.9)}px Arial, sans-serif`;
+    c.textBaseline = 'top'; c.textAlign = 'center';
+    c.fillText(value, e.x + e.w/2, e.y + barH + 2);
+    c.textAlign = 'left';
+  }
+}
+
+const imgObjs = new Map(), imgProc = new Map();
+function getImg(src){
+  if (!imgObjs.has(src)){
+    const im = new Image();
+    im.onload = () => render();
+    im.src = src;
+    imgObjs.set(src, im);
+  }
+  return imgObjs.get(src);
+}
+function processedImage(e){
+  const im = getImg(e.src);
+  if (!im.complete || !im.naturalWidth) return null;
+  const key = [e.id, e.w, e.h, e.threshold, e.dither, e.thicken, e.src.length].join('|');
+  if (imgProc.has(key)) return imgProc.get(key);
+  const w = Math.max(1, Math.round(e.w)), h = Math.max(1, Math.round(e.h));
+  const t = document.createElement('canvas'); t.width = w; t.height = h;
+  const tc = t.getContext('2d');
+  tc.fillStyle = '#fff'; tc.fillRect(0, 0, w, h);
+  tc.imageSmoothingQuality = 'high';
+  tc.drawImage(im, 0, 0, w, h);
+  const id = tc.getImageData(0, 0, w, h), d = id.data;
+  const g = new Float32Array(w*h), bias = 128 - e.threshold;
+  for (let i = 0; i < w*h; i++) g[i] = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2] + bias;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const i = y*w + x, old = g[i], nw = old < 128 ? 0 : 255;
+    if (e.dither){
+      const err = old - nw;
+      if (x+1 < w) g[i+1] += err*7/16;
+      if (y+1 < h){
+        if (x > 0) g[i+w-1] += err*3/16;
+        g[i+w] += err*5/16;
+        if (x+1 < w) g[i+w+1] += err/16;
+      }
+    }
+    d[i*4] = d[i*4+1] = d[i*4+2] = nw; d[i*4+3] = 255;
+  }
+  // Dünne Linien verstärken: jeden schwarzen Punkt nach rechts (und bei Stufe 2 nach unten) verbreitern
+  const thick = parseInt(e.thicken) || 0;
+  if (thick){
+    const black = new Uint8Array(w*h);
+    for (let i = 0; i < w*h; i++) black[i] = d[i*4] === 0;
+    const paint = i => { d[i*4] = d[i*4+1] = d[i*4+2] = 0; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+      if (!black[y*w + x]) continue;
+      if (x+1 < w) paint(y*w + x + 1);
+      if (thick > 1 && y+1 < h){ paint((y+1)*w + x); if (x+1 < w) paint((y+1)*w + x + 1); }
+    }
+  }
+  tc.putImageData(id, 0, 0);
+  imgProc.set(key, t);
+  return t;
+}
+function drawImageEl(c, e){
+  const p = processedImage(e);
+  if (p) c.drawImage(p, Math.round(e.x), Math.round(e.y));
+}
+
+function drawRect(c, e){
+  c.fillStyle = c.strokeStyle = '#000';
+  const r = Math.min(e.radius || 0, e.w/2, e.h/2);
+  c.beginPath();
+  if (e.filled){
+    if (r && c.roundRect) c.roundRect(e.x, e.y, e.w, e.h, r); else c.rect(e.x, e.y, e.w, e.h);
+    c.fill();
+  } else {
+    const lw = Math.max(1, e.lw || 1), h2 = lw/2;
+    c.lineWidth = lw;
+    const rr = Math.max(0, r - h2);
+    if (rr && c.roundRect) c.roundRect(e.x+h2, e.y+h2, e.w-lw, e.h-lw, rr); else c.rect(e.x+h2, e.y+h2, e.w-lw, e.h-lw);
+    c.stroke();
+  }
+}
+
+function errorBox(c, e, msg){
+  c.strokeStyle = '#000'; c.lineWidth = 2; c.setLineDash([6,4]);
+  c.strokeRect(e.x, e.y, e.w, e.h); c.setLineDash([]);
+  c.fillStyle = '#000'; c.font = '16px Arial'; c.textBaseline = 'top';
+  c.fillText(msg, e.x + 4, e.y + 4);
+}
+
+function drawEl(c, e){
+  c.save();
+  if (e.type === 'text') drawText(c, e);
+  else if (e.type === 'qr') drawQR(c, e);
+  else if (e.type === 'barcode') drawBarcode(c, e);
+  else if (e.type === 'image') drawImageEl(c, e);
+  else if (e.type === 'rect') drawRect(c, e);
+  c.restore();
+}
+
+function threshold1bit(c, w, h){
+  const id = c.getImageData(0, 0, w, h), d = id.data;
+  for (let i = 0; i < d.length; i += 4){
+    const v = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) < 150 ? 0 : 255;
+    d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+  }
+  c.putImageData(id, 0, 0);
+}
+
+function paintLabel(c){
+  c.setTransform(1,0,0,1,0,0);
+  c.imageSmoothingEnabled = false;
+  c.fillStyle = '#fff'; c.fillRect(0, 0, W(), H());
+  for (const e of design.elements) drawEl(c, e);
+}
+
+function render(){
+  const w = W(), h = H();
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; fitCanvas(); }
+  curNr = parseInt($('startNr').value) || 1;
+  paintLabel(ctx);
+  if ($('preview1bit').checked) threshold1bit(ctx, w, h);
+  // Auswahl & Hilfslinien
+  const s = w / cv.getBoundingClientRect().width || 1;
+  if (guides){
+    ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = s;
+    ctx.beginPath();
+    if (guides.v) { ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); }
+    if (guides.h) { ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); }
+    ctx.stroke(); ctx.restore();
+  }
+  if (sel){
+    const b = bbox(sel);
+    ctx.save();
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5*s; ctx.setLineDash([5*s, 4*s]);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.setLineDash([]); ctx.fillStyle = '#2563eb';
+    const hs = 12*s;
+    ctx.fillRect(b.x + b.w - hs/2, b.y + b.h - hs/2, hs, hs);
+    ctx.restore();
+  }
+  $('sizeInfo').textContent = `${design.w} × ${design.h} mm · ${w} × ${h} px`;
+}
+
+function fitCanvas(){
+  const stage = $('stage');
+  const maxW = stage.clientWidth - 32, maxH = Math.max(220, window.innerHeight * 0.55);
+  const scale = Math.min(maxW / W(), maxH / H(), 3);
+  cv.style.width = Math.floor(W() * scale) + 'px';
+  cv.style.height = Math.floor(H() * scale) + 'px';
+}
+window.addEventListener('resize', () => { fitCanvas(); render(); });
+
+// ---------- Interaktion ----------
+function pt(ev){
+  const r = cv.getBoundingClientRect();
+  return { x:(ev.clientX - r.left) * W() / r.width, y:(ev.clientY - r.top) * H() / r.height, s: W() / r.width };
+}
+function hitTest(p){
+  for (let i = design.elements.length - 1; i >= 0; i--){
+    const e = design.elements[i], b = bbox(e), m = 4*p.s;
+    if (p.x >= b.x - m && p.x <= b.x + b.w + m && p.y >= b.y - m && p.y <= b.y + b.h + m) return e;
+  }
+  return null;
+}
+cv.addEventListener('pointerdown', ev => {
+  const p = pt(ev);
+  if (sel){
+    const b = bbox(sel), hr = 16*p.s;
+    if (Math.abs(p.x - (b.x+b.w)) < hr && Math.abs(p.y - (b.y+b.h)) < hr){
+      drag = { mode:'resize', start:p, orig:{...sel}, b };
+      cv.setPointerCapture(ev.pointerId); return;
+    }
+  }
+  const hit = hitTest(p);
+  if (hit !== sel){ sel = hit; buildProps(); }
+  if (hit){ drag = { mode:'move', dx:p.x - hit.x, dy:p.y - hit.y }; cv.setPointerCapture(ev.pointerId); }
+  render();
+});
+cv.addEventListener('pointermove', ev => {
+  if (!drag || !sel) return;
+  const p = pt(ev);
+  if (drag.mode === 'move'){
+    let nx = p.x - drag.dx, ny = p.y - drag.dy;
+    const b = bbox(sel), snap = 8*p.s;
+    guides = { v:false, h:false };
+    if (Math.abs(nx + b.w/2 - W()/2) < snap){ nx = W()/2 - b.w/2; guides.v = true; }
+    if (Math.abs(ny + b.h/2 - H()/2) < snap){ ny = H()/2 - b.h/2; guides.h = true; }
+    sel.x = Math.round(nx); sel.y = Math.round(ny);
+  } else {
+    const o = drag.orig, dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    if (sel.type === 'text'){
+      sel.size = Math.max(8, Math.round(o.size * (drag.b.h + dy) / drag.b.h));
+    } else if (sel.type === 'qr'){
+      sel.w = sel.h = Math.max(20, Math.round(Math.max(o.w + dx, o.h + dy)));
+    } else if (sel.type === 'image'){
+      sel.w = Math.max(8, Math.round(o.w + dx)); sel.h = Math.max(1, Math.round(sel.w * sel.ratio));
+    } else {
+      sel.w = Math.max(2, Math.round(o.w + dx)); sel.h = Math.max(2, Math.round(o.h + dy));
+    }
+  }
+  render();
+});
+function endDrag(){ if (drag){ drag = null; guides = null; save(); refreshProps(); render(); } }
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+
+document.addEventListener('keydown', ev => {
+  if (!sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const st = ev.shiftKey ? 8 : 1;
+  if (ev.key === 'Delete' || ev.key === 'Backspace'){ removeSel(); ev.preventDefault(); return; }
+  const mv = { ArrowLeft:[-st,0], ArrowRight:[st,0], ArrowUp:[0,-st], ArrowDown:[0,st] }[ev.key];
+  if (mv){ sel.x += mv[0]; sel.y += mv[1]; ev.preventDefault(); save(); refreshProps(); render(); }
+});
+
+// ---------- Elemente hinzufügen ----------
+function addEl(e){
+  e.id = uid();
+  // Ausgangswerte der Bildregler merken, damit „Zurücksetzen“ dorthin zurückkehren kann
+  if (e.type === 'image' && !e.orig) e.orig = { threshold:e.threshold, thicken:e.thicken || '0', dither:e.dither };
+  design.elements.push(e); sel = e;
+  buildProps(); save(); render();
+}
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  const t = b.dataset.add, w = W(), h = H();
+  if (t === 'text') addEl({ type:'text', x:16, y:16, text:'Text', font:'Arial', size:40, bold:false, italic:false, align:'left', invert:false });
+  if (t === 'qr'){ const s = Math.round(Math.min(w, h) * 0.7); addEl({ type:'qr', x:16, y:Math.round((h-s)/2), w:s, h:s, value:'https://example.com', ecc:'M' }); }
+  if (t === 'barcode') addEl({ type:'barcode', x:16, y:16, w:Math.round(w*0.8), h:Math.round(h*0.5), value:'123456789', format:'CODE128', showText:true });
+  if (t === 'rect') addEl({ type:'rect', x:4, y:4, w:w-8, h:h-8, lw:4, filled:false, radius:12 });
+  if (t === 'line') addEl({ type:'rect', x:16, y:Math.round(h/2), w:w-32, h:3, lw:3, filled:true, radius:0 });
+  if (t === 'image') $('fileImg').click();
+}));
+$('fileImg').addEventListener('change', ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, HEAD_PX / Math.max(im.width, im.height));
+      const t = document.createElement('canvas');
+      t.width = Math.round(im.width * k); t.height = Math.round(im.height * k);
+      const tc = t.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, t.width, t.height);
+      tc.drawImage(im, 0, 0, t.width, t.height);
+      const ratio = t.height / t.width;
+      let w = Math.round(W() * 0.6), h = Math.round(w * ratio);
+      if (h > H() * 0.9){ h = Math.round(H() * 0.9); w = Math.round(h / ratio); }
+      addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio, src:t.toDataURL('image/png'), threshold:128, dither:true });
+    };
+    im.src = r.result;
+  };
+  r.readAsDataURL(f);
+});
+
+// ---------- Fertige Etiketten importieren (PNG/JPG/SVG/PDF) ----------
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error('Konnte PDF-Leser nicht laden'));
+    document.head.appendChild(s);
+  });
+}
+async function pdfToCanvas(file){
+  if (!window.pdfjsLib){
+    await loadScript(PDFJS + 'pdf.min.js');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+  }
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const page = await pdf.getPage(1);
+  const v1 = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: Math.max(W(), H()) * 2 / Math.max(v1.width, v1.height) });
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+  const cc = c.getContext('2d');
+  cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height);
+  // intent 'print' rendert ohne requestAnimationFrame (läuft auch in Hintergrund-Tabs)
+  await page.render({ canvasContext: cc, viewport: vp, intent: 'print' }).promise;
+  return c;
+}
+function fileToImage(file){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('Datei konnte nicht gelesen werden'));
+    im.src = URL.createObjectURL(file);
+  });
+}
+// Quelle (Bild oder Canvas) in ein PNG zeichnen, optional um 90° im Uhrzeigersinn gedreht
+function rasterTo(src, w, h, rot){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cc = c.getContext('2d');
+  cc.fillStyle = '#fff'; cc.fillRect(0, 0, w, h);
+  if (rot){ cc.translate(w, 0); cc.rotate(Math.PI/2); cc.drawImage(src, 0, 0, h, w); }
+  else cc.drawImage(src, 0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+async function importLabel(file){
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const src = isPdf ? await pdfToCanvas(file) : await fileToImage(file);
+  const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+  if (!sw || !sh) throw new Error('Datei hat keine erkennbare Größe');
+  // Liegt die Datei quer und das Etikett hochkant (oder umgekehrt), automatisch drehen
+  const rot = sw !== sh && (sw > sh) !== (W() > H());
+  const iw = rot ? sh : sw, ih = rot ? sw : sh;
+  const k = Math.min(W() / iw, H() / ih);
+  const w = Math.round(iw * k), h = Math.round(ih * k);
+  // vierfache Auflösung speichern, damit beim Verkleinern auf Druckpunkte feine Schrift erhalten bleibt
+  addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio:h/w,
+          src:rasterTo(src, w*4, h*4, rot), threshold:160, thicken:'0', dither:false });
+}
+$('btnImport').addEventListener('click', () => $('fileLabel').click());
+$('fileLabel').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  try { log('Importiere …'); await importLabel(f); log('Importiert: ' + f.name); }
+  catch(err){ log('Import fehlgeschlagen: ' + err.message); }
+});
+
+// Regler auf Ausgangswerte, Bild wieder eingepasst und mittig aufs Etikett
+function resetImageEl(e){
+  Object.assign(e, e.orig || { threshold:128, thicken:'0', dither:false });
+  const k = Math.min(W() / e.w, H() / e.h);
+  e.w = Math.round(e.w * k); e.h = Math.round(e.w * e.ratio);
+  e.x = Math.round((W() - e.w) / 2); e.y = Math.round((H() - e.h) / 2);
+  changed();
+}
+
+async function rotateImageEl(e){
+  const im = getImg(e.src);
+  if (!im.complete) await im.decode();
+  e.src = rasterTo(im, im.naturalHeight, im.naturalWidth, true);
+  // gedreht wieder ins Etikett einpassen und mittig setzen
+  const k = Math.min(1, W() / e.h, H() / e.w);
+  [e.w, e.h] = [Math.round(e.h * k), Math.round(e.w * k)];
+  e.ratio = e.h / e.w;
+  e.x = Math.round((W() - e.w) / 2); e.y = Math.round((H() - e.h) / 2);
+  changed();
+}
+
+// ---------- Eigenschaften ----------
+const FIELDS = {
+  text: [['text','Text','textarea'],['font','Schrift','select',FONTS.map(f=>[f,f])],['size','Schriftgröße (px)','number'],
+         ['align','Ausrichtung','select',[['left','Links'],['center','Mitte'],['right','Rechts']]],
+         ['bold','Fett','check'],['italic','Kursiv','check'],['invert','Weiß auf Schwarz','check']],
+  qr: [['value','Inhalt (Text, Link …)','textarea'],['w','Größe (px)','number'],['ecc','Fehlerkorrektur','select',[['L','L – niedrig'],['M','M – mittel'],['Q','Q – hoch'],['H','H – sehr hoch']]]],
+  barcode: [['value','Inhalt','text'],['format','Typ','select',[['CODE128','Code 128'],['EAN13','EAN-13'],['EAN8','EAN-8'],['UPC','UPC-A'],['CODE39','Code 39'],['ITF14','ITF-14']]],
+            ['w','Breite (px)','number'],['h','Höhe (px)','number'],['showText','Text darunter','check']],
+  image: [['w','Breite (px)','number'],['h','Höhe (px)','number'],['threshold','Schwärzung, rechts = dunkler','range',[0,255]],
+          ['thicken','Linien verstärken','select',[['0','Normal'],['1','Etwas kräftiger'],['2','Kräftig']]],
+          ['dither','Dithering (für Fotos)','check']],
+  rect: [['w','Breite (px)','number'],['h','Höhe (px)','number'],['filled','Gefüllt','check'],['lw','Linienstärke (px)','number'],['radius','Eckenradius (px)','number']]
+};
+const TYPE_NAMES = { text:'Text', qr:'QR-Code', barcode:'Barcode', image:'Bild', rect:'Rahmen / Linie' };
+
+function buildProps(){
+  const box = $('props');
+  box.innerHTML = '';
+  if (!sel){ box.innerHTML = '<p class="empty">Tippe ein Element auf dem Etikett an, um es zu bearbeiten.</p>'; return; }
+  const title = document.createElement('div');
+  title.style.cssText = 'font-weight:600;margin-bottom:8px';
+  title.textContent = TYPE_NAMES[sel.type];
+  box.appendChild(title);
+  const defs = [...FIELDS[sel.type]];
+  const pos = document.createElement('div'); pos.className = 'grid2';
+  for (const [k, l] of [['x','X (px)'],['y','Y (px)']]) pos.appendChild(makeField(k, l, 'number'));
+  for (const d of defs){
+    const f = makeField(...d);
+    box.appendChild(f);
+    if (d[0] === 'text' && sel.type === 'text'){
+      const h = document.createElement('p'); h.className = 'hint';
+      h.textContent = 'Platzhalter: {datum}, {zeit}, {nr} (zählt pro Kopie hoch)';
+      f.appendChild(h);
+    }
+  }
+  box.appendChild(pos);
+  const acts = document.createElement('div'); acts.className = 'row'; acts.style.marginTop = '4px';
+  const mk = (txt, fn, cls) => { const b = document.createElement('button'); b.textContent = txt; if (cls) b.className = cls; b.onclick = fn; acts.appendChild(b); };
+  mk('↔ Mitte', () => { const b = bbox(sel); sel.x = Math.round((W()-b.w)/2); changed(); });
+  mk('↕ Mitte', () => { const b = bbox(sel); sel.y = Math.round((H()-b.h)/2); changed(); });
+  if (sel.type === 'image'){
+    mk('↻ 90°', () => rotateImageEl(sel));
+    mk('Zurücksetzen', () => resetImageEl(sel));
+  }
+  mk('Duplizieren', () => { const c = JSON.parse(JSON.stringify(sel)); c.x += 12; c.y += 12; addEl(c); });
+  mk('Nach vorne', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.push(sel); changed(); });
+  mk('Nach hinten', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.unshift(sel); changed(); });
+  mk('Löschen', removeSel, 'danger');
+  box.appendChild(acts);
+}
+function changed(){ save(); refreshProps(); render(); }
+function removeSel(){
+  design.elements = design.elements.filter(e => e !== sel);
+  sel = null; buildProps(); save(); render();
+}
+
+function makeField(key, label, type, opts){
+  const wrap = document.createElement(type === 'check' ? 'label' : 'div');
+  wrap.className = type === 'check' ? 'check' : 'field';
+  let inp;
+  if (type === 'textarea') inp = document.createElement('textarea');
+  else if (type === 'select'){
+    inp = document.createElement('select');
+    for (const [v, t] of opts){ const o = document.createElement('option'); o.value = v; o.textContent = t; inp.appendChild(o); }
+  } else {
+    inp = document.createElement('input');
+    inp.type = type === 'check' ? 'checkbox' : type;
+    if (type === 'range'){ inp.min = opts[0]; inp.max = opts[1]; }
+  }
+  inp.dataset.key = key;
+  setInputValue(inp, sel[key]);
+  const ev = (type === 'select' || type === 'check') ? 'change' : 'input';
+  inp.addEventListener(ev, () => {
+    let v;
+    if (type === 'check') v = inp.checked;
+    else if (type === 'number' || type === 'range'){ v = parseFloat(inp.value); if (isNaN(v)) return; }
+    else v = inp.value;
+    sel[key] = v;
+    if (sel.type === 'qr' && key === 'w') sel.h = v;
+    if (sel.type === 'image' && key === 'w') sel.h = Math.round(v * sel.ratio);
+    if (sel.type === 'image' && key === 'h') sel.w = Math.round(v / sel.ratio);
+    save(); render(); refreshProps(inp);
+  });
+  if (type === 'check'){ wrap.appendChild(inp); wrap.appendChild(document.createTextNode(label)); }
+  else { const l = document.createElement('label'); l.textContent = label; wrap.appendChild(l); wrap.appendChild(inp); }
+  // Schieberegler bekommen daneben ein Zahlenfeld zum direkten Eintippen; beide bleiben synchron
+  if (type === 'range'){
+    if (sel.orig && sel.orig[key] !== undefined) wrap.firstChild.textContent += ` (Start ${sel.orig[key]})`;
+    const num = document.createElement('input');
+    num.type = 'number'; num.min = opts[0]; num.max = opts[1]; num.className = 'range-num';
+    num.setAttribute('aria-label', label);
+    const row = document.createElement('div');
+    row.className = 'range-row';
+    inp.replaceWith(row);
+    row.append(inp, num);
+    inp._out = v => { if (document.activeElement !== num) num.value = v; };
+    inp._out(inp.value);
+    inp.addEventListener('input', () => inp._out(inp.value));
+    num.addEventListener('input', () => {
+      const v = parseFloat(num.value);
+      if (isNaN(v)) return;
+      inp.value = Math.min(opts[1], Math.max(opts[0], v));
+      inp.dispatchEvent(new Event('input'));
+    });
+    // beim Verlassen ungültige oder zu große Eingaben auf den echten Wert korrigieren
+    num.addEventListener('change', () => { num.value = inp.value; });
+    num.addEventListener('blur', () => { num.value = inp.value; });
+  }
+  return wrap;
+}
+function setInputValue(inp, v){
+  if (inp.type === 'checkbox') inp.checked = !!v;
+  else inp.value = v ?? '';
+  if (inp._out) inp._out(inp.value);
+}
+function refreshProps(except){
+  if (!sel) return;
+  document.querySelectorAll('#props [data-key]').forEach(inp => {
+    if (inp !== except && inp !== document.activeElement) setInputValue(inp, sel[inp.dataset.key]);
+  });
+}
+
+// ---------- Etikettengröße ----------
+function initLabelControls(){
+  const ps = $('preset');
+  ps.innerHTML = PRESETS.map(([w,h]) => `<option value="${w}x${h}">${w} × ${h} mm</option>`).join('') + '<option value="custom">Eigene Größe</option>';
+  syncLabelControls();
+  ps.addEventListener('change', () => {
+    if (ps.value === 'custom') return;
+    const [w, h] = ps.value.split('x').map(Number);
+    setLabelSize(w, h);
+  });
+  const onSize = () => {
+    const w = Math.min(72, Math.max(10, parseFloat($('lw').value) || design.w));
+    const h = Math.min(300, Math.max(5, parseFloat($('lh').value) || design.h));
+    setLabelSize(w, h, true);
+  };
+  $('lw').addEventListener('change', onSize);
+  $('lh').addEventListener('change', onSize);
+}
+function setLabelSize(w, h, fromInputs){
+  design.w = w; design.h = h;
+  syncLabelControls(fromInputs);
+  save(); render();
+}
+function syncLabelControls(){
+  $('lw').value = design.w; $('lh').value = design.h;
+  const key = design.w + 'x' + design.h;
+  $('preset').value = PRESETS.some(([w,h]) => w+'x'+h === key) ? key : 'custom';
+}
+
+// ---------- Bluetooth ----------
+const bt = { device:null, char:null, chunk:128 };
+function setStatus(on, text){
+  $('dot').classList.toggle('on', on);
+  $('statusText').textContent = text || (on ? 'Verbunden' : 'Nicht verbunden');
+  $('btnConnect').textContent = on ? 'Trennen' : 'Verbinden';
+}
+function log(t){ $('log').textContent = t; }
+
+async function connect(){
+  if (bt.device && bt.device.gatt.connected){ bt.device.gatt.disconnect(); return; }
+  if (!navigator.bluetooth){
+    alert('Dieser Browser unterstützt kein Web Bluetooth.\n\nPC: Chrome oder Edge verwenden.\nAndroid: Chrome verwenden.\niPhone: die App „Bluefy“ verwenden.');
+    return;
+  }
+  try {
+    setStatus(false, 'Suche …');
+    const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:BLE_SERVICES });
+    bt.device = device;
+    device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); });
+    setStatus(false, 'Verbinde …');
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+    let found = null, fallback = null;
+    for (const s of services){
+      for (const c of await s.getCharacteristics()){
+        const p = c.properties;
+        if (p.notify){ try { await c.startNotifications(); c.addEventListener('characteristicvaluechanged', onNotify); } catch(e){} }
+        if (p.write || p.writeWithoutResponse){
+          if (!found && c.uuid.includes('ff02')) found = c;
+          if (!fallback) fallback = c;
+        }
+      }
+    }
+    bt.char = found || fallback;
+    if (!bt.char) throw new Error('Kein beschreibbarer Kanal gefunden. Ist das der richtige Drucker?');
+    setStatus(true, device.name || 'Verbunden');
+    log('');
+  } catch(err){
+    setStatus(false);
+    if (err.name !== 'NotFoundError') log('Fehler: ' + err.message);
+  }
+}
+function onNotify(ev){
+  const b = new Uint8Array(ev.target.value.buffer);
+  console.log('Drucker:', [...b].map(x => x.toString(16).padStart(2,'0')).join(' '));
+}
+$('btnConnect').addEventListener('click', connect);
+
+async function sendBytes(data, onProgress){
+  const c = bt.char, wo = c.properties.writeWithoutResponse;
+  let i = 0;
+  while (i < data.length){
+    const part = data.slice(i, i + bt.chunk);
+    try {
+      if (wo){ await c.writeValueWithoutResponse(part); await sleep(20); }
+      else await c.writeValueWithResponse(part);
+      i += part.length;
+      onProgress && onProgress(i / data.length);
+    } catch(err){
+      if (bt.chunk > 20){ bt.chunk = 20; continue; }   // kleinere Pakete versuchen
+      throw err;
+    }
+  }
+}
+
+// ---------- Druckdaten ----------
+function printCanvas(){
+  const w = W(), h = H();
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cc = c.getContext('2d');
+  paintLabel(cc);
+  threshold1bit(cc, w, h);
+  if (!$('rotate').checked) return c;
+  const r = document.createElement('canvas'); r.width = h; r.height = w;
+  const rc = r.getContext('2d');
+  rc.translate(h, 0); rc.rotate(Math.PI/2); rc.drawImage(c, 0, 0);
+  return r;
+}
+// Bitmap über die volle Druckkopfbreite des Modells, Etikett je nach Rollenlage platziert.
+// 1 = schwarz, MSB = linkes Pixel.
+function rasterize(c){
+  const head = printer().head;
+  const w = c.width, h = c.height, bpr = head / 8;
+  const align = $('align').value;
+  let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
+  startX += Math.round((parseFloat($('offset').value) || 0) * PX_PER_MM);
+  const px = c.getContext('2d').getImageData(0, 0, w, h).data;
+  const bits = new Uint8Array(bpr * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+    const X = startX + x;
+    if (X < 0 || X >= head) continue;
+    if (px[(y*w + x)*4] < 128) bits[y*bpr + (X >> 3)] |= 0x80 >> (X & 7);
+  }
+  return { bits, bpr, h };
+}
+
+// Liefert die Druckschritte: [Bytes, Pause danach in ms]
+function buildSteps(c){
+  const { bits, bpr, h } = rasterize(c);
+  const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
+  const raster = [0x1d,0x76,0x30,0x00, bpr & 255, bpr >> 8, h & 255, h >> 8];
+  const B = a => new Uint8Array(a);
+  if (printer().proto === 'm110'){
+    return [
+      [B([0x1b,0x4e,0x0d,0x05]), 0],
+      [B([0x1b,0x4e,0x04,Math.round(5 + d8*1.25)]), 0],
+      [B([0x1f,0x11,0x0a]), 0],
+      [B(raster), 0],
+      [bits, 300],
+      [B([0x1f,0xf0,0x05,0x00, 0x1f,0xf0,0x03,0x00]), 500]
+    ];
+  }
+  // M-Serie (M200/M220/M221/M260)
+  const heat = [40,60,80,100,120,140,160,200][d8 - 1];
+  const feed = Math.min(255, Math.round((parseFloat($('feed').value) || 0) * PX_PER_MM));
+  return [
+    [B([0x1b,0x40]), 100],                 // Init
+    [B([0x1b,0x37,0x07,heat,0x02]), 30],   // Heizzeit
+    [B([0x1d,0x7c,d8]), 50],               // Dichte
+    [B(raster), 0],
+    [bits, 300],
+    [B([0x1b,0x4a,feed]), 800]             // Vorschub
+  ];
+}
+
+$('btnPrint').addEventListener('click', async () => {
+  if (!bt.char){ await connect(); if (!bt.char) return; }
+  const copies = Math.max(1, parseInt($('copies').value) || 1);
+  const start = parseInt($('startNr').value) || 1;
+  const btn = $('btnPrint'), prog = $('prog');
+  btn.disabled = true; prog.hidden = false;
+  try {
+    for (let n = 0; n < copies; n++){
+      curNr = start + n;
+      const steps = buildSteps(printCanvas());
+      const total = steps.reduce((s, [b]) => s + b.length, 0);
+      let done = 0;
+      log(`Drucke ${n+1} von ${copies} …`);
+      for (const [bytes, pause] of steps){
+        await sendBytes(bytes, f => prog.value = (n + (done + f*bytes.length) / total) / copies);
+        done += bytes.length;
+        if (pause) await sleep(pause);
+      }
+    }
+    log(copies > 1 ? `${copies} Etiketten gesendet.` : 'Etikett gesendet.');
+    if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
+  } catch(err){
+    log('Druckfehler: ' + err.message);
+  } finally {
+    btn.disabled = false; prog.hidden = true; prog.value = 0; savePrintSettings(); render();
+  }
+});
+
+$('btnPng').addEventListener('click', () => {
+  curNr = parseInt($('startNr').value) || 1;
+  const a = document.createElement('a');
+  a.download = 'etikett.png';
+  a.href = printCanvas().toDataURL('image/png');
+  a.click();
+});
+
+// Nullpunkt für den Windows-Druck: der M220-Treiber druckt sonst ca. 2 mm zu weit links (per Testdruck ermittelt)
+const SYS_ZERO_X_MM = 2;
+
+// Druck über den Systemdrucker (z. B. Phomemo-Treiber per USB): eine Seite pro Kopie in Etikettengröße
+$('btnSysPrint').addEventListener('click', async () => {
+  const copies = Math.max(1, parseInt($('copies').value) || 1);
+  const start = parseInt($('startNr').value) || 1;
+  const rot = $('rotate').checked;
+  const lw = rot ? design.h : design.w, lh = rot ? design.w : design.h;
+  // Der Treiber kennt nur feste Formate: Etikett horizontal mittig auf die Seite setzen
+  const paper = $('sysPaper').value;
+  const [pw, ph] = paper === 'label' ? [lw, lh] : paper.split('x').map(Number);
+  const left = (pw - lw) / 2 + SYS_ZERO_X_MM + (parseFloat($('offset').value) || 0);
+  $('pageStyle').textContent = `@page{size:${pw}mm ${ph}mm;margin:0}`;
+  const area = $('printArea');
+  area.innerHTML = '';
+  for (let n = 0; n < copies; n++){
+    curNr = start + n;
+    const pg = document.createElement('div');
+    pg.className = 'pg';
+    pg.style.width = pw + 'mm'; pg.style.height = ph + 'mm';
+    const img = document.createElement('img');
+    img.src = printCanvas().toDataURL('image/png');
+    img.style.width = lw + 'mm'; img.style.height = lh + 'mm'; img.style.left = left + 'mm';
+    pg.appendChild(img);
+    area.appendChild(pg);
+  }
+  // Bilder müssen fertig dekodiert sein, sonst bleibt die Druckvorschau leer
+  await Promise.all([...area.querySelectorAll('img')].map(i => i.decode().catch(() => {})));
+  window.print();
+  if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
+  savePrintSettings(); render();
+});
+
+const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper'];
+function savePrintSettings(){
+  const o = {};
+  for (const k of PRINT_KEYS){ const el = $(k); o[k] = el.type === 'checkbox' ? el.checked : el.value; }
+  o.zeroX = true;
+  lsSet(LS_PRINT, o);
+}
+function loadPrintSettings(){
+  const o = lsGet(LS_PRINT, {});
+  // Früher gespeicherte 2 mm stecken jetzt im Nullpunkt
+  if (!o.zeroX && parseFloat(o.offset) === SYS_ZERO_X_MM) o.offset = '0';
+  for (const k of PRINT_KEYS) if (k in o){ const el = $(k); if (el.type === 'checkbox') el.checked = o[k]; else el.value = o[k]; }
+  for (const k of PRINT_KEYS) $(k).addEventListener('change', () => { savePrintSettings(); render(); });
+  // Zurück auf die Werte, die im HTML als Standard stehen
+  $('btnPrintReset').addEventListener('click', () => {
+    if (!confirm('Alle Druckeinstellungen auf Standard zurücksetzen?')) return;
+    for (const k of PRINT_KEYS){
+      const el = $(k);
+      if (el.type === 'checkbox') el.checked = el.defaultChecked;
+      else if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
+      else el.value = el.defaultValue;
+    }
+    savePrintSettings(); render();
+  });
+}
+
+// ---------- Vorlagen ----------
+function tplAll(){ return lsGet(LS_TPL, {}); }
+function refreshTplList(selName){
+  const names = Object.keys(tplAll()).sort((a,b) => a.localeCompare(b));
+  $('tplList').innerHTML = names.length ? names.map(n => `<option></option>`).join('') : '<option value="">– keine gespeichert –</option>';
+  [...$('tplList').options].forEach((o, i) => { if (names[i] !== undefined){ o.value = names[i]; o.textContent = names[i]; } });
+  if (selName) $('tplList').value = selName;
+}
+function loadDesign(d){
+  design = JSON.parse(JSON.stringify(d));
+  design.elements.forEach(e => e.id = e.id || uid());
+  sel = null; buildProps(); syncLabelControls(); save(); render();
+}
+$('tplSave').addEventListener('click', () => {
+  const name = prompt('Name der Vorlage:', $('tplList').value || '');
+  if (!name) return;
+  const all = tplAll(); all[name] = design; lsSet(LS_TPL, all); refreshTplList(name);
+});
+$('tplLoad').addEventListener('click', () => { const t = tplAll()[$('tplList').value]; if (t) loadDesign(t); });
+$('tplDel').addEventListener('click', () => {
+  const n = $('tplList').value; if (!n || !confirm(`Vorlage „${n}“ löschen?`)) return;
+  const all = tplAll(); delete all[n]; lsSet(LS_TPL, all); refreshTplList();
+});
+$('tplNew').addEventListener('click', () => { if (confirm('Neues leeres Etikett anlegen?')) loadDesign({ w:design.w, h:design.h, elements:[] }); });
+$('tplExport').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ current:design, templates:tplAll() }, null, 1)], { type:'application/json' });
+  const a = document.createElement('a'); a.download = 'label-studio-vorlagen.json'; a.href = URL.createObjectURL(blob); a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+$('tplImport').addEventListener('click', () => $('fileTpl').click());
+$('fileTpl').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.templates){ lsSet(LS_TPL, { ...tplAll(), ...data.templates }); refreshTplList(); }
+    if (data.current) loadDesign(data.current);
+    else if (data.elements) loadDesign(data);
+    log('Import erfolgreich.');
+  } catch(err){ log('Import fehlgeschlagen: ' + err.message); }
+});
+
+// ---------- Fenster verschieben (an der Titelzeile ziehen) ----------
+const LS_LAYOUT = 'labelstudio.layout';
+const cols = { main: document.querySelector('[data-col=main]'), side: document.querySelector('[data-col=side]') };
+const panelsIn = col => [...col.children].filter(c => c.dataset.panel).map(c => c.dataset.panel);
+const DEFAULT_LAYOUT = { main: panelsIn(cols.main), side: panelsIn(cols.side) };
+
+function applyLayout(l){
+  for (const [col, ids] of Object.entries(l)){
+    if (!cols[col]) continue;
+    for (const id of ids){ const p = document.querySelector(`[data-panel="${id}"]`); if (p) cols[col].appendChild(p); }
+  }
+  fitCanvas(); render();
+}
+function saveLayout(){
+  const l = { main: panelsIn(cols.main), side: panelsIn(cols.side) };
+  if (freeOn()) l.free = freePos;
+  lsSet(LS_LAYOUT, l);
+}
+
+// Freie Anordnung (PC): Fenster lassen sich über die ganze Breite schieben und in der Breite ziehen.
+// Auf schmalen Bildschirmen (Handy) gilt weiter die Spalten-Reihenfolge.
+const layoutEl = document.querySelector('main.layout');
+const narrow = () => innerWidth <= 860;
+const freeOn = () => layoutEl.classList.contains('free');
+const panels = () => [...document.querySelectorAll('[data-panel]')];
+let freePos = null;   // { panelId: { x, y, w } } in px relativ zum Inhaltsbereich
+let zTop = 1;
+
+function placeFree(){
+  let bottom = 0;
+  for (const p of panels()){
+    const f = freePos[p.dataset.panel];
+    if (!f) continue;
+    Object.assign(p.style, { left: f.x + 'px', top: f.y + 'px', width: f.w + 'px' });
+    bottom = Math.max(bottom, f.y + p.offsetHeight);
+  }
+  layoutEl.style.height = (bottom + 16) + 'px';
+}
+function enableFree(pos){
+  if (!pos){
+    // aktuelle Positionen übernehmen, damit beim Umschalten nichts springt
+    const top0 = layoutEl.getBoundingClientRect().top;
+    pos = {};
+    for (const p of panels()){
+      const r = p.getBoundingClientRect();
+      pos[p.dataset.panel] = { x: Math.round(r.left + scrollX), y: Math.round(r.top - top0), w: Math.round(r.width) };
+    }
+  }
+  freePos = pos;
+  layoutEl.classList.add('free');
+  placeFree(); fitCanvas(); render();
+}
+function disableFree(){
+  layoutEl.classList.remove('free');
+  layoutEl.style.height = '';
+  for (const p of panels()) p.removeAttribute('style');
+  freePos = null;
+}
+
+// ---- Einrasten: Kanten anderer Fenster und des Rands ziehen an, Hilfslinien zeigen wo ----
+const GAP = 16, SNAP = 24;
+const others = id => panels().filter(p => p.dataset.panel !== id && freePos[p.dataset.panel])
+  .map(p => ({ ...freePos[p.dataset.panel], h: p.offsetHeight }));
+// nächstgelegenen Kandidaten im Fangbereich wählen; c = [Position, Linie für die Hilfslinie]
+function nearest(v, cands){
+  let best = null;
+  for (const [pos, line] of cands){
+    const d = Math.abs(v - pos);
+    if (d <= SNAP && (!best || d < best.d)) best = { d, pos, line };
+  }
+  return best;
+}
+function snapPos(id, x, y, w, h){
+  const W = layoutEl.clientWidth, os = others(id);
+  const cx = [[GAP, GAP], [W - w - GAP, W - GAP], [(W - w) / 2, W / 2]];
+  const cy = [[GAP, GAP]];
+  for (const o of os){
+    cx.push([o.x, o.x], [o.x + o.w - w, o.x + o.w], [o.x + o.w + GAP, o.x + o.w + GAP], [o.x - w - GAP, o.x - GAP]);
+    cy.push([o.y, o.y], [o.y + o.h + GAP, o.y + o.h + GAP], [o.y + o.h - h, o.y + o.h], [o.y - h - GAP, o.y - GAP]);
+  }
+  const sx = nearest(x, cx), sy = nearest(y, cy);
+  return { x: sx ? sx.pos : x, y: sy ? sy.pos : y, gx: sx ? sx.line : null, gy: sy ? sy.line : null };
+}
+// Breite: rechte Kante an Rand oder Kanten anderer Fenster einrasten
+function snapRight(id, right){
+  const cands = [[layoutEl.clientWidth - GAP, layoutEl.clientWidth - GAP]];
+  for (const o of others(id)) cands.push([o.x - GAP, o.x - GAP], [o.x + o.w, o.x + o.w], [o.x, o.x]);
+  return nearest(right, cands);
+}
+const guideV = document.createElement('div'), guideH = document.createElement('div');
+guideV.className = 'snap-guide v'; guideH.className = 'snap-guide h';
+layoutEl.append(guideV, guideH);
+function showGuides(gx, gy){
+  guideV.style.display = gx == null ? 'none' : 'block'; guideV.style.left = gx + 'px';
+  guideH.style.display = gy == null ? 'none' : 'block'; guideH.style.top = gy + 'px';
+}
+showGuides(null, null);
+
+// Höhe der Fenster ändert sich mit dem Inhalt: Gesamthöhe des Bereichs nachführen
+const panelRO = new ResizeObserver(() => { if (freeOn() && !narrow()) placeFree(); });
+panels().forEach(p => panelRO.observe(p));
+
+// Breite per Griff unten rechts ziehen, rastet live an Rand und Fensterkanten ein
+let panelResize = null;
+panels().forEach(p => {
+  const grip = document.createElement('div');
+  grip.className = 'resize-grip';
+  grip.title = 'Breite ändern';
+  p.appendChild(grip);
+  grip.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0) return;
+    if (!freeOn()) enableFree();
+    const f = freePos[p.dataset.panel];
+    panelResize = { id: p.dataset.panel, f, sx: ev.clientX, w0: f.w };
+    p.style.zIndex = ++zTop;
+    try { grip.setPointerCapture(ev.pointerId); } catch(e){}
+    ev.preventDefault(); ev.stopPropagation();
+  });
+});
+document.addEventListener('pointermove', ev => {
+  if (!panelResize) return;
+  const { id, f, sx, w0 } = panelResize;
+  const s = snapRight(id, f.x + w0 + ev.clientX - sx);
+  const right = s ? s.pos : f.x + w0 + ev.clientX - sx;
+  f.w = Math.round(Math.min(Math.max(260, right - f.x), layoutEl.clientWidth - f.x));
+  showGuides(s ? s.line : null, null);
+  placeFree();
+  if (id === 'editor'){ fitCanvas(); render(); }
+});
+function endPanelResize(){
+  if (!panelResize) return;
+  panelResize = null;
+  showGuides(null, null);
+  saveLayout(); fitCanvas(); render();
+}
+document.addEventListener('pointerup', endPanelResize);
+document.addEventListener('pointercancel', endPanelResize);
+
+// Spalte unter dem Zeiger; liegt er dazwischen, die nächstgelegene
+function colAt(x, y){
+  let best = null, bestD = Infinity;
+  for (const c of Object.values(cols)){
+    const r = c.getBoundingClientRect();
+    const dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom);
+    const d = dx*dx + dy*dy;
+    if (d < bestD){ bestD = d; best = c; }
+  }
+  return best;
+}
+
+let panelDrag = null;
+document.querySelectorAll('[data-panel] > h2').forEach(h => h.addEventListener('pointerdown', ev => {
+  if (ev.button !== 0) return;
+  const card = h.parentElement;
+  if (!narrow()){
+    if (!freeOn()) enableFree();
+    const f = freePos[card.dataset.panel];
+    panelDrag = { free: true, card, f, sx: ev.clientX, sy: ev.clientY, x0: f.x, y0: f.y };
+    card.style.zIndex = ++zTop;
+    try { h.setPointerCapture(ev.pointerId); } catch(e){}
+    ev.preventDefault();
+    return;
+  }
+  const r = card.getBoundingClientRect();
+  const ph = document.createElement('div');
+  ph.className = 'panel-ph'; ph.style.height = r.height + 'px';
+  card.parentElement.insertBefore(ph, card);
+  card.classList.add('dragging');
+  Object.assign(card.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' });
+  panelDrag = { card, ph, dx: ev.clientX - r.left, dy: ev.clientY - r.top };
+  try { h.setPointerCapture(ev.pointerId); } catch(e){}
+  ev.preventDefault();
+}));
+document.addEventListener('pointermove', ev => {
+  if (!panelDrag) return;
+  if (panelDrag.free){
+    const { card, f, sx, sy, x0, y0 } = panelDrag;
+    const w = card.offsetWidth, h = card.offsetHeight;
+    const s = snapPos(card.dataset.panel, x0 + ev.clientX - sx, y0 + ev.clientY - sy, w, h);
+    f.x = Math.round(Math.min(Math.max(0, s.x), layoutEl.clientWidth - w));
+    f.y = Math.round(Math.max(0, s.y));
+    showGuides(s.gx, s.gy);
+    placeFree();
+    if (ev.clientY < 70) window.scrollBy(0, -14);
+    else if (ev.clientY > innerHeight - 40) window.scrollBy(0, 14);
+    return;
+  }
+  const { card, ph, dx, dy } = panelDrag;
+  card.style.left = (ev.clientX - dx) + 'px';
+  card.style.top = (ev.clientY - dy) + 'px';
+  const col = colAt(ev.clientX, ev.clientY);
+  const before = [...col.children].find(x => x !== card && x !== ph && x.dataset.panel &&
+    ev.clientY < x.getBoundingClientRect().top + x.getBoundingClientRect().height / 2);
+  if (before) col.insertBefore(ph, before); else col.appendChild(ph);
+  // am Rand automatisch scrollen
+  if (ev.clientY < 70) window.scrollBy(0, -14);
+  else if (ev.clientY > innerHeight - 40) window.scrollBy(0, 14);
+});
+function endPanelDrag(){
+  if (!panelDrag) return;
+  if (panelDrag.free){ panelDrag = null; showGuides(null, null); saveLayout(); return; }
+  const { card, ph } = panelDrag;
+  ph.replaceWith(card);
+  card.classList.remove('dragging');
+  card.removeAttribute('style');
+  panelDrag = null;
+  saveLayout(); fitCanvas(); render();
+}
+document.addEventListener('pointerup', endPanelDrag);
+document.addEventListener('pointercancel', endPanelDrag);
+$('btnLayoutReset').addEventListener('click', () => { disableFree(); applyLayout(DEFAULT_LAYOUT); saveLayout(); });
+
+// ---------- Menü „Label Studio“ mit Anleitung ----------
+const HELP = {
+  start: { title: 'Kurzanleitung', html: `
+    <ol>
+      <li><b>Etikettengröße wählen</b> – oben im Fenster „Etikett“ (z. B. 40 × 30 mm).</li>
+      <li><b>Inhalt hinzufügen</b> – Text, QR-Code, Barcode, Bild, Rahmen oder Linie. Oder ein
+        <b>fertiges Etikett importieren</b> (PNG, SVG, PDF – z. B. von 3dfilamentprofiles.com, am schärfsten ist SVG).</li>
+      <li><b>Bearbeiten</b> – Element auf dem Etikett antippen. Ziehen verschiebt es, das blaue Eck ändert die Größe.
+        Alle Einstellungen stehen im Fenster „Element“. Pfeiltasten verschieben um 1 Punkt (mit Shift 8), Entf löscht.</li>
+      <li><b>Platzhalter</b> im Text: <code>{datum}</code>, <code>{zeit}</code> und <code>{nr}</code> (zählt bei mehreren Kopien hoch).</li>
+      <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ <b>„Drucken“</b> per Bluetooth.</li>
+      <li><b>Vorlagen</b> speichern, laden und als Datei exportieren (Sicherung oder Übertragung auf ein anderes Gerät).</li>
+      <li><b>Fenster anordnen</b> – an der Titelzeile (⠿) ziehen, sie rasten an Rändern und anderen Fenstern ein.
+        Der Griff unten rechts ändert die Breite. „Layout zurücksetzen“ stellt alles wieder her.</li>
+    </ol>
+    <p class="hint">Alles wird im Browser gespeichert – in einem anderen Browser oder nach dem Löschen der Browserdaten
+      ist es weg. Vorlagen deshalb ab und zu exportieren.</p>` },
+  driver: { title: 'Treiber & Einrichtung', html: `
+    <h3>Windows-Druck per USB (empfohlen am PC)</h3>
+    <ol>
+      <li>Den <b>Windows-Treiber</b> für dein Modell von <b>phomemo.com</b> laden (Support → Download) und installieren.</li>
+      <li>Drucker per <b>USB-Kabel</b> anschließen – er erscheint in Windows z. B. als „M220 Printer“.</li>
+      <li>In der App unter „Papierformat im Windows-Treiber“ das Format wählen, das zu deiner Rolle passt.</li>
+      <li>Im Druckfenster von Chrome: <b>Ziel</b> = dein Drucker, <b>Papierformat</b> = dasselbe wie in der App,
+        <b>Ränder</b> = Keine, <b>Skalierung</b> = 100, Kopf- und Fußzeilen aus.</li>
+    </ol>
+    <p>Der M220-Treiber kennt nur <b>50 × 30</b> und <b>50 × 70 mm</b>. Kleinere Etiketten (z. B. 40 × 30) setzt die App
+      mittig auf diese Seite. Der Nullpunkt ist für den M220 um 2 mm korrigiert, Feinjustierung über „Versatz X“.</p>
+    <h3>Bluetooth (ohne Treiber)</h3>
+    <ul>
+      <li>Kein Treiber nötig, aber ein Browser mit Web Bluetooth: <b>Chrome</b> oder <b>Edge</b> am PC,
+        <b>Chrome</b> auf Android, auf dem iPhone die App <b>Bluefy</b>.</li>
+      <li>Am Handy muss die App über <b>https</b> laufen (z. B. über Netlify Drop hochgeladen).</li>
+      <li>Unter Windows kann die Kopplung mit „Verbindungsfehler“ scheitern – dann den USB-Weg nehmen.</li>
+    </ul>
+    <h3>Sonstiges</h3>
+    <ul><li>Der <b>PDF-Import</b> lädt beim ersten Mal einen PDF-Leser aus dem Internet.</li></ul>` },
+  printers: { title: 'Unterstützte Drucker', html: `
+    <h3>Windows-Druck (USB)</h3>
+    <p>Funktioniert grundsätzlich mit <b>jedem Etikettendrucker, der einen Windows-Treiber hat</b>, z. B. andere
+      Phomemo-Modelle, Brother QL, DYMO LabelWriter oder Zebra. Wichtig:</p>
+    <ul>
+      <li>Kann der Treiber eigene Papiergrößen, „Papierformat im Windows-Treiber“ auf <b>„Wie Etikett“</b> stellen.</li>
+      <li>Kennt er nur feste Formate, das nächstgrößere wählen – die App setzt das Etikett mittig darauf.</li>
+      <li>Der 2-mm-Nullpunkt ist auf den M220 abgestimmt. Bei anderen Druckern über „Versatz X“ korrigieren.</li>
+    </ul>
+    <h3>Bluetooth-Direktdruck</h3>
+    <p>Unter „Druckermodell (Bluetooth)“ auswählbar:</p>
+    <table>
+      <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th></tr>
+      ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.head / PX_PER_MM} mm</td>
+        <td>${{ right:'rechts', center:'mittig', left:'links' }[p.align]}</td></tr>`).join('')}
+    </table>
+    <p class="hint">Die Bluetooth-Befehle stammen aus dem Open-Source-Projekt „phomymo“ und sind noch an keinem echten
+      Gerät getestet. Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
+      Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>` },
+  tips: { title: 'Tipps & Fehlerbehebung', html: `
+    <ul>
+      <li><b>Druckvorschau ist leer</b> – Seite mit F5 neu laden und erneut versuchen.</li>
+      <li><b>Druck verteilt sich auf zwei Etiketten</b> – im Druckfenster ist das falsche Papierformat gewählt.</li>
+      <li><b>Druck seitlich verschoben</b> – „Versatz X (mm)“ anpassen, z. B. 1 oder -1.</li>
+      <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“ oder die Schwärzung erhöhen.
+        Am meisten bringt eine fettere Schrift in der Vorlage.</li>
+      <li><b>Bild steht falsch herum</b> – Bild anklicken und „↻ 90°“.</li>
+      <li><b>Regler verstellt</b> – „Zurücksetzen“ beim Bild bzw. „Druckeinstellungen zurücksetzen“.</li>
+      <li><b>Bluetooth: Verbindungsfehler</b> – Drucker in den Windows-Bluetooth-Einstellungen entfernen,
+        Drucker neu starten, Handy-Bluetooth aus. Hilft das nicht: USB nehmen.</li>
+    </ul>` }
+};
+function openHelp(key){
+  $('helpTabs').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.help === key));
+  $('helpBody').innerHTML = HELP[key].html;
+  if (!$('help').open) $('help').showModal();
+}
+$('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
+$('menuList').innerHTML = $('helpTabs').innerHTML;
+const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
+$('btnMenu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu($('menuList').hidden); });
+document.addEventListener('click', () => toggleMenu(false));
+document.querySelectorAll('#menuList, #helpTabs').forEach(el => el.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-help]');
+  if (b){ toggleMenu(false); openHelp(b.dataset.help); }
+}));
+$('helpClose').addEventListener('click', () => $('help').close());
+// Klick auf den abgedunkelten Hintergrund schließt die Anleitung
+$('help').addEventListener('click', ev => { if (ev.target === $('help')) $('help').close(); });
+
+// ---------- Start ----------
+$('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
+$('model').addEventListener('change', () => { $('align').value = printer().align; savePrintSettings(); });
+const savedLayout = lsGet(LS_LAYOUT, DEFAULT_LAYOUT);
+applyLayout(savedLayout);
+if (savedLayout.free) enableFree(savedLayout.free);
+initLabelControls();
+loadPrintSettings();
+refreshTplList();
+$('preview1bit').addEventListener('change', render);
+$('startNr').addEventListener('input', render);
+requestAnimationFrame(() => { fitCanvas(); render(); });
+if (document.fonts) document.fonts.ready.then(render);
+</script>
+</body>
+</html>

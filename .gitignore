@@ -1,0 +1,6 @@
+# Lokale Werkzeuge und temporäre Dateien
+.claude/
+_rec.mp4
+*.tmp
+Thumbs.db
+desktop.ini
