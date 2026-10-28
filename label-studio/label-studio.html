@@ -902,17 +902,26 @@ async function connect(){
     bt.device = device;
     device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); diag('Verbindung wurde getrennt'); });
 
-    // Android/Windows scheitern beim ersten Verbindungsaufbau öfter – bis zu 3 Versuche
-    step = 'Verbinden';
-    let server;
-    for (let a = 1; a <= 3; a++){
-      setStatus(false, `Verbinde … (${a}/3)`);
-      try { server = await withTimeout(device.gatt.connect(), 10000, 'Verbinden'); diag(`Verbunden (Versuch ${a})`); break; }
-      catch(e){ diag(`Versuch ${a} fehlgeschlagen: ${e.message}`); if (a === 3) throw e; await sleep(800); }
+    // Viele Drucker trennen beim ersten Auslesen der Dienste sofort wieder (v. a. Android).
+    // Darum: verbinden, kurz warten, Dienste lesen – und das Ganze bei Abbruch bis zu 4-mal wiederholen.
+    let services;
+    for (let a = 1; a <= 4; a++){
+      setStatus(false, `Verbinde … (${a}/4)`);
+      try {
+        step = 'Verbinden';
+        const server = await withTimeout(device.gatt.connect(), 10000, 'Verbinden');
+        diag(`Verbunden (Versuch ${a})`);
+        await sleep(a === 1 ? 300 : 1000);
+        step = 'Dienste lesen';
+        services = await withTimeout(server.getPrimaryServices(), 10000, 'Dienste lesen');
+        break;
+      } catch(e){
+        diag(`Versuch ${a} – ${step}: ${e.message}`);
+        if (a === 4) throw e;
+        try { device.gatt.disconnect(); } catch(_){}
+        await sleep(1500);
+      }
     }
-
-    step = 'Dienste lesen';
-    const services = await withTimeout(server.getPrimaryServices(), 10000, 'Dienste lesen');
     diag(`${services.length} bekannte(r) Dienst(e) gefunden`);
     if (!services.length) throw new Error('Der Drucker meldet keinen der bekannten Druckdienste.');
 
