@@ -58,13 +58,13 @@ Dann Etikettengröße wählen, gestalten, drucken.
 
 Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **Bluefy** auf dem iPhone – am Handy nur, wenn die App über `https` läuft.
 
-| Modell | Druckbreite | Rolle |
-|---|---|---|
-| Phomemo M220 | 72 mm | rechts |
-| Phomemo M221 | 72 mm | mittig |
-| Phomemo M200 | 76 mm | mittig |
-| Phomemo M110 / M120 | 48 mm | mittig |
-| Phomemo M110S | 48 mm | rechts |
+| Modell | Druckbreite | Rolle | Bluetooth |
+|---|---|---|---|
+| Phomemo M220 | 72 mm | rechts | ✅ getestet (Android) |
+| Phomemo M221 | 72 mm | mittig | ungetestet |
+| Phomemo M200 | 76 mm | mittig | ungetestet |
+| Phomemo M110 / M120 | 48 mm | mittig | ungetestet |
+| Phomemo M110S | 48 mm | rechts | ungetestet |
 
 > [!TIP]
 > ✅ **Getestet mit Phomemo M220 + Android (Chrome):** Verbinden und Drucken per Bluetooth funktionieren – einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) am Handy öffnen.

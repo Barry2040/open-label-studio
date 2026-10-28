@@ -373,7 +373,7 @@ const PX_PER_MM = 8;          // 203 dpi
 const HEAD_PX = 576;          // 72 mm Druckkopf (M220), Obergrenze für Bild-Importe
 // Bluetooth-Direktdruck: Daten aus dem phomymo-Projekt (Druckkopfbreite in Punkten, Lage der Rolle, Befehlssatz)
 const PRINTERS = {
-  m220:  { name:'Phomemo M220',        proto:'mseries', head:576, align:'right'  },
+  m220:  { name:'Phomemo M220',        proto:'mseries', head:576, align:'right', tested:'Android' },
   m221:  { name:'Phomemo M221',        proto:'mseries', head:576, align:'center' },
   m200:  { name:'Phomemo M200',        proto:'mseries', head:608, align:'center' },
   m110:  { name:'Phomemo M110 / M120', proto:'m110',    head:384, align:'center' },
@@ -1994,11 +1994,13 @@ const HELP = {
       <li>Der 2-mm-Nullpunkt ist auf den M220 abgestimmt. Bei anderen Druckern über „Versatz X“ korrigieren.</li>
     </ul>
     <h3>Bluetooth-Direktdruck</h3>
-    <p>Im Drucken-Fenster unter „Bluetooth-Direktdruck“ → „Druckermodell“ auswählbar:</p>
+    <p>Im Drucken-Fenster unter „Bluetooth-Direktdruck“ → „Druckermodell“ auswählbar.
+      <b>Per Bluetooth getestet ist bisher nur der Phomemo M220</b> – die anderen Modelle sind vorbereitet, aber ungeprüft:</p>
     <table>
-      <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th></tr>
+      <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th><th>Bluetooth</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.head / PX_PER_MM} mm</td>
-        <td>${{ right:'rechts', center:'mittig', left:'links' }[p.align]}</td></tr>`).join('')}
+        <td>${{ right:'rechts', center:'mittig', left:'links' }[p.align]}</td>
+        <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
     <p class="hint">Getestet: <b>Phomemo M220 mit Android (Chrome)</b> – Verbinden und Drucken funktionieren.
       Unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen. Die übrigen Modelle
