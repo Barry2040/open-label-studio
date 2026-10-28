@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Eine eigene Etiketten-App für den Phomemo M220 – am PC und am Handy, direkt im Browser.</b><br>
+  <b>Eine eigene Etiketten-App für deinen Etikettendrucker – am PC und am Handy, direkt im Browser.</b><br>
   Keine Installation, alles in einer einzigen HTML-Datei.
 </p>
 
