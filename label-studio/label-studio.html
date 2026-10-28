@@ -302,8 +302,8 @@ progress{width:100%;height:8px}
       </div>
 
       <details class="subsec" id="btSection">
-        <summary>Bluetooth-Direktdruck <span class="badge ok" title="Mit Phomemo M220 und Android (Chrome) erfolgreich getestet">✓ Android</span></summary>
-        <div class="field"><label for="model">Druckermodell</label><select id="model"></select></div>
+        <summary>Bluetooth-Direktdruck</summary>
+        <div class="field"><label for="model">Druckermodell <span id="modelTested" class="badge"></span></label><select id="model"></select></div>
         <div class="grid2">
           <div class="field"><label for="density">Dichte (1–8)</label><input id="density" type="number" min="1" max="8" value="6"></div>
           <div class="field"><label for="feed">Vorschub danach (mm)</label><input id="feed" type="number" min="0" max="30" step="0.5" value="4"></div>
@@ -416,17 +416,28 @@ const HEAD_PX = 576;          // 72 mm Druckkopf (M220), Obergrenze für Bild-Im
 // Bluetooth-Direktdruck: Daten aus dem phomymo-Projekt (Druckkopfbreite in Punkten, Lage der Rolle, Befehlssatz)
 const PRINTERS = {
   m220:  { name:'Phomemo M220',        proto:'mseries', head:576, align:'right', tested:'Android' },
+  // tested = womit der Bluetooth-Druck tatsächlich ausprobiert wurde
   m221:  { name:'Phomemo M221',        proto:'mseries', head:576, align:'center' },
   m200:  { name:'Phomemo M200',        proto:'mseries', head:608, align:'center' },
   m110:  { name:'Phomemo M110 / M120', proto:'m110',    head:384, align:'center' },
   m110s: { name:'Phomemo M110S',       proto:'m110',    head:384, align:'right'  },
-  // Marklife P15 & Co. (Protokoll „L11“, Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz):
-  // schmale Etiketten laufen quer durch den Kopf, darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet
-  p15:   { name:'Marklife P15',        proto:'l11',     head:0,   align:'left', rotate90:true, packet:95,
-           widthText:'12–15 mm', prefixes:['P15','P15R','P15S','P7','iSPACE_LP15','OUT_LPC','M1','LP15','S15','S12','P1s','LPC74'] }
+  // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
+  // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
+  p15:   { name:'Marklife P15 / P7',   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
+           tested:'PC', widthText:'12–15 mm',
+           prefixes:['P15','P15R','P15S','P7','iSPACE_LP15','OUT_LPC','M1','LP15','S15','S12','P1s','LPC74'] },
+  p12:   { name:'Marklife P12',        proto:'l11', head:0, align:'left', rotate90:true, packet:90, delay:30, densityCmd:'density',
+           widthText:'12–15 mm', prefixes:['P12','LP90','P11'] },
+  m60:   { name:'Marklife M60',        proto:'x2',  head:0, align:'left', rotate90:true, packet:237, delay:1,
+           widthText:'bis 50 mm', prefixes:['M60','X2'] }
 };
-// Druckermodell anhand des Bluetooth-Namens erkennen (bisher nur für den P15 eindeutig)
-const modelFromName = name => Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => (name || '').startsWith(p)));
+// Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
+// Marklife („M1…“) deuten.
+const modelFromName = name => {
+  name = name || '';
+  if (/^M(11|12|2\d)\d/.test(name)) return undefined;
+  return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
+};
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
 const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
 const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
@@ -1185,7 +1196,7 @@ async function connect(){
     const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:BLE_SERVICES });
     diag(`Gerät: ${device.name || '(ohne Namen)'}`);
     bt.device = device;
-    bt.credits = 0; bt.lastGrant = Date.now();
+    bt.credits = 0; bt.lastGrant = Date.now(); bt.packetMax = 0;
     // bekanntes Modell am Namen erkennen und automatisch einstellen (z. B. Marklife P15)
     const m = modelFromName(device.name);
     if (m && m !== $('model').value){
@@ -1256,7 +1267,7 @@ const printerInfo = {};
 function onNotify(ev){
   const d = new Uint8Array(ev.target.value.buffer);
   console.log('Drucker:', [...d].map(x => x.toString(16).padStart(2,'0')).join(' '));
-  if (printer().proto === 'l11'){ onNotifyL11(d); return; }
+  if (isMarklife()){ onNotifyL11(d); return; }
   if (d.length < 3 || d[0] !== 0x1a) return;
   const v = d[2];
   if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
@@ -1269,7 +1280,10 @@ function onNotify(ev){
 // Marklife P15: 01 n = Guthaben, 02 lo hi = MTU, FF code = Status, AA / „O“ / „K“ = Druck fertig
 function onNotifyL11(d){
   if (d[0] === 0x01 && d.length >= 2){ bt.credits = (bt.credits || 0) + d[1]; bt.lastGrant = Date.now(); return; }
-  if (d[0] === 0x02) return;
+  if (d[0] === 0x02){   // MTU-Meldung: Pakete nicht größer als MTU − 3
+    if (d.length >= 3){ const mtu = (d[2] << 8) | d[1]; if (mtu > 20) bt.packetMax = mtu - 3; }
+    return;
+  }
   if (d[0] === 0xaa || d[0] === 0x4f || d[0] === 0x4b){ bt.l11Done = true; return; }
   if (d[0] === 0xff && d.length >= 2){
     const code = d[1];
@@ -1287,7 +1301,7 @@ async function writeRaw(bytes){
 }
 // Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
 async function queryStatus(){
-  if (printer().proto === 'l11') return;   // der P15 meldet seinen Status von selbst
+  if (isMarklife()) return;   // Marklife-Drucker melden ihren Status von selbst
   for (const q of [0x08, 0x11, 0x12, 0x07]){
     if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
     try { await writeRaw(new Uint8Array([0x1f, 0x11, q])); } catch(e){}
@@ -1340,7 +1354,7 @@ async function sendBytes(data, onProgress){
 // Der Drucker meldet auf Kanal ff03 [01, n] = n Pakete frei. Pro Paket (max. 95 Byte) wird eins verbraucht,
 // alle 30 ms höchstens ein Paket. Kommt 1 s lang kein Guthaben, wird eins angenommen (wie im thermoprint-Projekt).
 async function sendCredited(data, onProgress){
-  const size = printer().packet || 95;
+  const size = Math.min(printer().packet || 95, bt.packetMax || Infinity), tick = printer().delay || 30;
   let off = 0;
   while (off < data.length){
     if (!bt.char) throw new Error('Verbindung getrennt');
@@ -1352,12 +1366,13 @@ async function sendCredited(data, onProgress){
     } else if (Date.now() - bt.lastGrant > 1000){
       bt.credits = 1; bt.lastGrant = Date.now();
     }
-    await sleep(30);
+    await sleep(tick);
   }
 }
 const waitFor = async (cond, ms) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(20); return cond(); };
-async function printL11(c, onProgress){
-  const { pre, bulk } = buildL11Job(c);
+const isMarklife = () => ['l11', 'x2'].includes(printer().proto);
+async function printMarklife(c, onProgress){
+  const { pre, bulk } = await buildMarklifeJob(c);
   await sendCredited(pre);
   await waitFor(() => bt.credits >= 3, 1000);
   bt.l11Done = false;
@@ -1408,18 +1423,34 @@ function rasterize(c){
   return { bits, bpr, h: outH };
 }
 
-// Marklife P15 (L11): Vorspann einmal, danach Bild + Etikettenlücke + Stopp als ein Block.
-// Druckstärke 1–3 über „thickness“; unsere Dichte 1–8 wird darauf abgebildet (Standard 6 → 2).
-function buildL11Job(c){
+// Marklife: Vorspann einmal, danach Bild + Abschluss als ein Block (wie im thermoprint-Projekt).
+// Druckstärke 1–3; unsere Dichte 1–8 wird darauf abgebildet (Standard 6 → 2).
+const concatBytes = (...parts) => {
+  const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0));
+  let o = 0; for (const p of parts){ out.set(p, o); o += p.length; }
+  return out;
+};
+async function zlibCompress(bytes){
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));   // 'deflate' = zlib-Format
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function buildMarklifeJob(c){
   const { bits, bpr, h } = rasterize(rotateCW(c));
   const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
-  const thickness = Math.min(3, Math.max(1, Math.round(d8 * 3 / 8)));
-  const pre = new Uint8Array([0x10,0xff,0x10,0x00,thickness, ...new Array(15).fill(0), 0x10,0xff,0xf1,0x02]);
-  const head = [0x1d,0x76,0x30,0x00, bpr & 255, bpr >> 8, h & 255, h >> 8];
-  const tail = [0x1d,0x0c, 0x10,0xff,0xf1,0x45];   // zur Etikettenlücke fahren, Druckauftrag beenden
-  const bulk = new Uint8Array(head.length + bits.length + tail.length);
-  bulk.set(head, 0); bulk.set(bits, head.length); bulk.set(tail, head.length + bits.length);
-  return { pre, bulk };
+  const level = Math.min(3, Math.max(1, Math.round(d8 * 3 / 8)));
+  const p = printer(), B = a => new Uint8Array(a);
+  if (p.proto === 'x2'){
+    // M60: Bild zlib-komprimiert, Größen als Big-Endian, Etikettenlücke über „adjust position“
+    const z = await zlibCompress(bits), len = z.length;
+    const pre = B([0x1f,0x80,0x02,0x20, 0x1f,0x70,0x02,[0,0x03,0x08,0x0e][level], 0,0,0,0,0,0, 0x1f,0xc0,0x01,0x00, 0x1f,0x11,0x51]);
+    const head = B([0x1f,0x10, bpr >> 8, bpr & 255, h >> 8, h & 255, (len >>> 24) & 255, (len >>> 16) & 255, (len >>> 8) & 255, len & 255]);
+    return { pre, bulk: concatBytes(head, z, B([0x1f,0x12,0x20,0x00, 0x1f,0xc0,0x01,0x01, 0x1f,0x11,0x50])) };
+  }
+  // L11 (P15, P12, P7 …)
+  const dens = p.densityCmd === 'thickness' ? [0x10,0xff,0x10,0x00,level] : [0x1f,0x70,0x02,level];
+  const pre = B([...dens, ...new Array(15).fill(0), 0x10,0xff,0xf1,0x02]);
+  const head = B([0x1d,0x76,0x30,0x00, bpr & 255, bpr >> 8, h & 255, h >> 8]);
+  return { pre, bulk: concatBytes(head, bits, B([0x1d,0x0c, 0x10,0xff,0xf1,0x45])) };   // zur Etikettenlücke, Ende
 }
 
 // Liefert die Druckschritte: [Bytes, Pause danach in ms]
@@ -1464,8 +1495,8 @@ $('btnPrint').addEventListener('click', async () => {
     for (let n = 0; n < copies; n++){
       curNr = start + n;
       log(`Drucke ${n+1} von ${copies} …`);
-      if (printer().proto === 'l11'){
-        await printL11(printCanvas(), f => prog.value = (n + f) / copies);
+      if (isMarklife()){
+        await printMarklife(printCanvas(), f => prog.value = (n + f) / copies);
         continue;
       }
       const steps = buildSteps(printCanvas());
@@ -1537,6 +1568,7 @@ function savePrintSettings(){
   for (const k of PRINT_KEYS){ const el = $(k); o[k] = el.type === 'checkbox' ? el.checked : el.value; }
   o.zeroX = true;
   lsSet(LS_PRINT, o);
+  showModelTested();   // Modell kann auch über Rolle, Import oder Zurücksetzen gewechselt haben
 }
 function loadPrintSettings(){
   const o = lsGet(LS_PRINT, {});
@@ -1735,7 +1767,9 @@ function rollsAll(){
   // Startprofil für die 40 × 30-Rolle am M220
   return {
     '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' },
-    '40 × 12 mm (Marklife P15)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p15', align:'left', density:'6', feed:'4' }
+    '40 × 12 mm (Marklife P15)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p15', align:'left', density:'6', feed:'4' },
+    '40 × 15 mm (Marklife P12)': { w:40, h:15, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p12', align:'left', density:'6', feed:'4' },
+    '50 × 30 mm (Marklife M60)': { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'m60', align:'left', density:'6', feed:'4' }
   };
 }
 function refreshRolls(selName){
@@ -2124,21 +2158,22 @@ const HELP = {
     </ul>
     <h3>Bluetooth-Direktdruck</h3>
     <p>Im Drucken-Fenster unter „Bluetooth-Direktdruck“ → „Druckermodell“ auswählbar.
-      <b>Per Bluetooth getestet ist bisher nur der Phomemo M220</b> – die anderen Modelle sind vorbereitet, aber ungeprüft:</p>
+      Die Spalte „Bluetooth“ zeigt, womit der Druck mit einem echten Gerät ausprobiert wurde – „ungetestet“ heißt:
+      vorbereitet, aber noch nicht geprüft.</p>
     <table>
       <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th><th>Bluetooth</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.widthText || (p.head / PX_PER_MM + ' mm')}</td>
         <td>${p.rotate90 ? 'quer' : { right:'rechts', center:'mittig', left:'links' }[p.align]}</td>
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
-    <p class="hint">Getestet: <b>Phomemo M220 mit Android (Chrome)</b> – Verbinden und Drucken funktionieren.
-      Unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen. Die übrigen
-      Phomemo-Modelle sind nach dem Open-Source-Projekt „phomymo“ eingestellt, aber nicht selbst getestet.</p>
-    <p class="hint"><b>Marklife P15</b> (auch P7, P12 und baugleiche wie LP15, S15): umgesetzt nach dem
-      Open-Source-Projekt <b>„thermoprint“</b> von tomLadder (MIT-Lizenz), noch nicht selbst getestet. Der P15 wird
-      beim Verbinden am Namen erkannt und automatisch eingestellt. Seine schmalen Etiketten (z. B. 40 × 12 mm) werden
-      quer durch den Druckkopf gedruckt – die App dreht das Bild dafür selbst; gestalte das Etikett einfach im Querformat.
-      Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Rolle „40 × 12 mm (Marklife P15)“ wählen.</p>
+    <p class="hint"><b>Phomemo</b> – Befehle nach dem Open-Source-Projekt „phomymo“. Der <b>M220</b> druckt mit Android
+      (Chrome); unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen.</p>
+    <p class="hint"><b>Marklife</b> (P15, P7, P12, M60 und baugleiche wie LP15, S15, LP90) – umgesetzt nach dem
+      Open-Source-Projekt <b>„thermoprint“</b> von tomLadder (MIT-Lizenz). Der <b>P15</b> druckt per Bluetooth am PC.
+      Marklife-Drucker werden beim Verbinden am Namen erkannt und automatisch eingestellt. Ihre Etiketten
+      (z. B. 40 × 12 mm) laufen quer durch den Druckkopf – die App dreht das Bild dafür selbst, gestalte das Etikett
+      einfach im Querformat. Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Passende Rollen:
+      „40 × 12 mm (Marklife P15)“, „40 × 15 mm (Marklife P12)“, „50 × 30 mm (Marklife M60)“.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
@@ -2215,7 +2250,16 @@ $('help').addEventListener('click', ev => { if (ev.target === $('help')) $('help
 // Auf-/Zugeklappt-Zustand des Bluetooth-Bereichs merken (nur Komfort)
 $('btSection').open = lsGet('labelstudio.btOpen', false);
 $('btSection').addEventListener('toggle', () => { lsSet('labelstudio.btOpen', $('btSection').open); });
-$('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
+$('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) =>
+  `<option value="${k}">${p.name}${p.tested ? ` · ✓ getestet (${p.tested})` : ''}</option>`).join('');
+// Teststatus des gewählten Modells neben „Druckermodell“ anzeigen: grün = mit echtem Gerät ausprobiert
+function showModelTested(){
+  const t = printer().tested, b = $('modelTested');
+  b.textContent = t ? `✓ getestet (${t})` : 'ungetestet';
+  b.className = 'badge' + (t ? ' ok' : '');
+  b.title = t ? `Bluetooth-Druck mit ${printer().name} über ${t} erfolgreich ausprobiert` : 'Noch nicht mit einem echten Gerät ausprobiert';
+}
+$('model').addEventListener('change', showModelTested);
 $('model').addEventListener('change', () => { $('align').value = printer().align; savePrintSettings(); });
 const view = lsGet(LS_VIEW, {});
 if (view.grid) $('grid').value = view.grid;
@@ -2228,6 +2272,7 @@ if (![...(savedLayout.main || []), ...(savedLayout.side || []), ...(savedLayout.
 if (savedLayout.free) enableFree(savedLayout.free);
 initLabelControls();
 loadPrintSettings();
+showModelTested();
 refreshTplList();
 refreshRolls(lsGet(LS_ROLL, ''));
 histSnap = JSON.stringify(design);

@@ -65,13 +65,15 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M200 | 76 mm | mittig | ungetestet |
 | Phomemo M110 / M120 | 48 mm | mittig | ungetestet |
 | Phomemo M110S | 48 mm | rechts | ungetestet |
-| Marklife P15 (auch P7, P12, LP15 …) | 12–15 mm | quer | ungetestet |
+| Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | quer | ✅ getestet (PC) |
+| Marklife P12 (auch LP90, P11) | 12–15 mm | quer | ungetestet |
+| Marklife M60 (auch X2) | bis 50 mm | quer | ungetestet |
 
 > [!TIP]
-> ✅ **Getestet mit Phomemo M220 + Android (Chrome):** Verbinden und Drucken per Bluetooth funktionieren – einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) am Handy öffnen.
+> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) und **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) – Verbinden und Drucken funktionieren. Einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) öffnen.
 
 > [!NOTE]
-> Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – am PC deshalb per USB drucken. Die übrigen Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, der **Marklife P15** nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz) – beide noch nicht selbst getestet. Der P15 wird beim Verbinden automatisch erkannt; seine schmalen Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
+> Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken. Die Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, die **Marklife**-Modelle nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz). Marklife-Drucker werden beim Verbinden automatisch erkannt; ihre Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
 
 ## 🖨️ Dein Drucker fehlt?
 
