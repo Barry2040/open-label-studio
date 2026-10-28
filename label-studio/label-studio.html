@@ -365,7 +365,7 @@ progress{width:100%;height:8px}
     <button id="shareNative" class="primary" style="width:100%;margin-top:8px" hidden>Teilen über …</button>
   </div>
 </dialog>
-<!-- Drucker-Wunsch: wird von Netlify Forms entgegengenommen (Formularname „drucker-wunsch“) -->
+<!-- Drucker-Wunsch: auf GitHub Pages als vorausgefülltes GitHub-Issue, auf Netlify über Netlify Forms („drucker-wunsch“) -->
 <dialog id="request" class="modal">
   <div class="help-head">
     <b style="flex:1;padding:6px 4px">Drucker vorschlagen</b>
@@ -1808,7 +1808,8 @@ $('rollDel').addEventListener('click', () => {
 });
 
 // ---------- Etikett teilen: als Link (komprimiert im #-Teil der Adresse) und QR-Code ----------
-const SHARE_BASE = 'https://open-label-studio.netlify.app/';
+const SHARE_BASE = 'https://barry2040.github.io/open-label-studio/';
+const REPO_URL = 'https://github.com/Barry2040/open-label-studio';
 const b64url = bytes => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
 const fromB64url = str => Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
 async function encodeDesign(d){
@@ -2123,8 +2124,8 @@ const HELP = {
     </ol>
     <p class="hint">Beim Öffnen erscheint immer das Startetikett. Dein zuletzt bearbeitetes Etikett holst du im Fenster
       „Vorlagen“ mit <b>„Zuletzt bearbeitet“</b> zurück.</p>
-    <p class="hint">Der Browser speichert getrennt nach Adresse: die lokale Datei und open-label-studio.netlify.app haben
-      jeweils eigene Einstellungen. Am besten immer dieselbe Adresse nutzen.</p>
+    <p class="hint">Der Browser speichert getrennt nach Adresse: die lokale Datei und barry2040.github.io/open-label-studio
+      haben jeweils eigene Einstellungen. Am besten immer dieselbe Adresse nutzen – mit „Export“/„Import“ ziehst du um.</p>
     <p class="hint">Alles wird im Browser gespeichert – in einem anderen Browser oder nach dem Löschen der Browserdaten
       ist es weg. Vorlagen deshalb ab und zu exportieren.</p>` },
   driver: { title: 'Treiber & Einrichtung', html: `
@@ -2142,7 +2143,7 @@ const HELP = {
     <ul>
       <li>Kein Treiber nötig, aber ein Browser mit Web Bluetooth: <b>Chrome</b> oder <b>Edge</b> am PC,
         <b>Chrome</b> auf Android, auf dem iPhone die App <b>Bluefy</b>.</li>
-      <li>Am Handy muss die App über <b>https</b> laufen (z. B. über Netlify Drop hochgeladen).</li>
+      <li>Am Handy muss die App über <b>https</b> laufen – einfach <b>barry2040.github.io/open-label-studio</b> öffnen.</li>
       <li>Unter Windows kann die Kopplung mit „Verbindungsfehler“ scheitern – dann den USB-Weg nehmen.</li>
     </ul>
     <h3>Sonstiges</h3>
@@ -2211,7 +2212,7 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   if (ev.target.closest('[data-request]')){ toggleMenu(false); if ($('help').open) $('help').close(); openRequest(); }
 }));
 
-// ---------- Drucker vorschlagen (Netlify Forms) ----------
+// ---------- Drucker vorschlagen (GitHub-Issue, auf Netlify über Netlify Forms) ----------
 function openRequest(){
   $('requestForm').reset();
   // zuletzt gesehenen Bluetooth-Namen und die Diagnose gleich mitgeben
@@ -2221,16 +2222,30 @@ function openRequest(){
     const m = /^Gerät: (.+)$/m.exec(diagText);
     if (m && m[1] !== '(ohne Namen)') $('rqName').value = m[1];
   }
-  $('rqInfo').textContent = location.protocol.startsWith('http') ? '' :
-    'Hinweis: Absenden geht nur in der Online-Version (open-label-studio.netlify.app).';
+  // GitHub-Issues sind öffentlich – dort keine E-Mail abfragen (Rückfragen laufen über GitHub)
+  $('rqMail').closest('.field').hidden = !viaNetlify();
+  $('rqInfo').textContent = viaNetlify() ? '' :
+    'Beim Absenden öffnet sich GitHub mit deinen Angaben – dort noch auf „Create“ klicken (kostenloses GitHub-Konto nötig).';
   $('request').showModal();
+}
+// Auf Netlify gehen Vorschläge über Netlify Forms, überall sonst (GitHub Pages, lokale Datei) als GitHub-Issue
+const viaNetlify = () => location.hostname.endsWith('netlify.app');
+function requestAsIssue(form){
+  const f = new FormData(form), q = new URLSearchParams({ template: 'drucker-wunsch.yml',
+    title: `Drucker-Wunsch: ${f.get('hersteller')} ${f.get('modell')}`.trim() });
+  for (const [key, field] of [['hersteller','hersteller'],['modell','modell'],['verbindung','verbindung'],['etiketten','etiketten'],
+                              ['bluetooth-name','bluetooth-name'],['link','link'],['nachricht','nachricht']])
+    if (f.get(field)) q.set(key, f.get(field));
+  // Diagnose kürzen, damit die Adresse nicht zu lang wird
+  if (f.get('diagnose')) q.set('diagnose', String(f.get('diagnose')).slice(0, 1500));
+  window.open(`${REPO_URL}/issues/new?${q}`, '_blank', 'noopener');
 }
 $('requestClose').addEventListener('click', () => $('request').close());
 $('request').addEventListener('click', ev => { if (ev.target === $('request')) $('request').close(); });
 $('requestForm').addEventListener('submit', async ev => {
   ev.preventDefault();
   const form = ev.target, btn = form.querySelector('[type=submit]');
-  if (!location.protocol.startsWith('http')){ $('rqInfo').textContent = 'Bitte über open-label-studio.netlify.app absenden.'; return; }
+  if (!viaNetlify()){ requestAsIssue(form); $('request').close(); toast('GitHub ist geöffnet – dort noch auf „Create“ klicken'); return; }
   btn.disabled = true; $('rqInfo').textContent = 'Wird gesendet …';
   try {
     const res = await fetch('/', { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' },

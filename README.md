@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://open-label-studio.netlify.app"><b>▶ App öffnen: open-label-studio.netlify.app</b></a>
+  <a href="https://barry2040.github.io/open-label-studio/"><b>▶ App öffnen: barry2040.github.io/open-label-studio</b></a>
 </p>
 
 ---
@@ -32,7 +32,7 @@
 
 ## 🚀 Loslegen
 
-**Online:** [open-label-studio.netlify.app](https://open-label-studio.netlify.app) in **Chrome** oder **Edge** öffnen – am PC wie am Handy.
+**Online:** [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) in **Chrome** oder **Edge** öffnen – am PC wie am Handy.
 
 **Offline:** [`label-studio/label-studio.html`](label-studio/label-studio.html) herunterladen und im Browser öffnen.
 
@@ -70,14 +70,14 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Marklife M60 (auch X2) | bis 50 mm | quer | ungetestet |
 
 > [!TIP]
-> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) und **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) – Verbinden und Drucken funktionieren. Einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) öffnen.
+> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) und **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
 
 > [!NOTE]
 > Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken. Die Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, die **Marklife**-Modelle nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz). Marklife-Drucker werden beim Verbinden automatisch erkannt; ihre Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
 
 ## 🖨️ Dein Drucker fehlt?
 
-In der App im Menü **„Label Studio“ → „Drucker vorschlagen …“** Hersteller, Modell und Bluetooth-Namen schicken. Wer vorher „Verbinden“ ausprobiert, schickt die Bluetooth-Diagnose gleich mit – das hilft beim Einbauen.
+In der App im Menü **„Label Studio“ → „Drucker vorschlagen …“** – oder direkt hier: [**🖨️ Drucker vorschlagen**](https://github.com/Barry2040/open-label-studio/issues/new?template=drucker-wunsch.yml). Wer vorher „Verbinden“ ausprobiert, schickt die Bluetooth-Diagnose gleich mit – das hilft beim Einbauen. Dafür ist ein kostenloses GitHub-Konto nötig.
 
 ## 🔒 Datenschutz
 
@@ -85,4 +85,4 @@ Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellun
 
 ## 🌐 Online
 
-Die App läuft unter **[open-label-studio.netlify.app](https://open-label-studio.netlify.app)**. Netlify veröffentlicht jede Änderung auf GitHub automatisch – die Einstellungen stehen in `netlify.toml`.
+Die App läuft über **GitHub Pages** unter **[barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/)**. Jede Änderung auf `main` wird automatisch veröffentlicht (Workflow `.github/workflows/pages.yml`).

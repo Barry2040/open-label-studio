@@ -1,0 +1,59 @@
+name: 🖨️ Drucker vorschlagen
+description: Du hast einen Etikettendrucker, der noch nicht unterstützt wird? Schick uns die Angaben.
+title: "Drucker-Wunsch: "
+labels: ["drucker-wunsch"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke! Je mehr Angaben, desto eher kann der Drucker eingebaut werden.
+        Tipp: Probier in der App vorher **„Verbinden“** aus – die **Bluetooth-Diagnose** hilft am meisten.
+  - type: input
+    id: hersteller
+    attributes:
+      label: Hersteller
+      placeholder: z. B. Niimbot
+    validations:
+      required: true
+  - type: input
+    id: modell
+    attributes:
+      label: Modell
+      placeholder: z. B. B1
+    validations:
+      required: true
+  - type: dropdown
+    id: verbindung
+    attributes:
+      label: Verbindung
+      options:
+        - Bluetooth
+        - USB
+        - WLAN
+        - Weiß ich nicht
+  - type: input
+    id: etiketten
+    attributes:
+      label: Etikettengrößen
+      placeholder: z. B. 40 × 12 mm
+  - type: input
+    id: bluetooth-name
+    attributes:
+      label: Bluetooth-Name des Druckers
+      description: wie in der Geräteliste beim Verbinden angezeigt
+  - type: input
+    id: link
+    attributes:
+      label: Link zu Projekt, App oder Anleitung
+      placeholder: https://…
+  - type: textarea
+    id: diagnose
+    attributes:
+      label: Bluetooth-Diagnose
+      description: aus der App unter „Bluetooth-Direktdruck“ → „Diagnose kopieren“
+      render: text
+  - type: textarea
+    id: nachricht
+    attributes:
+      label: Weitere Infos
+      placeholder: Was funktioniert, was nicht …
