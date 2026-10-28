@@ -73,6 +73,10 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 > [!NOTE]
 > Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – am PC deshalb per USB drucken. Die übrigen Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, der **Marklife P15** nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz) – beide noch nicht selbst getestet. Der P15 wird beim Verbinden automatisch erkannt; seine schmalen Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
 
+## 🖨️ Dein Drucker fehlt?
+
+In der App im Menü **„Label Studio“ → „Drucker vorschlagen …“** Hersteller, Modell und Bluetooth-Namen schicken. Wer vorher „Verbinden“ ausprobiert, schickt die Bluetooth-Diagnose gleich mit – das hilft beim Einbauen.
+
 ## 🔒 Datenschutz
 
 Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellungen speichert die App **nur im Browser** des jeweiligen Geräts – sie landen weder in der Datei noch auf GitHub.

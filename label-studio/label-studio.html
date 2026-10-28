@@ -43,10 +43,13 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help,#share{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share,#request{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
 #share{width:min(380px,calc(100vw - 32px))}
-#help::backdrop,#share::backdrop{background:rgba(0,0,0,.5)}
+#request{width:min(520px,calc(100vw - 32px))}
+#help::backdrop,#share::backdrop,#request::backdrop{background:rgba(0,0,0,.5)}
+.request-body{padding:8px 16px 16px}
+.menu-list hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 .share-body{padding:8px 16px 16px;text-align:center}
 #shareQr{background:#fff;border-radius:8px;padding:8px;max-width:100%;height:auto}
 /* Kurze Rückmeldungen unten am Bildschirm */
@@ -361,6 +364,45 @@ progress{width:100%;height:8px}
     </div>
     <button id="shareNative" class="primary" style="width:100%;margin-top:8px" hidden>Teilen über …</button>
   </div>
+</dialog>
+<!-- Drucker-Wunsch: wird von Netlify Forms entgegengenommen (Formularname „drucker-wunsch“) -->
+<dialog id="request" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Drucker vorschlagen</b>
+    <button id="requestClose" type="button" aria-label="Schließen">✕</button>
+  </div>
+  <form id="requestForm" name="drucker-wunsch" method="POST" data-netlify="true" netlify-honeypot="bot-field" class="request-body">
+    <input type="hidden" name="form-name" value="drucker-wunsch">
+    <p class="hint" style="margin-top:0">Du hast einen anderen Etikettendrucker? Schick uns die Angaben – dann kann er
+      vielleicht in einer späteren Version unterstützt werden.</p>
+    <p hidden><label>Nicht ausfüllen: <input name="bot-field"></label></p>
+    <div class="grid2">
+      <div class="field"><label for="rqBrand">Hersteller *</label><input id="rqBrand" name="hersteller" required placeholder="z. B. Niimbot"></div>
+      <div class="field"><label for="rqModel">Modell *</label><input id="rqModel" name="modell" required placeholder="z. B. B1"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="rqConn">Verbindung</label>
+        <select id="rqConn" name="verbindung">
+          <option>Bluetooth</option><option>USB</option><option>WLAN</option><option>Weiß ich nicht</option>
+        </select>
+      </div>
+      <div class="field"><label for="rqSizes">Etikettengrößen</label><input id="rqSizes" name="etiketten" placeholder="z. B. 40 × 12 mm"></div>
+    </div>
+    <div class="field"><label for="rqName">Bluetooth-Name des Druckers</label>
+      <input id="rqName" name="bluetooth-name" placeholder="wie in der Geräteliste beim Verbinden angezeigt"></div>
+    <div class="field"><label for="rqLink">Link zu Projekt, App oder Anleitung (optional)</label>
+      <input id="rqLink" name="link" type="url" placeholder="https://…"></div>
+    <div class="field"><label for="rqMsg">Weitere Infos (optional)</label>
+      <textarea id="rqMsg" name="nachricht" rows="3" placeholder="Was funktioniert, was nicht …"></textarea></div>
+    <div class="field">
+      <label for="rqDiag">Bluetooth-Diagnose (optional)</label>
+      <textarea id="rqDiag" name="diagnose" rows="3" placeholder="Wird automatisch eingefügt, wenn du vorher „Verbinden“ probiert hast"></textarea>
+    </div>
+    <div class="field"><label for="rqMail">Deine E-Mail für Rückfragen (optional)</label>
+      <input id="rqMail" name="email" type="email" placeholder="nur wenn du eine Antwort möchtest"></div>
+    <button class="primary" type="submit" style="width:100%">Absenden</button>
+    <p id="rqInfo" class="hint"></p>
+  </form>
 </dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="printArea"></div>
@@ -2098,7 +2140,8 @@ const HELP = {
       quer durch den Druckkopf gedruckt – die App dreht das Bild dafür selbst; gestalte das Etikett einfach im Querformat.
       Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Rolle „40 × 12 mm (Marklife P15)“ wählen.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
-      Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>` },
+      Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
+    <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
   tips: { title: 'Tipps & Fehlerbehebung', html: `
     <ul>
       <li><b>Druckvorschau ist leer</b> – Seite mit F5 neu laden und erneut versuchen.</li>
@@ -2123,14 +2166,47 @@ function openHelp(key){
   if (!$('help').open) $('help').showModal();
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
-$('menuList').innerHTML = $('helpTabs').innerHTML;
+$('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-request>🖨️ Drucker vorschlagen …</button>';
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
 $('btnMenu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu($('menuList').hidden); });
 document.addEventListener('click', () => toggleMenu(false));
-document.querySelectorAll('#menuList, #helpTabs').forEach(el => el.addEventListener('click', ev => {
+document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.addEventListener('click', ev => {
   const b = ev.target.closest('[data-help]');
   if (b){ toggleMenu(false); openHelp(b.dataset.help); }
+  if (ev.target.closest('[data-request]')){ toggleMenu(false); if ($('help').open) $('help').close(); openRequest(); }
 }));
+
+// ---------- Drucker vorschlagen (Netlify Forms) ----------
+function openRequest(){
+  $('requestForm').reset();
+  // zuletzt gesehenen Bluetooth-Namen und die Diagnose gleich mitgeben
+  const diagText = $('btDiag').textContent.trim();
+  if (diagText){
+    $('rqDiag').value = diagText;
+    const m = /^Gerät: (.+)$/m.exec(diagText);
+    if (m && m[1] !== '(ohne Namen)') $('rqName').value = m[1];
+  }
+  $('rqInfo').textContent = location.protocol.startsWith('http') ? '' :
+    'Hinweis: Absenden geht nur in der Online-Version (open-label-studio.netlify.app).';
+  $('request').showModal();
+}
+$('requestClose').addEventListener('click', () => $('request').close());
+$('request').addEventListener('click', ev => { if (ev.target === $('request')) $('request').close(); });
+$('requestForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const form = ev.target, btn = form.querySelector('[type=submit]');
+  if (!location.protocol.startsWith('http')){ $('rqInfo').textContent = 'Bitte über open-label-studio.netlify.app absenden.'; return; }
+  btn.disabled = true; $('rqInfo').textContent = 'Wird gesendet …';
+  try {
+    const res = await fetch('/', { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+                                   body: new URLSearchParams(new FormData(form)).toString() });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    $('request').close();
+    toast('Danke! Dein Druckervorschlag ist angekommen.');
+  } catch(e){
+    $('rqInfo').textContent = 'Senden hat nicht geklappt (' + e.message + '). Bitte später nochmal versuchen.';
+  } finally { btn.disabled = false; }
+});
 $('helpClose').addEventListener('click', () => $('help').close());
 // Klick auf den abgedunkelten Hintergrund schließt die Anleitung
 $('help').addEventListener('click', ev => { if (ev.target === $('help')) $('help').close(); });
