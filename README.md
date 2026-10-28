@@ -46,7 +46,7 @@ Dann Etikettengröße wählen, gestalten, drucken.
 
    | Einstellung | Wert |
    |---|---|
-   | Ziel | dein Phomemo-Drucker |
+   | Ziel | dein Etikettendrucker |
    | Papierformat | wie in der App (M220: 50 × 30 mm) |
    | Ränder | Keine |
    | Skalierung | 100 |
