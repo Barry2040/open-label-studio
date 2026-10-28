@@ -377,10 +377,16 @@ const PRINTERS = {
   m221:  { name:'Phomemo M221',        proto:'mseries', head:576, align:'center' },
   m200:  { name:'Phomemo M200',        proto:'mseries', head:608, align:'center' },
   m110:  { name:'Phomemo M110 / M120', proto:'m110',    head:384, align:'center' },
-  m110s: { name:'Phomemo M110S',       proto:'m110',    head:384, align:'right'  }
+  m110s: { name:'Phomemo M110S',       proto:'m110',    head:384, align:'right'  },
+  // Marklife P15 & Co. (Protokoll „L11“, Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz):
+  // schmale Etiketten laufen quer durch den Kopf, darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet
+  p15:   { name:'Marklife P15',        proto:'l11',     head:0,   align:'left', rotate90:true, packet:95,
+           widthText:'12–15 mm', prefixes:['P15','P15R','P15S','P7','iSPACE_LP15','OUT_LPC','M1','LP15','S15','S12','P1s','LPC74'] }
 };
+// Druckermodell anhand des Bluetooth-Namens erkennen (bisher nur für den P15 eindeutig)
+const modelFromName = name => Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => (name || '').startsWith(p)));
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
-const PRESETS = [[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
+const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
 const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
 const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0xfff0,0xff12,
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
@@ -1137,6 +1143,13 @@ async function connect(){
     const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:BLE_SERVICES });
     diag(`Gerät: ${device.name || '(ohne Namen)'}`);
     bt.device = device;
+    bt.credits = 0; bt.lastGrant = Date.now();
+    // bekanntes Modell am Namen erkennen und automatisch einstellen (z. B. Marklife P15)
+    const m = modelFromName(device.name);
+    if (m && m !== $('model').value){
+      $('model').value = m; $('model').dispatchEvent(new Event('change'));
+      diag(`Druckermodell erkannt: ${PRINTERS[m].name}`);
+    }
     device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); clearPrinterInfo(); diag('Verbindung wurde getrennt'); });
 
     // Viele Drucker trennen beim ersten Auslesen der Dienste sofort wieder (v. a. Android).
@@ -1201,6 +1214,7 @@ const printerInfo = {};
 function onNotify(ev){
   const d = new Uint8Array(ev.target.value.buffer);
   console.log('Drucker:', [...d].map(x => x.toString(16).padStart(2,'0')).join(' '));
+  if (printer().proto === 'l11'){ onNotifyL11(d); return; }
   if (d.length < 3 || d[0] !== 0x1a) return;
   const v = d[2];
   if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
@@ -1210,12 +1224,28 @@ function onNotify(ev){
   else return;
   showPrinterInfo();
 }
+// Marklife P15: 01 n = Guthaben, 02 lo hi = MTU, FF code = Status, AA / „O“ / „K“ = Druck fertig
+function onNotifyL11(d){
+  if (d[0] === 0x01 && d.length >= 2){ bt.credits = (bt.credits || 0) + d[1]; bt.lastGrant = Date.now(); return; }
+  if (d[0] === 0x02) return;
+  if (d[0] === 0xaa || d[0] === 0x4f || d[0] === 0x4b){ bt.l11Done = true; return; }
+  if (d[0] === 0xff && d.length >= 2){
+    const code = d[1];
+    if (code === 0x01) printerInfo.paper = 'out';
+    else if (code === 0x02) printerInfo.cover = 'open';
+    else if (code === 0x03) printerInfo.hot = true;
+    else if (code === 0x04) printerInfo.lowBattery = true;
+    else if (code === 0x05){ printerInfo.cover = 'closed'; }
+    showPrinterInfo();
+  }
+}
 async function writeRaw(bytes){
   if (bt.char.properties.writeWithoutResponse) await bt.char.writeValueWithoutResponse(bytes);
   else await bt.char.writeValueWithResponse(bytes);
 }
 // Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
 async function queryStatus(){
+  if (printer().proto === 'l11') return;   // der P15 meldet seinen Status von selbst
   for (const q of [0x08, 0x11, 0x12, 0x07]){
     if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
     try { await writeRaw(new Uint8Array([0x1f, 0x11, q])); } catch(e){}
@@ -1228,6 +1258,8 @@ function showPrinterInfo(){
     chips.push([`🔋 ${i.battery} %`, i.battery <= 15 ? 'bad' : 'ok']);
   if (i.paper) chips.push(i.paper === 'out' ? ['Kein Papier', 'bad'] : ['Papier ✓', 'ok']);
   if (i.cover === 'open') chips.push(['Deckel offen', 'bad']);
+  if (i.lowBattery) chips.push(['Akku schwach', 'bad']);
+  if (i.hot) chips.push(['Überhitzt', 'bad']);
   box.innerHTML = chips.map(([t, c]) => `<span class="prn-chip ${c}">${t}</span>`).join('');
   box.title = i.firmware ? 'Firmware ' + i.firmware : '';
   box.hidden = !chips.length;
@@ -1262,6 +1294,36 @@ async function sendBytes(data, onProgress){
   }
 }
 
+// ---- Marklife P15 (L11): Senden nur mit „Guthaben“ ----
+// Der Drucker meldet auf Kanal ff03 [01, n] = n Pakete frei. Pro Paket (max. 95 Byte) wird eins verbraucht,
+// alle 30 ms höchstens ein Paket. Kommt 1 s lang kein Guthaben, wird eins angenommen (wie im thermoprint-Projekt).
+async function sendCredited(data, onProgress){
+  const size = printer().packet || 95;
+  let off = 0;
+  while (off < data.length){
+    if (!bt.char) throw new Error('Verbindung getrennt');
+    if (bt.credits > 0){
+      const part = data.slice(off, off + size);
+      await bt.char.writeValueWithoutResponse(part);
+      bt.credits--; off += part.length;
+      onProgress && onProgress(off / data.length);
+    } else if (Date.now() - bt.lastGrant > 1000){
+      bt.credits = 1; bt.lastGrant = Date.now();
+    }
+    await sleep(30);
+  }
+}
+const waitFor = async (cond, ms) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(20); return cond(); };
+async function printL11(c, onProgress){
+  const { pre, bulk } = buildL11Job(c);
+  await sendCredited(pre);
+  await waitFor(() => bt.credits >= 3, 1000);
+  bt.l11Done = false;
+  await sendCredited(bulk, onProgress);
+  // Fertigmeldung AA / „O“ / „K“ abwarten (höchstens 30 s)
+  if (!await waitFor(() => bt.l11Done, 30000)) diag('Keine Fertigmeldung vom Drucker erhalten (Druck evtl. trotzdem erfolgt)');
+}
+
 // ---------- Druckdaten ----------
 function printCanvas(){
   const w = W(), h = H();
@@ -1269,16 +1331,20 @@ function printCanvas(){
   const cc = c.getContext('2d');
   paintLabel(cc);
   threshold1bit(cc, w, h);
-  if (!$('rotate').checked) return c;
-  const r = document.createElement('canvas'); r.width = h; r.height = w;
+  return $('rotate').checked ? rotateCW(c) : c;
+}
+// Canvas um 90° im Uhrzeigersinn drehen
+function rotateCW(src){
+  const r = document.createElement('canvas'); r.width = src.height; r.height = src.width;
   const rc = r.getContext('2d');
-  rc.translate(h, 0); rc.rotate(Math.PI/2); rc.drawImage(c, 0, 0);
+  rc.translate(src.height, 0); rc.rotate(Math.PI / 2); rc.drawImage(src, 0, 0);
   return r;
 }
 // Bitmap über die volle Druckkopfbreite des Modells, Etikett je nach Rollenlage platziert.
+// Modelle ohne feste Kopfbreite (head 0, z. B. P15) bekommen das Bild in seiner natürlichen Breite.
 // 1 = schwarz, MSB = linkes Pixel.
 function rasterize(c){
-  const head = printer().head;
+  const head = printer().head || Math.ceil(c.width / 8) * 8;
   const w = c.width, h = c.height, bpr = head / 8;
   const align = $('align').value;
   let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
@@ -1298,6 +1364,20 @@ function rasterize(c){
     }
   }
   return { bits, bpr, h: outH };
+}
+
+// Marklife P15 (L11): Vorspann einmal, danach Bild + Etikettenlücke + Stopp als ein Block.
+// Druckstärke 1–3 über „thickness“; unsere Dichte 1–8 wird darauf abgebildet (Standard 6 → 2).
+function buildL11Job(c){
+  const { bits, bpr, h } = rasterize(rotateCW(c));
+  const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
+  const thickness = Math.min(3, Math.max(1, Math.round(d8 * 3 / 8)));
+  const pre = new Uint8Array([0x10,0xff,0x10,0x00,thickness, ...new Array(15).fill(0), 0x10,0xff,0xf1,0x02]);
+  const head = [0x1d,0x76,0x30,0x00, bpr & 255, bpr >> 8, h & 255, h >> 8];
+  const tail = [0x1d,0x0c, 0x10,0xff,0xf1,0x45];   // zur Etikettenlücke fahren, Druckauftrag beenden
+  const bulk = new Uint8Array(head.length + bits.length + tail.length);
+  bulk.set(head, 0); bulk.set(bits, head.length); bulk.set(tail, head.length + bits.length);
+  return { pre, bulk };
 }
 
 // Liefert die Druckschritte: [Bytes, Pause danach in ms]
@@ -1341,10 +1421,14 @@ $('btnPrint').addEventListener('click', async () => {
   try {
     for (let n = 0; n < copies; n++){
       curNr = start + n;
+      log(`Drucke ${n+1} von ${copies} …`);
+      if (printer().proto === 'l11'){
+        await printL11(printCanvas(), f => prog.value = (n + f) / copies);
+        continue;
+      }
       const steps = buildSteps(printCanvas());
       const total = steps.reduce((s, [b]) => s + b.length, 0);
       let done = 0;
-      log(`Drucke ${n+1} von ${copies} …`);
       for (const [bytes, pause] of steps){
         await sendBytes(bytes, f => prog.value = (n + (done + f*bytes.length) / total) / copies);
         done += bytes.length;
@@ -1607,7 +1691,10 @@ function rollsAll(){
   const r = lsGet(LS_ROLLS, null);
   if (r) return r;
   // Startprofil für die 40 × 30-Rolle am M220
-  return { '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' } };
+  return {
+    '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' },
+    '40 × 12 mm (Marklife P15)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p15', align:'left', density:'6', feed:'4' }
+  };
 }
 function refreshRolls(selName){
   const names = Object.keys(rollsAll()).sort((a, b) => a.localeCompare(b));
@@ -1998,14 +2085,19 @@ const HELP = {
       <b>Per Bluetooth getestet ist bisher nur der Phomemo M220</b> – die anderen Modelle sind vorbereitet, aber ungeprüft:</p>
     <table>
       <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th><th>Bluetooth</th></tr>
-      ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.head / PX_PER_MM} mm</td>
-        <td>${{ right:'rechts', center:'mittig', left:'links' }[p.align]}</td>
+      ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.widthText || (p.head / PX_PER_MM + ' mm')}</td>
+        <td>${p.rotate90 ? 'quer' : { right:'rechts', center:'mittig', left:'links' }[p.align]}</td>
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
     <p class="hint">Getestet: <b>Phomemo M220 mit Android (Chrome)</b> – Verbinden und Drucken funktionieren.
-      Unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen. Die übrigen Modelle
-      sind nach dem Open-Source-Projekt „phomymo“ eingestellt, aber nicht selbst getestet.
-      Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
+      Unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen. Die übrigen
+      Phomemo-Modelle sind nach dem Open-Source-Projekt „phomymo“ eingestellt, aber nicht selbst getestet.</p>
+    <p class="hint"><b>Marklife P15</b> (auch P7, P12 und baugleiche wie LP15, S15): umgesetzt nach dem
+      Open-Source-Projekt <b>„thermoprint“</b> von tomLadder (MIT-Lizenz), noch nicht selbst getestet. Der P15 wird
+      beim Verbinden am Namen erkannt und automatisch eingestellt. Seine schmalen Etiketten (z. B. 40 × 12 mm) werden
+      quer durch den Druckkopf gedruckt – die App dreht das Bild dafür selbst; gestalte das Etikett einfach im Querformat.
+      Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Rolle „40 × 12 mm (Marklife P15)“ wählen.</p>
+    <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>` },
   tips: { title: 'Tipps & Fehlerbehebung', html: `
     <ul>

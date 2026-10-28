@@ -65,12 +65,13 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M200 | 76 mm | mittig | ungetestet |
 | Phomemo M110 / M120 | 48 mm | mittig | ungetestet |
 | Phomemo M110S | 48 mm | rechts | ungetestet |
+| Marklife P15 (auch P7, P12, LP15 …) | 12–15 mm | quer | ungetestet |
 
 > [!TIP]
 > ✅ **Getestet mit Phomemo M220 + Android (Chrome):** Verbinden und Drucken per Bluetooth funktionieren – einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) am Handy öffnen.
 
 > [!NOTE]
-> Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – am PC deshalb per USB drucken. Die übrigen Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, aber nicht selbst getestet.
+> Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – am PC deshalb per USB drucken. Die übrigen Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, der **Marklife P15** nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz) – beide noch nicht selbst getestet. Der P15 wird beim Verbinden automatisch erkannt; seine schmalen Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
 
 ## 🔒 Datenschutz
 
