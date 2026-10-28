@@ -61,8 +61,11 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M110 / M120 | 48 mm | mittig |
 | Phomemo M110S | 48 mm | rechts |
 
+> [!TIP]
+> ✅ **Getestet mit Phomemo M220 + Android (Chrome):** Verbinden und Drucken per Bluetooth funktionieren – einfach [open-label-studio.netlify.app](https://open-label-studio.netlify.app) am Handy öffnen.
+
 > [!NOTE]
-> Die Bluetooth-Befehle stammen aus dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) und sind noch nicht an einem echten Gerät getestet. Per USB funktioniert der Druck auf dem M220.
+> Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – am PC deshalb per USB drucken. Die übrigen Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, aber nicht selbst getestet.
 
 ## 🔒 Datenschutz
 
