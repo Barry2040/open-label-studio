@@ -43,9 +43,20 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
-#help::backdrop{background:rgba(0,0,0,.5)}
+#share{width:min(380px,calc(100vw - 32px))}
+#help::backdrop,#share::backdrop{background:rgba(0,0,0,.5)}
+.share-body{padding:8px 16px 16px;text-align:center}
+#shareQr{background:#fff;border-radius:8px;padding:8px;max-width:100%;height:auto}
+/* Kurze Rückmeldungen unten am Bildschirm */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;max-width:calc(100vw - 32px);
+  background:var(--text);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+/* Druckerstatus (per Bluetooth gemeldet) */
+.prn-status{display:flex;gap:6px;flex-wrap:wrap}
+.prn-chip{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--muted);white-space:nowrap}
+.prn-chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.prn-chip.bad{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 55%,transparent);background:color-mix(in srgb,var(--danger) 12%,transparent)}
 .help-head{display:flex;gap:8px;align-items:flex-start;padding:12px 12px 0;position:sticky;top:0;background:var(--panel)}
 .help-tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1}
 .help-tabs button{padding:6px 10px;font-size:14px}
@@ -73,8 +84,19 @@ input[type=range]{padding:0}
 .range-row input[type=range]{flex:1}
 .range-row .range-num{width:68px;flex:none}
 textarea{resize:vertical;min-height:60px}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;padding:16px;max-width:1300px;margin:0 auto}
-@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px}}
+/* Standard-Anordnung: Etikett | Element + Ebenen | Drucken + Vorlagen.
+   Mittelbreit: rechte Spalte rutscht unter die mittlere; Handy: alles untereinander. */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px 320px;grid-template-areas:"main side side2";
+  gap:16px;padding:16px;max-width:1560px;margin:0 auto;align-items:start}
+.layout > [data-col=main]{grid-area:main}
+.layout > [data-col=side]{grid-area:side}
+.layout > [data-col=side2]{grid-area:side2}
+@media (max-width:1180px){
+  .layout{grid-template-columns:minmax(0,1fr) 330px;grid-template-areas:"main side" "main side2";grid-template-rows:auto 1fr}
+}
+@media (max-width:860px){
+  .layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"main" "side" "side2";grid-template-rows:none;padding:12px 16px}
+}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px}
 .card h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 /* Fenster verschieben: Titelzeile ist der Griff */
@@ -109,7 +131,34 @@ textarea{resize:vertical;min-height:60px}
 .field label{font-size:12px;color:var(--muted)}
 .check{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .stage{background:var(--stage);border-radius:12px;padding:24px 16px;display:flex;justify-content:center;align-items:center;min-height:240px;overflow:hidden}
-#cv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);border-radius:4px;touch-action:none;image-rendering:pixelated;max-width:100%}
+#cv{grid-area:cv;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.25);border-radius:4px;touch-action:none;image-rendering:pixelated;max-width:100%}
+/* Ebenen-Liste (wie in Bildbearbeitungen: oben = vorne) */
+.layers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.layer{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg);cursor:pointer;user-select:none}
+.layer:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--border))}
+.layer.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--bg))}
+.layer.dragging{opacity:.6}
+.layer .lgrip{cursor:grab;color:var(--muted);touch-action:none;padding:0 2px}
+.layer .lico{width:22px;text-align:center;font-weight:700;color:var(--muted);flex:none}
+.layer .lname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.layer.off .lname,.layer.off .lico{opacity:.45;text-decoration:line-through}
+.layer .lbtn{border:none;background:none;padding:2px 4px;font-size:14px;line-height:1;opacity:.85}
+.layer .lbtn.dim{opacity:.3}
+.layer .lbtn:hover{opacity:1}
+/* Werkzeugleiste über dem Etikett */
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.toolbar > button{min-width:38px;font-size:17px;line-height:1;padding:6px 10px}
+.tb-sep{width:1px;align-self:stretch;background:var(--border);margin:0 4px}
+.tb-field{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.tb-field select{width:auto}
+/* Lineal in mm links und oben am Etikett */
+.canvas-wrap{display:grid;grid-template-columns:auto auto;grid-template-areas:". top" "left cv";gap:4px}
+.ruler{display:block}
+.ruler-top{grid-area:top}
+.ruler-left{grid-area:left}
+.canvas-wrap.no-rulers{grid-template-areas:"cv"}
+.canvas-wrap.no-rulers .ruler{display:none}
 .addbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .addbar button{flex:1 1 auto}
 #btnImport{border-style:dashed;color:var(--muted)}
@@ -152,6 +201,7 @@ progress{width:100%;height:8px}
     </button>
     <div id="menuList" class="menu-list" hidden></div>
   </div>
+  <div id="prnStatus" class="prn-status" hidden></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Nicht verbunden</span></div>
   <button id="btnLayoutReset" title="Fenster wieder an ihre ursprüngliche Position setzen">Layout zurücksetzen</button>
   <button class="primary" id="btnConnect">Verbinden</button>
@@ -169,7 +219,22 @@ progress{width:100%;height:8px}
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="72" step="1"></div>
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="5" max="300" step="1"></div>
       </div>
-      <div class="stage" id="stage"><canvas id="cv"></canvas></div>
+      <div class="toolbar">
+        <button id="btnUndo" title="Rückgängig (Strg+Z)" aria-label="Rückgängig">↶</button>
+        <button id="btnRedo" title="Wiederholen (Strg+Y)" aria-label="Wiederholen">↷</button>
+        <span class="tb-sep"></span>
+        <label class="tb-field" for="grid">Raster
+          <select id="grid"><option value="0">aus</option><option value="1">1 mm</option><option value="2">2 mm</option><option value="5">5 mm</option></select>
+        </label>
+        <label class="check" style="margin:0"><input type="checkbox" id="rulers" checked> Lineal</label>
+      </div>
+      <div class="stage" id="stage">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="rulerTop" class="ruler ruler-top"></canvas>
+          <canvas id="rulerLeft" class="ruler ruler-left"></canvas>
+          <canvas id="cv"></canvas>
+        </div>
+      </div>
       <div class="row" style="margin-top:8px;justify-content:space-between">
         <label class="check" style="margin:0"><input type="checkbox" id="preview1bit"> Druckvorschau (schwarz/weiß)</label>
         <span class="hint" id="sizeInfo"></span>
@@ -194,14 +259,31 @@ progress{width:100%;height:8px}
       <div id="props"><p class="empty">Tippe ein Element auf dem Etikett an, um es zu bearbeiten.</p></div>
     </div>
 
+    <div class="card" data-panel="layers">
+      <h2>Ebenen</h2>
+      <ul id="layers" class="layers" aria-label="Ebenen"></ul>
+      <p class="hint" id="layersHint">Oben liegt vorne. Am ⠿ ziehen ändert die Reihenfolge, Doppelklick auf den Namen benennt um.</p>
+    </div>
+
+  </aside>
+
+  <aside class="col" data-col="side2">
     <div class="card" data-panel="print">
       <h2>Drucken</h2>
+      <div class="field"><label for="rollSel">Rolle (Profil)</label>
+        <div class="row" style="flex-wrap:nowrap">
+          <select id="rollSel" style="flex:1"></select>
+          <button id="rollSave" title="Aktuelle Etikettengröße und Druckeinstellungen als Rolle speichern">Speichern…</button>
+          <button id="rollDel" class="danger" title="Ausgewählte Rolle löschen" aria-label="Rolle löschen">✕</button>
+        </div>
+      </div>
       <div class="grid2">
         <div class="field"><label for="copies">Kopien</label><input id="copies" type="number" min="1" max="999" value="1"></div>
         <div class="field"><label for="startNr">{nr} beginnt bei</label><input id="startNr" type="number" value="1"></div>
         <div class="field"><label for="offset">Versatz X (mm)</label><input id="offset" type="number" step="0.5" value="0"></div>
-        <label class="check" style="align-self:end;margin-bottom:14px"><input type="checkbox" id="rotate"> Um 90° drehen</label>
+        <div class="field"><label for="offsetY">Versatz Y (mm)</label><input id="offsetY" type="number" step="0.5" value="0"></div>
       </div>
+      <label class="check"><input type="checkbox" id="rotate"> Um 90° drehen</label>
 
       <div class="subsec">
         <div class="subhead">Windows-Drucker (USB)</div>
@@ -232,7 +314,7 @@ progress{width:100%;height:8px}
       </details>
 
       <div class="subsec row">
-        <button id="btnPng" style="flex:1">Als PNG speichern</button>
+        <button id="btnPng" style="flex:1">PNG speichern</button>
         <button id="btnPrintReset" style="flex:1">Zurücksetzen</button>
       </div>
       <progress id="prog" value="0" max="1" hidden></progress>
@@ -250,8 +332,9 @@ progress{width:100%;height:8px}
       <div class="row" style="margin-top:8px">
         <button id="tplLast" title="Das Etikett laden, an dem du zuletzt gearbeitet hast">Zuletzt bearbeitet</button>
         <button id="tplNew">Neu</button>
-        <button id="tplExport">Export</button>
-        <button id="tplImport">Import</button>
+        <button id="tplExport" title="Sicherung als Datei: Vorlagen, Rollen, Einstellungen und Fensteranordnung">Export</button>
+        <button id="tplImport" title="Sicherung einspielen (z. B. auf einem anderen Gerät)">Import</button>
+        <button id="tplShare" class="primary" title="Aktuelles Etikett per Link oder QR-Code teilen">Teilen</button>
       </div>
       <input type="file" id="fileTpl" accept=".json,application/json" hidden>
     </div>
@@ -264,6 +347,22 @@ progress{width:100%;height:8px}
   </div>
   <div id="helpBody"></div>
 </dialog>
+<dialog id="share" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Etikett teilen</b>
+    <button id="shareClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="share-body">
+    <canvas id="shareQr" width="264" height="264"></canvas>
+    <p id="shareInfo" class="hint"></p>
+    <div class="row" style="flex-wrap:nowrap">
+      <input id="shareLink" readonly style="flex:1" aria-label="Link zum Etikett">
+      <button id="shareCopy">Kopieren</button>
+    </div>
+    <button id="shareNative" class="primary" style="width:100%;margin-top:8px" hidden>Teilen über …</button>
+  </div>
+</dialog>
+<div id="toast" class="toast" role="status" hidden></div>
 <div id="printArea"></div>
 <style id="pageStyle"></style>
 
@@ -316,8 +415,50 @@ function uid(){ return Math.random().toString(36).slice(2,9); }
 const W = () => Math.round(design.w * PX_PER_MM);
 const H = () => Math.round(design.h * PX_PER_MM);
 
-let saveT;
-function save(){ clearTimeout(saveT); saveT = setTimeout(() => lsSet(LS_DRAFT, design), 300); }
+// Jede Änderung ruft save() auf. Nach kurzer Ruhe wird gespeichert und ein Schritt für „Rückgängig“ festgehalten;
+// schnelle Änderungen hintereinander (Tippen, Regler) werden so zu einem Schritt zusammengefasst.
+let saveT = null;
+function save(){ clearTimeout(saveT); saveT = setTimeout(flushSave, 300); updateUndoButtons(); }
+function flushSave(){ saveT = null; lsSet(LS_DRAFT, design); commitHistory(); }
+
+// ---------- Rückgängig / Wiederholen ----------
+const undoStack = [], redoStack = [];
+let histSnap = null;   // zuletzt festgehaltener Stand als JSON
+function commitHistory(){
+  const now = JSON.stringify(design);
+  if (histSnap !== null && now !== histSnap){
+    undoStack.push(histSnap);
+    if (undoStack.length > 60) undoStack.shift();
+    redoStack.length = 0;
+  }
+  histSnap = now;
+  updateUndoButtons();
+}
+function flushPending(){ if (saveT){ clearTimeout(saveT); flushSave(); } }
+function restoreState(json){
+  const id = sel && sel.id;
+  design = JSON.parse(json);
+  histSnap = json;
+  sel = design.elements.find(e => e.id === id) || null;
+  lsSet(LS_DRAFT, design);
+  buildProps(); syncLabelControls(); fitCanvas(); render(); updateUndoButtons();
+}
+function undo(){
+  flushPending();
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(design));
+  restoreState(undoStack.pop());
+}
+function redo(){
+  flushPending();
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(design));
+  restoreState(redoStack.pop());
+}
+function updateUndoButtons(){
+  $('btnUndo').disabled = !undoStack.length && !saveT;
+  $('btnRedo').disabled = !redoStack.length;
+}
 
 // ---------- Zeichnen ----------
 function fillVars(t){
@@ -337,9 +478,23 @@ function textBox(c, e){
   const pad = e.invert ? Math.round(e.size*0.15) : 0;
   return { lines, w: Math.max(4, Math.ceil(w)) + pad*2, h: Math.ceil(lines.length * e.size * 1.15) + pad*2, pad };
 }
+// Elemente lassen sich um 90/180/270° drehen (e.rot). x/y ist immer die linke obere Ecke des sichtbaren,
+// also gedrehten Rahmens; rawSize ist die Größe des Inhalts vor dem Drehen.
+function rawSize(e){
+  if (e.type === 'text'){ const b = textBox(ctx, e); return { w:b.w, h:b.h }; }
+  return { w:e.w, h:e.h };
+}
+const quarterTurn = e => ((e.rot || 0) / 90) % 2 === 1;
 function bbox(e){
-  if (e.type === 'text'){ const b = textBox(ctx, e); return { x:e.x, y:e.y, w:b.w, h:b.h }; }
-  return { x:e.x, y:e.y, w:e.w, h:e.h };
+  const s = rawSize(e);
+  return quarterTurn(e) ? { x:e.x, y:e.y, w:s.h, h:s.w } : { x:e.x, y:e.y, w:s.w, h:s.h };
+}
+function rotateEl(e){
+  const b0 = bbox(e), cx = b0.x + b0.w / 2, cy = b0.y + b0.h / 2;
+  e.rot = ((e.rot || 0) + 90) % 360;
+  const b1 = bbox(e);
+  e.x = Math.round(cx - b1.w / 2); e.y = Math.round(cy - b1.h / 2);
+  changed();
 }
 
 function drawText(c, e){
@@ -407,12 +562,14 @@ function getImg(src){
   }
   return imgObjs.get(src);
 }
-function processedImage(e){
+// scale > 1 nur für die scharfe Bildschirmvorschau; gedruckt wird immer mit scale 1 (= echte Druckpunkte)
+function processedImage(e, scale = 1){
   const im = getImg(e.src);
   if (!im.complete || !im.naturalWidth) return null;
-  const key = [e.id, e.w, e.h, e.threshold, e.dither, e.thicken, e.src.length].join('|');
+  const key = [e.id, e.w, e.h, e.threshold, e.dither, e.thicken, e.src.length, scale].join('|');
   if (imgProc.has(key)) return imgProc.get(key);
-  const w = Math.max(1, Math.round(e.w)), h = Math.max(1, Math.round(e.h));
+  if (imgProc.size > 200) imgProc.clear();
+  const w = Math.max(1, Math.round(e.w * scale)), h = Math.max(1, Math.round(e.h * scale));
   const t = document.createElement('canvas'); t.width = w; t.height = h;
   const tc = t.getContext('2d');
   tc.fillStyle = '#fff'; tc.fillRect(0, 0, w, h);
@@ -434,16 +591,19 @@ function processedImage(e){
     }
     d[i*4] = d[i*4+1] = d[i*4+2] = nw; d[i*4+3] = 255;
   }
-  // Dünne Linien verstärken: jeden schwarzen Punkt nach rechts (und bei Stufe 2 nach unten) verbreitern
+  // Dünne Linien verstärken: jeden schwarzen Punkt um einen Druckpunkt nach rechts (bei Stufe 2 auch nach unten)
+  // verbreitern – in der hochaufgelösten Vorschau entsprechend um `scale` Bildschirmpunkte
   const thick = parseInt(e.thicken) || 0;
   if (thick){
-    const black = new Uint8Array(w*h);
+    const black = new Uint8Array(w*h), r = Math.max(1, Math.round(scale));
     for (let i = 0; i < w*h; i++) black[i] = d[i*4] === 0;
     const paint = i => { d[i*4] = d[i*4+1] = d[i*4+2] = 0; };
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
       if (!black[y*w + x]) continue;
-      if (x+1 < w) paint(y*w + x + 1);
-      if (thick > 1 && y+1 < h){ paint((y+1)*w + x); if (x+1 < w) paint((y+1)*w + x + 1); }
+      for (let k = 1; k <= r; k++){
+        if (x+k < w) paint(y*w + x + k);
+        if (thick > 1 && y+k < h){ paint((y+k)*w + x); if (x+k < w) paint((y+k)*w + x + k); }
+      }
     }
   }
   tc.putImageData(id, 0, 0);
@@ -451,8 +611,8 @@ function processedImage(e){
   return t;
 }
 function drawImageEl(c, e){
-  const p = processedImage(e);
-  if (p) c.drawImage(p, Math.round(e.x), Math.round(e.y));
+  const p = processedImage(e, drawScale);
+  if (p) c.drawImage(p, Math.round(e.x), Math.round(e.y), Math.round(e.w), Math.round(e.h));
 }
 
 function drawRect(c, e){
@@ -480,11 +640,20 @@ function errorBox(c, e, msg){
 
 function drawEl(c, e){
   c.save();
-  if (e.type === 'text') drawText(c, e);
-  else if (e.type === 'qr') drawQR(c, e);
-  else if (e.type === 'barcode') drawBarcode(c, e);
-  else if (e.type === 'image') drawImageEl(c, e);
-  else if (e.type === 'rect') drawRect(c, e);
+  let d = e;
+  if (e.rot){
+    // auf ganze Pixel verschieben und drehen, damit die Druckpunkte scharf bleiben
+    const s = rawSize(e);
+    const origin = { 90:[e.x + s.h, e.y], 180:[e.x + s.w, e.y + s.h], 270:[e.x, e.y + s.w] }[e.rot];
+    c.translate(origin[0], origin[1]);
+    c.rotate(e.rot * Math.PI / 180);
+    d = { ...e, x:0, y:0 };
+  }
+  if (d.type === 'text') drawText(c, d);
+  else if (d.type === 'qr') drawQR(c, d);
+  else if (d.type === 'barcode') drawBarcode(c, d);
+  else if (d.type === 'image') drawImageEl(c, d);
+  else if (d.type === 'rect') drawRect(c, d);
   c.restore();
 }
 
@@ -497,21 +666,45 @@ function threshold1bit(c, w, h){
   c.putImageData(id, 0, 0);
 }
 
-function paintLabel(c){
-  c.setTransform(1,0,0,1,0,0);
+// Gezeichnet wird immer in Etikett-Koordinaten (1 Einheit = 1 Druckpunkt). scale > 1 malt dasselbe nur
+// feiner auf – für die scharfe Bildschirmvorschau. Druck und PNG nutzen immer scale 1.
+let drawScale = 1;
+function paintLabel(c, scale = 1){
+  drawScale = scale;
+  c.setTransform(scale, 0, 0, scale, 0, 0);
   c.imageSmoothingEnabled = false;
   c.fillStyle = '#fff'; c.fillRect(0, 0, W(), H());
-  for (const e of design.elements) drawEl(c, e);
+  for (const e of design.elements) if (!e.hidden) drawEl(c, e);   // ausgeblendete Ebenen werden auch nicht gedruckt
+  drawScale = 1;
 }
 
+let shownSize = '';
+// Vorschau in Bildschirmauflösung; mit „Druckvorschau“ dagegen genau die Druckpunkte
+function previewScale(){
+  if ($('preview1bit').checked) return 1;
+  const cssW = parseFloat(cv.style.width) || W();
+  return Math.max(1, Math.min(4, Math.ceil(cssW / W() * (window.devicePixelRatio || 1))));
+}
 function render(){
   const w = W(), h = H();
-  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; fitCanvas(); }
+  if (shownSize !== w + 'x' + h){ shownSize = w + 'x' + h; fitCanvas(); }
+  const S = previewScale();
+  if (cv.width !== w * S || cv.height !== h * S){ cv.width = w * S; cv.height = h * S; }
+  cv.style.imageRendering = S > 1 ? 'auto' : 'pixelated';
   curNr = parseInt($('startNr').value) || 1;
-  paintLabel(ctx);
-  if ($('preview1bit').checked) threshold1bit(ctx, w, h);
-  // Auswahl & Hilfslinien
+  paintLabel(ctx, S);
+  if (S === 1 && $('preview1bit').checked) threshold1bit(ctx, w, h);
+  // Auswahl & Hilfslinien (nur im Editor, nicht im Druck)
   const s = w / cv.getBoundingClientRect().width || 1;
+  const g = gridPx();
+  if (g){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(37,99,235,.18)'; ctx.lineWidth = s;
+    ctx.beginPath();
+    for (let x = g; x < w; x += g){ ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = g; y < h; y += g){ ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke(); ctx.restore();
+  }
   if (guides){
     ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = s;
     ctx.beginPath();
@@ -530,14 +723,54 @@ function render(){
     ctx.restore();
   }
   $('sizeInfo').textContent = `${design.w} × ${design.h} mm · ${w} × ${h} px`;
+  renderLayers();
 }
 
+const RULER = 20;   // Linealbreite in CSS-Pixeln
+const gridPx = () => (parseFloat($('grid').value) || 0) * PX_PER_MM;
+const rulersOn = () => $('rulers').checked;
+
 function fitCanvas(){
-  const stage = $('stage');
-  const maxW = stage.clientWidth - 32, maxH = Math.max(220, window.innerHeight * 0.55);
+  const stage = $('stage'), extra = rulersOn() ? RULER + 4 : 0;
+  const maxW = stage.clientWidth - 32 - extra, maxH = Math.max(220, window.innerHeight * 0.55);
   const scale = Math.min(maxW / W(), maxH / H(), 3);
   cv.style.width = Math.floor(W() * scale) + 'px';
   cv.style.height = Math.floor(H() * scale) + 'px';
+  drawRulers();
+}
+
+// Lineal in mm: kurze Striche je mm, mittlere je 5 mm, lange mit Zahl je 10 mm
+function drawRulers(){
+  $('canvasWrap').classList.toggle('no-rulers', !rulersOn());
+  if (!rulersOn()) return;
+  const cssW = parseFloat(cv.style.width), cssH = parseFloat(cv.style.height), dpr = window.devicePixelRatio || 1;
+  const cs = getComputedStyle(document.documentElement);
+  const fg = cs.getPropertyValue('--muted').trim() || '#888';
+  const draw = (rc, len, mm, horizontal) => {
+    rc.style.width = (horizontal ? len : RULER) + 'px';
+    rc.style.height = (horizontal ? RULER : len) + 'px';
+    rc.width = Math.round((horizontal ? len : RULER) * dpr);
+    rc.height = Math.round((horizontal ? RULER : len) * dpr);
+    const c = rc.getContext('2d');
+    c.scale(dpr, dpr);
+    c.strokeStyle = c.fillStyle = fg; c.lineWidth = 1;
+    c.font = '9px system-ui, sans-serif';
+    const pxPerMm = len / mm, every = pxPerMm < 3 ? 5 : 1;
+    c.beginPath();
+    for (let m = 0; m <= mm; m += every){
+      const p = Math.round(m * pxPerMm) + 0.5;
+      const t = m % 10 === 0 ? RULER * 0.55 : m % 5 === 0 ? RULER * 0.35 : RULER * 0.2;
+      if (horizontal){ c.moveTo(p, RULER); c.lineTo(p, RULER - t); }
+      else { c.moveTo(RULER, p); c.lineTo(RULER - t, p); }
+      if (m % 10 === 0 && m > 0){
+        if (horizontal) c.fillText(String(m), p + 2, 9);
+        else { c.save(); c.translate(9, p - 2); c.rotate(-Math.PI / 2); c.fillText(String(m), 0, 0); c.restore(); }
+      }
+    }
+    c.stroke();
+  };
+  draw($('rulerTop'), cssW, design.w, true);
+  draw($('rulerLeft'), cssH, design.h, false);
 }
 window.addEventListener('resize', () => { fitCanvas(); render(); });
 
@@ -548,14 +781,16 @@ function pt(ev){
 }
 function hitTest(p){
   for (let i = design.elements.length - 1; i >= 0; i--){
-    const e = design.elements[i], b = bbox(e), m = 4*p.s;
+    const e = design.elements[i];
+    if (e.hidden || e.locked) continue;   // gesperrte/ausgeblendete Ebenen lassen sich nur über die Ebenen-Liste wählen
+    const b = bbox(e), m = 4*p.s;
     if (p.x >= b.x - m && p.x <= b.x + b.w + m && p.y >= b.y - m && p.y <= b.y + b.h + m) return e;
   }
   return null;
 }
 cv.addEventListener('pointerdown', ev => {
   const p = pt(ev);
-  if (sel){
+  if (sel && !sel.locked && !sel.hidden){
     const b = bbox(sel), hr = 16*p.s;
     if (Math.abs(p.x - (b.x+b.w)) < hr && Math.abs(p.y - (b.y+b.h)) < hr){
       drag = { mode:'resize', start:p, orig:{...sel}, b };
@@ -572,21 +807,29 @@ cv.addEventListener('pointermove', ev => {
   const p = pt(ev);
   if (drag.mode === 'move'){
     let nx = p.x - drag.dx, ny = p.y - drag.dy;
-    const b = bbox(sel), snap = 8*p.s;
+    const b = bbox(sel), snap = 8*p.s, g = gridPx();
+    // erst aufs Raster, dann hat die Etikettmitte Vorrang
+    if (g){ nx = Math.round(nx / g) * g; ny = Math.round(ny / g) * g; }
     guides = { v:false, h:false };
     if (Math.abs(nx + b.w/2 - W()/2) < snap){ nx = W()/2 - b.w/2; guides.v = true; }
     if (Math.abs(ny + b.h/2 - H()/2) < snap){ ny = H()/2 - b.h/2; guides.h = true; }
     sel.x = Math.round(nx); sel.y = Math.round(ny);
   } else {
-    const o = drag.orig, dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    // bei 90°/270° zeigen Breite und Höhe des Inhalts in die andere Richtung
+    const o = drag.orig, q = quarterTurn(sel);
+    let dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    if (q) [dx, dy] = [dy, dx];
+    const g = gridPx();
+    const snapLen = v => g ? Math.max(g, Math.round(v / g) * g) : v;
     if (sel.type === 'text'){
-      sel.size = Math.max(8, Math.round(o.size * (drag.b.h + dy) / drag.b.h));
+      const rawH = q ? drag.b.w : drag.b.h;
+      sel.size = Math.max(8, Math.round(o.size * (rawH + dy) / rawH));
     } else if (sel.type === 'qr'){
-      sel.w = sel.h = Math.max(20, Math.round(Math.max(o.w + dx, o.h + dy)));
+      sel.w = sel.h = Math.max(20, Math.round(snapLen(Math.max(o.w + dx, o.h + dy))));
     } else if (sel.type === 'image'){
-      sel.w = Math.max(8, Math.round(o.w + dx)); sel.h = Math.max(1, Math.round(sel.w * sel.ratio));
+      sel.w = Math.max(8, Math.round(snapLen(o.w + dx))); sel.h = Math.max(1, Math.round(sel.w * sel.ratio));
     } else {
-      sel.w = Math.max(2, Math.round(o.w + dx)); sel.h = Math.max(2, Math.round(o.h + dy));
+      sel.w = Math.max(2, Math.round(snapLen(o.w + dx))); sel.h = Math.max(2, Math.round(snapLen(o.h + dy)));
     }
   }
   render();
@@ -596,7 +839,13 @@ cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 
 document.addEventListener('keydown', ev => {
-  if (!sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  // Strg+Z / Strg+Y (bzw. Strg+Umschalt+Z) – in Textfeldern bleibt das normale Rückgängig des Feldes
+  if ((ev.ctrlKey || ev.metaKey) && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){
+    const k = ev.key.toLowerCase();
+    if (k === 'z' && !ev.shiftKey){ undo(); ev.preventDefault(); return; }
+    if (k === 'y' || (k === 'z' && ev.shiftKey)){ redo(); ev.preventDefault(); return; }
+  }
+  if (!sel || sel.locked || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
   const st = ev.shiftKey ? 8 : 1;
   if (ev.key === 'Delete' || ev.key === 'Backspace'){ removeSel(); ev.preventDefault(); return; }
   const mv = { ArrowLeft:[-st,0], ArrowRight:[st,0], ArrowUp:[0,-st], ArrowDown:[0,st] }[ev.key];
@@ -710,21 +959,10 @@ $('fileLabel').addEventListener('change', async ev => {
 // Regler auf Ausgangswerte, Bild wieder eingepasst und mittig aufs Etikett
 function resetImageEl(e){
   Object.assign(e, e.orig || { threshold:128, thicken:'0', dither:false });
-  const k = Math.min(W() / e.w, H() / e.h);
+  const b = bbox(e), k = Math.min(W() / b.w, H() / b.h);
   e.w = Math.round(e.w * k); e.h = Math.round(e.w * e.ratio);
-  e.x = Math.round((W() - e.w) / 2); e.y = Math.round((H() - e.h) / 2);
-  changed();
-}
-
-async function rotateImageEl(e){
-  const im = getImg(e.src);
-  if (!im.complete) await im.decode();
-  e.src = rasterTo(im, im.naturalHeight, im.naturalWidth, true);
-  // gedreht wieder ins Etikett einpassen und mittig setzen
-  const k = Math.min(1, W() / e.h, H() / e.w);
-  [e.w, e.h] = [Math.round(e.h * k), Math.round(e.w * k)];
-  e.ratio = e.h / e.w;
-  e.x = Math.round((W() - e.w) / 2); e.y = Math.round((H() - e.h) / 2);
+  const b2 = bbox(e);
+  e.x = Math.round((W() - b2.w) / 2); e.y = Math.round((H() - b2.h) / 2);
   changed();
 }
 
@@ -768,10 +1006,8 @@ function buildProps(){
   const mk = (txt, fn, cls) => { const b = document.createElement('button'); b.textContent = txt; if (cls) b.className = cls; b.onclick = fn; acts.appendChild(b); };
   mk('↔ Mitte', () => { const b = bbox(sel); sel.x = Math.round((W()-b.w)/2); changed(); });
   mk('↕ Mitte', () => { const b = bbox(sel); sel.y = Math.round((H()-b.h)/2); changed(); });
-  if (sel.type === 'image'){
-    mk('↻ 90°', () => rotateImageEl(sel));
-    mk('Zurücksetzen', () => resetImageEl(sel));
-  }
+  mk('↻ 90°', () => rotateEl(sel));
+  if (sel.type === 'image') mk('Zurücksetzen', () => resetImageEl(sel));
   mk('Duplizieren', () => { const c = JSON.parse(JSON.stringify(sel)); c.x += 12; c.y += 12; addEl(c); });
   mk('Nach vorne', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.push(sel); changed(); });
   mk('Nach hinten', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.unshift(sel); changed(); });
@@ -901,7 +1137,7 @@ async function connect(){
     const device = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:BLE_SERVICES });
     diag(`Gerät: ${device.name || '(ohne Namen)'}`);
     bt.device = device;
-    device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); diag('Verbindung wurde getrennt'); });
+    device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); clearPrinterInfo(); diag('Verbindung wurde getrennt'); });
 
     // Viele Drucker trennen beim ersten Auslesen der Dienste sofort wieder (v. a. Android).
     // Darum: verbinden, kurz warten, Dienste lesen – und das Ganze bei Abbruch bis zu 4-mal wiederholen.
@@ -947,6 +1183,7 @@ async function connect(){
     diag(`Druckkanal: ${shortUuid(bt.char.uuid)} – bereit`);
     setStatus(true, device.name || 'Verbunden');
     log('');
+    queryStatus();
   } catch(err){
     if (err.name === 'NotFoundError'){ setStatus(false); return; }   // Auswahl abgebrochen
     setStatus(false, 'Fehler: ' + step);
@@ -959,10 +1196,48 @@ const withTimeout = (p, ms, what) => Promise.race([p,
   new Promise((_, rej) => setTimeout(() => rej(new Error(`${what}: keine Antwort nach ${ms / 1000} s`)), ms))]);
 const shortUuid = u => { const m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i.exec(u); return m ? '0x' + m[1] : u; };
 function diag(line){ const d = $('btDiag'); d.hidden = false; $('btDiagCopy').hidden = false; d.textContent += line + '\n'; }
+// ---- Druckerstatus: Antworten im Format 1A <Typ> <Wert> (Bedeutungen aus dem phomymo-Projekt) ----
+const printerInfo = {};
 function onNotify(ev){
-  const b = new Uint8Array(ev.target.value.buffer);
-  console.log('Drucker:', [...b].map(x => x.toString(16).padStart(2,'0')).join(' '));
+  const d = new Uint8Array(ev.target.value.buffer);
+  console.log('Drucker:', [...d].map(x => x.toString(16).padStart(2,'0')).join(' '));
+  if (d.length < 3 || d[0] !== 0x1a) return;
+  const v = d[2];
+  if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
+  else if (d[1] === 0x05) printerInfo.cover = v === 0x98 ? 'open' : v === 0x99 ? 'closed' : printerInfo.cover;
+  else if (d[1] === 0x06) printerInfo.paper = v === 0x88 ? 'out' : 'ok';
+  else if (d[1] === 0x07) printerInfo.firmware = [...d.slice(2)].join('.');
+  else return;
+  showPrinterInfo();
 }
+async function writeRaw(bytes){
+  if (bt.char.properties.writeWithoutResponse) await bt.char.writeValueWithoutResponse(bytes);
+  else await bt.char.writeValueWithResponse(bytes);
+}
+// Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
+async function queryStatus(){
+  for (const q of [0x08, 0x11, 0x12, 0x07]){
+    if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
+    try { await writeRaw(new Uint8Array([0x1f, 0x11, q])); } catch(e){}
+    await sleep(120);
+  }
+}
+function showPrinterInfo(){
+  const box = $('prnStatus'), i = printerInfo, chips = [];
+  if (typeof i.battery === 'number' && i.battery <= 100)
+    chips.push([`🔋 ${i.battery} %`, i.battery <= 15 ? 'bad' : 'ok']);
+  if (i.paper) chips.push(i.paper === 'out' ? ['Kein Papier', 'bad'] : ['Papier ✓', 'ok']);
+  if (i.cover === 'open') chips.push(['Deckel offen', 'bad']);
+  box.innerHTML = chips.map(([t, c]) => `<span class="prn-chip ${c}">${t}</span>`).join('');
+  box.title = i.firmware ? 'Firmware ' + i.firmware : '';
+  box.hidden = !chips.length;
+}
+function clearPrinterInfo(){
+  for (const k of Object.keys(printerInfo)) delete printerInfo[k];
+  $('prnStatus').hidden = true;
+}
+// solange verbunden, jede Minute nachfragen
+setInterval(() => { if (bt.char) queryStatus(); }, 60000);
 $('btnConnect').addEventListener('click', connect);
 $('btDiagCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('btDiag').textContent); $('btDiagCopy').textContent = 'Kopiert ✓'; }
@@ -1008,14 +1283,21 @@ function rasterize(c){
   const align = $('align').value;
   let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
   startX += Math.round((parseFloat($('offset').value) || 0) * PX_PER_MM);
+  // Versatz Y: positiv = leere Zeilen davor (Druck rutscht nach unten), negativ = oben abschneiden
+  const offY = Math.round((parseFloat($('offsetY').value) || 0) * PX_PER_MM);
+  const outH = Math.max(1, h + offY);
   const px = c.getContext('2d').getImageData(0, 0, w, h).data;
-  const bits = new Uint8Array(bpr * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
-    const X = startX + x;
-    if (X < 0 || X >= head) continue;
-    if (px[(y*w + x)*4] < 128) bits[y*bpr + (X >> 3)] |= 0x80 >> (X & 7);
+  const bits = new Uint8Array(bpr * outH);
+  for (let y = 0; y < h; y++){
+    const Y = y + offY;
+    if (Y < 0 || Y >= outH) continue;
+    for (let x = 0; x < w; x++){
+      const X = startX + x;
+      if (X < 0 || X >= head) continue;
+      if (px[(y*w + x)*4] < 128) bits[Y*bpr + (X >> 3)] |= 0x80 >> (X & 7);
+    }
   }
-  return { bits, bpr, h };
+  return { bits, bpr, h: outH };
 }
 
 // Liefert die Druckschritte: [Bytes, Pause danach in ms]
@@ -1049,10 +1331,13 @@ function buildSteps(c){
 
 $('btnPrint').addEventListener('click', async () => {
   if (!bt.char){ await connect(); if (!bt.char) return; }
+  // vor dem Druck warnen, wenn der Drucker Papier leer oder Deckel offen meldet
+  const warn = [printerInfo.paper === 'out' && 'kein Papier', printerInfo.cover === 'open' && 'Deckel offen'].filter(Boolean);
+  if (warn.length && !confirm(`Der Drucker meldet: ${warn.join(', ')}.\nTrotzdem drucken?`)) return;
   const copies = Math.max(1, parseInt($('copies').value) || 1);
   const start = parseInt($('startNr').value) || 1;
   const btn = $('btnPrint'), prog = $('prog');
-  btn.disabled = true; prog.hidden = false;
+  btn.disabled = true; prog.hidden = false; bt.busy = true;
   try {
     for (let n = 0; n < copies; n++){
       curNr = start + n;
@@ -1071,8 +1356,10 @@ $('btnPrint').addEventListener('click', async () => {
   } catch(err){
     log('Druckfehler: ' + err.message);
   } finally {
+    bt.busy = false;
     btn.disabled = false; prog.hidden = true; prog.value = 0; savePrintSettings(); render();
   }
+  queryStatus();
 });
 
 $('btnPng').addEventListener('click', () => {
@@ -1107,6 +1394,7 @@ $('btnSysPrint').addEventListener('click', async () => {
     const img = document.createElement('img');
     img.src = printCanvas().toDataURL('image/png');
     img.style.width = lw + 'mm'; img.style.height = lh + 'mm'; img.style.left = left + 'mm';
+    img.style.top = (parseFloat($('offsetY').value) || 0) + 'mm';
     pg.appendChild(img);
     area.appendChild(pg);
   }
@@ -1117,7 +1405,7 @@ $('btnSysPrint').addEventListener('click', async () => {
   savePrintSettings(); render();
 });
 
-const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper'];
+const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper','offsetY'];
 function savePrintSettings(){
   const o = {};
   for (const k of PRINT_KEYS){ const el = $(k); o[k] = el.type === 'checkbox' ? el.checked : el.value; }
@@ -1169,11 +1457,35 @@ $('tplDel').addEventListener('click', () => {
 $('tplLast').disabled = !(lastDraft && lastDraft.elements && lastDraft.elements.length);
 $('tplLast').addEventListener('click', () => loadDesign(lastDraft));
 $('tplNew').addEventListener('click', () => { if (confirm('Neues leeres Etikett anlegen?')) loadDesign({ w:design.w, h:design.h, elements:[] }); });
+// Export = komplette Sicherung: Etikett, Vorlagen, Rollen, Druckeinstellungen, Fensteranordnung und Ansicht.
+// So lässt sich alles auf ein anderes Gerät oder in einen anderen Browser übertragen.
 $('tplExport').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify({ current:design, templates:tplAll() }, null, 1)], { type:'application/json' });
-  const a = document.createElement('a'); a.download = 'label-studio-vorlagen.json'; a.href = URL.createObjectURL(blob); a.click();
+  flushPending();
+  const backup = { app:'label-studio', version:2, current:design, templates:tplAll(), rolls:rollsAll(), roll:lsGet(LS_ROLL, ''),
+                   print:lsGet(LS_PRINT, {}), layout:lsGet(LS_LAYOUT, null), view:lsGet(LS_VIEW, {}) };
+  const blob = new Blob([JSON.stringify(backup, null, 1)], { type:'application/json' });
+  const a = document.createElement('a'); a.download = 'label-studio-sicherung.json'; a.href = URL.createObjectURL(blob); a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
+function applyBackupSettings(data){
+  if (data.rolls){ lsSet(LS_ROLLS, { ...rollsAll(), ...data.rolls }); refreshRolls(data.roll || $('rollSel').value); }
+  if (data.print){
+    for (const k of PRINT_KEYS) if (k in data.print){ const el = $(k); if (el.type === 'checkbox') el.checked = data.print[k]; else el.value = data.print[k]; }
+    savePrintSettings();
+  }
+  if (data.view){
+    if (data.view.grid !== undefined) $('grid').value = data.view.grid;
+    if (data.view.rulers !== undefined) $('rulers').checked = data.view.rulers;
+    saveView();
+  }
+  if (data.layout){
+    disableFree();
+    applyLayout(data.layout);
+    if (data.layout.free && !narrow()) enableFree(JSON.parse(JSON.stringify(data.layout.free)));
+    saveLayout();
+  }
+  fitCanvas(); render();
+}
 $('tplImport').addEventListener('click', () => $('fileTpl').click());
 $('fileTpl').addEventListener('change', async ev => {
   const f = ev.target.files[0]; ev.target.value = '';
@@ -1183,15 +1495,223 @@ $('fileTpl').addEventListener('change', async ev => {
     if (data.templates){ lsSet(LS_TPL, { ...tplAll(), ...data.templates }); refreshTplList(); }
     if (data.current) loadDesign(data.current);
     else if (data.elements) loadDesign(data);
-    log('Import erfolgreich.');
+    applyBackupSettings(data);
+    toast(data.layout || data.rolls ? 'Sicherung eingespielt: Vorlagen, Rollen, Einstellungen und Fenster' : 'Import erfolgreich');
   } catch(err){ log('Import fehlgeschlagen: ' + err.message); }
 });
 
+// ---------- Ebenen: Liste aller Elemente, oben = vorne (letztes im Array) ----------
+const LAYER_ICONS = { text:'T', qr:'▦', barcode:'‖', image:'▨', rect:'▭' };
+function layerName(e){
+  if (e.name) return e.name;
+  if (e.type === 'text') return (e.text || '').split('\n')[0].trim() || 'Text';
+  if (e.type === 'qr') return 'QR: ' + (e.value || '');
+  if (e.type === 'barcode') return 'Barcode: ' + (e.value || '');
+  if (e.type === 'image') return 'Bild';
+  return e.filled && Math.min(e.w, e.h) <= 8 ? 'Linie' : 'Rahmen';
+}
+let layerDrag = null, layerSig = '';
+function renderLayers(){
+  if (layerDrag) return;   // während des Umsortierens nicht neu aufbauen
+  const els = [...design.elements].reverse();
+  // nur neu aufbauen, wenn sich etwas Sichtbares geändert hat (sonst gehen Doppelklicks verloren)
+  const sig = JSON.stringify(els.map(e => [e.id, layerName(e), !!e.hidden, !!e.locked, e === sel]));
+  if (sig === layerSig) return;
+  layerSig = sig;
+  const ul = $('layers');
+  ul.textContent = '';
+  for (const e of els){
+    const li = document.createElement('li');
+    li.className = 'layer' + (e === sel ? ' sel' : '') + (e.hidden ? ' off' : '');
+    li.dataset.id = e.id;
+    // Namen stammen aus dem Inhalt (evtl. aus geteilten Links) – darum nur als Text einsetzen
+    const part = (tag, cls, txt, title, act) => {
+      const s = document.createElement(tag);
+      s.className = cls; s.textContent = txt;
+      if (title) s.title = title;
+      if (act){ s.dataset.act = act; s.type = 'button'; s.setAttribute('aria-label', title); }
+      li.appendChild(s);
+    };
+    part('span', 'lgrip', '⠿', 'Ziehen, um die Reihenfolge zu ändern');
+    part('span', 'lico', layerName(e) === 'Linie' ? '—' : LAYER_ICONS[e.type] || '?');
+    part('span', 'lname', layerName(e), 'Doppelklick zum Umbenennen');
+    part('button', 'lbtn' + (e.hidden ? ' dim' : ''), '👁', e.hidden ? 'Einblenden' : 'Ausblenden (wird dann nicht gedruckt)', 'vis');
+    part('button', 'lbtn' + (e.locked ? '' : ' dim'), e.locked ? '🔒' : '🔓', e.locked ? 'Entsperren' : 'Sperren (nicht mehr verschiebbar)', 'lock');
+    ul.appendChild(li);
+  }
+  if (!els.length){
+    const li = document.createElement('li');
+    li.className = 'empty'; li.textContent = 'Noch keine Elemente auf dem Etikett.';
+    ul.appendChild(li);
+  }
+  $('layersHint').hidden = !els.length;
+}
+const layerOf = li => design.elements.find(e => e.id === li.dataset.id);
+$('layers').addEventListener('click', ev => {
+  const li = ev.target.closest('.layer'), e = li && layerOf(li);
+  if (!e) return;
+  const act = ev.target.dataset.act;
+  if (act === 'vis'){ e.hidden = !e.hidden; changed(); return; }
+  if (act === 'lock'){ e.locked = !e.locked; changed(); return; }
+  sel = e; buildProps(); render();
+});
+$('layers').addEventListener('dblclick', ev => {
+  const li = ev.target.closest('.layer'), e = li && layerOf(li);
+  if (!e || !ev.target.classList.contains('lname')) return;
+  const n = prompt('Name der Ebene (leer lassen = automatisch):', e.name || layerName(e));
+  if (n === null) return;
+  if (n.trim()) e.name = n.trim(); else delete e.name;
+  changed();
+});
+// Reihenfolge: am ⠿ ziehen, die Zeile wandert live mit; beim Loslassen wird die Elementliste neu sortiert
+$('layers').addEventListener('pointerdown', ev => {
+  const grip = ev.target.closest('.lgrip');
+  if (!grip) return;
+  const li = grip.closest('.layer');
+  layerDrag = { li, moved: false };
+  li.classList.add('dragging');
+  try { grip.setPointerCapture(ev.pointerId); } catch(e){}
+  ev.preventDefault();
+});
+document.addEventListener('pointermove', ev => {
+  if (!layerDrag) return;
+  const ul = $('layers'), li = layerDrag.li;
+  const before = [...ul.children].find(x => x !== li && ev.clientY < x.getBoundingClientRect().top + x.offsetHeight / 2);
+  if (before !== li.nextSibling){ ul.insertBefore(li, before || null); layerDrag.moved = true; }
+});
+function endLayerDrag(){
+  if (!layerDrag) return;
+  const { li, moved } = layerDrag;
+  li.classList.remove('dragging');
+  layerDrag = null;
+  if (!moved){ layerSig = ''; render(); return; }
+  const order = [...$('layers').children].map(x => x.dataset.id).reverse();
+  design.elements.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  changed();
+}
+document.addEventListener('pointerup', endLayerDrag);
+document.addEventListener('pointercancel', endLayerDrag);
+
+// ---------- Kurze Meldung unten am Bildschirm ----------
+let toastT;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3500);
+}
+
+// ---------- Rollen-Profile: Etikettengröße + Druckeinstellungen je Etikettenrolle ----------
+const LS_ROLLS = 'labelstudio.rolls', LS_ROLL = 'labelstudio.roll';
+const ROLL_KEYS = ['offset','offsetY','rotate','sysPaper','model','align','density','feed'];
+function rollsAll(){
+  const r = lsGet(LS_ROLLS, null);
+  if (r) return r;
+  // Startprofil für die 40 × 30-Rolle am M220
+  return { '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' } };
+}
+function refreshRolls(selName){
+  const names = Object.keys(rollsAll()).sort((a, b) => a.localeCompare(b));
+  const s = $('rollSel');
+  s.innerHTML = '<option value="">– Rolle wählen –</option>';
+  for (const n of names){ const o = document.createElement('option'); o.value = o.textContent = n; s.appendChild(o); }
+  s.value = names.includes(selName) ? selName : '';
+  $('rollDel').disabled = !s.value;
+}
+$('rollSel').addEventListener('change', () => {
+  const name = $('rollSel').value, r = rollsAll()[name];
+  $('rollDel').disabled = !name;
+  lsSet(LS_ROLL, name);
+  if (!r) return;
+  for (const k of ROLL_KEYS) if (k in r){ const el = $(k); if (el.type === 'checkbox') el.checked = r[k]; else el.value = r[k]; }
+  savePrintSettings();
+  setLabelSize(r.w, r.h);
+  fitCanvas(); render();
+  toast(`Rolle „${name}“ eingestellt`);
+});
+$('rollSave').addEventListener('click', () => {
+  const name = prompt('Name der Rolle (z. B. „40 × 30 Filament“):', $('rollSel').value || `${design.w} × ${design.h} mm`);
+  if (!name) return;
+  const r = { w:design.w, h:design.h };
+  for (const k of ROLL_KEYS){ const el = $(k); r[k] = el.type === 'checkbox' ? el.checked : el.value; }
+  const all = rollsAll(); all[name] = r; lsSet(LS_ROLLS, all); lsSet(LS_ROLL, name);
+  refreshRolls(name);
+  toast(`Rolle „${name}“ gespeichert`);
+});
+$('rollDel').addEventListener('click', () => {
+  const name = $('rollSel').value;
+  if (!name || !confirm(`Rolle „${name}“ löschen?`)) return;
+  const all = rollsAll(); delete all[name]; lsSet(LS_ROLLS, all); lsSet(LS_ROLL, '');
+  refreshRolls();
+});
+
+// ---------- Etikett teilen: als Link (komprimiert im #-Teil der Adresse) und QR-Code ----------
+const SHARE_BASE = 'https://open-label-studio.netlify.app/';
+const b64url = bytes => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const fromB64url = str => Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+async function encodeDesign(d){
+  const stream = new Blob([JSON.stringify(d)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return b64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+async function decodeDesign(code){
+  const stream = new Blob([fromB64url(code)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return JSON.parse(await new Response(stream).text());
+}
+// lokal geöffnete Datei → Link auf die Online-Version, damit er auch auf anderen Geräten funktioniert
+const shareBase = () => location.protocol.startsWith('http') ? location.origin + location.pathname : SHARE_BASE;
+$('tplShare').addEventListener('click', async () => {
+  flushPending();
+  const url = shareBase() + '#t=' + await encodeDesign(design);
+  $('shareLink').value = url;
+  const qc = $('shareQr'), c = qc.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, qc.width, qc.height);
+  try {
+    const q = qrcode(0, 'L'); q.addData(url); q.make();
+    const n = q.getModuleCount(), s = Math.floor((qc.width - 16) / n), off = Math.floor((qc.width - s * n) / 2);
+    c.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(off + k*s, off + r*s, s, s);
+    qc.hidden = false;
+    $('shareInfo').textContent = 'Mit der Handy-Kamera scannen oder den Link schicken.';
+  } catch(e){
+    qc.hidden = true;
+    $('shareInfo').textContent = 'Das Etikett ist zu groß für einen QR-Code (meist wegen Bildern). Den Link kannst du trotzdem kopieren und schicken.';
+  }
+  $('shareNative').hidden = !navigator.share;
+  $('share').showModal();
+});
+$('shareCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('shareLink').value); toast('Link kopiert'); }
+  catch(e){ $('shareLink').select(); toast('Bitte mit Strg+C kopieren'); }
+});
+$('shareNative').addEventListener('click', () => {
+  navigator.share({ title: 'Label Studio – Etikett', url: $('shareLink').value }).catch(() => {});
+});
+$('shareClose').addEventListener('click', () => $('share').close());
+$('share').addEventListener('click', ev => { if (ev.target === $('share')) $('share').close(); });
+// Wird die App über einen geteilten Link geöffnet, das Etikett laden und die Adresse wieder aufräumen
+async function loadSharedFromHash(){
+  const m = /^#t=([\w-]+)$/.exec(location.hash);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    loadDesign(await decodeDesign(m[1]));
+    toast('Geteiltes Etikett geladen – unter „Vorlagen“ kannst du es speichern');
+  } catch(e){ toast('Der geteilte Link ist beschädigt oder unvollständig'); }
+}
+
+// ---------- Werkzeugleiste: Rückgängig, Raster, Lineal ----------
+const LS_VIEW = 'labelstudio.view';
+$('btnUndo').addEventListener('click', undo);
+$('btnRedo').addEventListener('click', redo);
+const saveView = () => lsSet(LS_VIEW, { grid: $('grid').value, rulers: $('rulers').checked });
+$('grid').addEventListener('change', () => { saveView(); render(); });
+$('rulers').addEventListener('change', () => { saveView(); fitCanvas(); render(); });
+
 // ---------- Fenster verschieben (an der Titelzeile ziehen) ----------
 const LS_LAYOUT = 'labelstudio.layout';
-const cols = { main: document.querySelector('[data-col=main]'), side: document.querySelector('[data-col=side]') };
+const cols = { main: document.querySelector('[data-col=main]'), side: document.querySelector('[data-col=side]'),
+               side2: document.querySelector('[data-col=side2]') };
 const panelsIn = col => [...col.children].filter(c => c.dataset.panel).map(c => c.dataset.panel);
-const DEFAULT_LAYOUT = { main: panelsIn(cols.main), side: panelsIn(cols.side) };
+const DEFAULT_LAYOUT = { main: panelsIn(cols.main), side: panelsIn(cols.side), side2: panelsIn(cols.side2) };
 
 function applyLayout(l){
   for (const [col, ids] of Object.entries(l)){
@@ -1201,7 +1721,7 @@ function applyLayout(l){
   fitCanvas(); render();
 }
 function saveLayout(){
-  const l = { main: panelsIn(cols.main), side: panelsIn(cols.side) };
+  const l = { main: panelsIn(cols.main), side: panelsIn(cols.side), side2: panelsIn(cols.side2) };
   if (freeOn()) l.free = freePos;
   lsSet(LS_LAYOUT, l);
 }
@@ -1234,6 +1754,17 @@ function enableFree(pos){
       const r = p.getBoundingClientRect();
       pos[p.dataset.panel] = { x: Math.round(r.left + scrollX), y: Math.round(r.top - top0), w: Math.round(r.width) };
     }
+  }
+  // Fenster, die in einer älteren gespeicherten Anordnung noch fehlen (z. B. „Ebenen“), unter das tiefste setzen
+  let bottom = 0, ref = null;
+  for (const p of panels()){
+    const f = pos[p.dataset.panel];
+    if (f && f.y + p.offsetHeight > bottom){ bottom = f.y + p.offsetHeight; ref = f; }
+  }
+  for (const p of panels()){
+    if (pos[p.dataset.panel]) continue;
+    pos[p.dataset.panel] = { x: ref ? ref.x : GAP, y: bottom + GAP, w: ref ? ref.w : 340 };
+    bottom += GAP + p.offsetHeight;
   }
   freePos = pos;
   layoutEl.classList.add('free');
@@ -1410,12 +1941,27 @@ const HELP = {
         Alle Einstellungen stehen im Fenster „Element“. Pfeiltasten verschieben um 1 Punkt (mit Shift 8), Entf löscht.</li>
       <li><b>Platzhalter</b> im Text: <code>{datum}</code>, <code>{zeit}</code> und <code>{nr}</code> (zählt bei mehreren Kopien hoch).</li>
       <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ per Bluetooth (im Drucken-Fenster <b>„Bluetooth-Direktdruck“</b> aufklappen).</li>
-      <li><b>Vorlagen</b> speichern, laden und als Datei exportieren (Sicherung oder Übertragung auf ein anderes Gerät).</li>
+      <li><b>Rückgängig / Wiederholen</b> – Pfeile ↶ ↷ über dem Etikett oder <b>Strg+Z</b> / <b>Strg+Y</b>.</li>
+      <li><b>Drehen</b> – Element anklicken und „↻ 90°“ (Text, QR-Code, Barcode, Bild, Rahmen).</li>
+      <li><b>Ebenen</b> – das Fenster „Ebenen“ listet alle Elemente, oben liegt vorne. Anklicken wählt aus,
+        👁 blendet aus (wird dann nicht gedruckt), 🔒 sperrt gegen Verschieben, am ⠿ ziehen ändert die Reihenfolge,
+        Doppelklick auf den Namen benennt um.</li>
+      <li><b>Raster &amp; Lineal</b> – über dem Etikett ein Raster (1, 2 oder 5 mm) einschalten: Elemente rasten beim
+        Verschieben und Größerziehen darauf ein. Das Lineal zeigt die Maße in mm.</li>
+      <li><b>Vorlagen</b> speichern und laden. <b>„Export“</b> erstellt eine komplette Sicherung als Datei – Vorlagen,
+        Rollen, Druckeinstellungen und Fensteranordnung. Mit <b>„Import“</b> holst du alles auf einem anderen Gerät
+        oder in einem anderen Browser zurück.</li>
+      <li><b>Teilen</b> – im Fenster „Vorlagen“ erzeugt „Teilen“ einen Link und einen QR-Code. Mit dem Handy scannen,
+        und das Etikett ist dort geöffnet. (Etiketten mit großen Bildern passen nur als Link, nicht in den QR-Code.)</li>
+      <li><b>Rollen</b> – oben im Drucken-Fenster eine Rolle wählen: Sie stellt Etikettengröße, Papierformat und
+        Versatz auf einmal ein. „Speichern…“ legt die aktuellen Einstellungen als neue Rolle an.</li>
       <li><b>Fenster anordnen</b> – an der Titelzeile (⠿) ziehen, sie rasten an Rändern und anderen Fenstern ein.
         Der Griff unten rechts ändert die Breite. „Layout zurücksetzen“ stellt alles wieder her.</li>
     </ol>
     <p class="hint">Beim Öffnen erscheint immer das Startetikett. Dein zuletzt bearbeitetes Etikett holst du im Fenster
       „Vorlagen“ mit <b>„Zuletzt bearbeitet“</b> zurück.</p>
+    <p class="hint">Der Browser speichert getrennt nach Adresse: die lokale Datei und open-label-studio.netlify.app haben
+      jeweils eigene Einstellungen. Am besten immer dieselbe Adresse nutzen.</p>
     <p class="hint">Alles wird im Browser gespeichert – in einem anderen Browser oder nach dem Löschen der Browserdaten
       ist es weg. Vorlagen deshalb ab und zu exportieren.</p>` },
   driver: { title: 'Treiber & Einrichtung', html: `
@@ -1464,9 +2010,14 @@ const HELP = {
       <li><b>Druckvorschau ist leer</b> – Seite mit F5 neu laden und erneut versuchen.</li>
       <li><b>Druck verteilt sich auf zwei Etiketten</b> – im Druckfenster ist das falsche Papierformat gewählt.</li>
       <li><b>Druck seitlich verschoben</b> – „Versatz X (mm)“ anpassen, z. B. 1 oder -1.</li>
+      <li><b>Druck sitzt zu hoch oder zu tief</b> – „Versatz Y (mm)“ anpassen: positiv schiebt nach unten, negativ nach
+        oben. Beim allerersten Druck nach dem Einschalten sucht der Drucker oft noch die Etikettenlücke.</li>
+      <li><b>Druckerstatus</b> – per Bluetooth verbunden zeigt die Kopfzeile Akku und Papier, rot bei
+        „Kein Papier“ oder „Deckel offen“. Vor dem Drucken kommt dann eine Warnung.</li>
       <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“ oder die Schwärzung erhöhen.
         Am meisten bringt eine fettere Schrift in der Vorlage.</li>
-      <li><b>Bild steht falsch herum</b> – Bild anklicken und „↻ 90°“.</li>
+      <li><b>Element steht falsch herum</b> – anklicken und „↻ 90°“, bis es passt.</li>
+      <li><b>Etwas versehentlich geändert oder gelöscht</b> – Strg+Z bzw. ↶.</li>
       <li><b>Regler verstellt</b> – „Zurücksetzen“ beim Bild bzw. „Zurücksetzen“ unten im Drucken-Fenster.</li>
       <li><b>Bluetooth: Verbindungsfehler</b> – Drucker in den Windows-Bluetooth-Einstellungen entfernen,
         Drucker neu starten, Handy-Bluetooth aus. Hilft das nicht: USB nehmen.</li>
@@ -1496,12 +2047,23 @@ $('btSection').open = lsGet('labelstudio.btOpen', false);
 $('btSection').addEventListener('toggle', () => { lsSet('labelstudio.btOpen', $('btSection').open); });
 $('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) => `<option value="${k}">${p.name}</option>`).join('');
 $('model').addEventListener('change', () => { $('align').value = printer().align; savePrintSettings(); });
+const view = lsGet(LS_VIEW, {});
+if (view.grid) $('grid').value = view.grid;
+if ('rulers' in view) $('rulers').checked = view.rulers;
 const savedLayout = lsGet(LS_LAYOUT, DEFAULT_LAYOUT);
 applyLayout(savedLayout);
+// ältere gespeicherte Spalten-Anordnung ohne „Ebenen“: das Fenster direkt unter „Element“ einordnen
+if (![...(savedLayout.main || []), ...(savedLayout.side || []), ...(savedLayout.side2 || [])].includes('layers'))
+  document.querySelector('[data-panel=element]').after(document.querySelector('[data-panel=layers]'));
 if (savedLayout.free) enableFree(savedLayout.free);
 initLabelControls();
 loadPrintSettings();
 refreshTplList();
+refreshRolls(lsGet(LS_ROLL, ''));
+histSnap = JSON.stringify(design);
+updateUndoButtons();
+loadSharedFromHash();
+window.addEventListener('hashchange', loadSharedFromHash);
 $('preview1bit').addEventListener('change', render);
 $('startNr').addEventListener('input', render);
 requestAnimationFrame(() => { fitCanvas(); render(); });

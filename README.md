@@ -17,11 +17,16 @@
 
 | | |
 |---|---|
-| 🖊️ **Gestalten** | Text, QR-Code, Barcode, Bild, Rahmen und Linie – frei verschieben und skalieren |
+| 🖊️ **Gestalten** | Text, QR-Code, Barcode, Bild, Rahmen und Linie – verschieben, skalieren und um 90° drehen |
+| 🗂️ **Ebenen** | Alle Elemente als Liste wie in Photoshop: auswählen, ausblenden, sperren, umsortieren, umbenennen |
+| 📐 **Präzise** | Lineal in mm, zuschaltbares Raster (1/2/5 mm) mit Einrasten, Rückgängig/Wiederholen (Strg+Z/Y) |
 | 📥 **Importieren** | Fertige Etiketten als PNG, SVG oder PDF, z. B. von [3dfilamentprofiles.com](https://3dfilamentprofiles.com) |
 | 🔢 **Platzhalter** | `{datum}`, `{zeit}` und `{nr}` – die Nummer zählt bei mehreren Kopien hoch |
-| 💾 **Vorlagen** | Speichern, laden, als Datei exportieren und auf andere Geräte übertragen |
-| 🖨️ **Drucken** | Über den Windows-Treiber per USB oder direkt per Bluetooth |
+| 💾 **Vorlagen & Sicherung** | Vorlagen speichern; Export/Import überträgt Vorlagen, Rollen, Einstellungen und Fensteranordnung auf andere Geräte |
+| 🔗 **Teilen** | Etikett per Link oder QR-Code aufs Handy holen – einfach scannen |
+| 🧻 **Rollen** | Profile je Etikettenrolle: Größe, Papierformat und Versatz mit einem Klick |
+| 🖨️ **Drucken** | Über den Windows-Treiber per USB oder direkt per Bluetooth, Versatz in X und Y einstellbar |
+| 🔋 **Druckerstatus** | Akku, Papier und Deckel werden per Bluetooth angezeigt, mit Warnung vor dem Druck |
 | 🧩 **Arbeitsfläche** | Fenster frei anordnen und in der Breite ziehen, mit Einrasten an Kanten |
 | ❓ **Hilfe** | Anleitung, Treiber-Infos und Fehlerbehebung im Menü **„Label Studio“** oben links |
 
