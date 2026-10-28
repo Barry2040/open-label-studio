@@ -11,6 +11,12 @@
   <a href="https://barry2040.github.io/open-label-studio/"><b>▶ App öffnen: barry2040.github.io/open-label-studio</b></a>
 </p>
 
+> [!WARNING]
+> **Vibe-coded:** Dieses Projekt ist mit KI-Unterstützung (Claude) im „Vibe Coding“ entstanden – also im Gespräch,
+> Schritt für Schritt, ohne klassische Code-Reviews oder automatisierte Tests. Es kann daher **Fehler enthalten**.
+> Getestet wurde nur das, was in den Tabellen unten als „getestet“ markiert ist. Nutzung auf eigene Gefahr –
+> Fehler und Verbesserungen gerne als [Issue](https://github.com/Barry2040/open-label-studio/issues) melden.
+
 ---
 
 ## ✨ Funktionen
