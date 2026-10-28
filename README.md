@@ -4,7 +4,11 @@
 
 <p align="center">
   <b>Eine eigene Etiketten-App für den Phomemo M220 – am PC und am Handy, direkt im Browser.</b><br>
-  Keine Installation, keine Anmeldung, alles in einer einzigen HTML-Datei.
+  Keine Installation, alles in einer einzigen HTML-Datei.
+</p>
+
+<p align="center">
+  <a href="https://open-label-studio.netlify.app"><b>▶ App öffnen: open-label-studio.netlify.app</b></a>
 </p>
 
 ---
@@ -23,9 +27,11 @@
 
 ## 🚀 Loslegen
 
-1. [`label-studio/label-studio.html`](label-studio/label-studio.html) herunterladen.
-2. In **Chrome** oder **Edge** öffnen.
-3. Etikettengröße wählen, gestalten, drucken.
+**Online:** [open-label-studio.netlify.app](https://open-label-studio.netlify.app) in **Chrome** oder **Edge** öffnen – am PC wie am Handy.
+
+**Offline:** [`label-studio/label-studio.html`](label-studio/label-studio.html) herunterladen und im Browser öffnen.
+
+Dann Etikettengröße wählen, gestalten, drucken.
 
 ## 🖨️ Drucken am PC (USB)
 
@@ -62,6 +68,6 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 
 Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellungen speichert die App **nur im Browser** des jeweiligen Geräts – sie landen weder in der Datei noch auf GitHub.
 
-## 🌐 Online stellen
+## 🌐 Online
 
-Die Datei `netlify.toml` ist schon vorbereitet: Repository bei [Netlify](https://netlify.com) importieren, fertig. Die Startadresse öffnet direkt die App, und jede Änderung auf GitHub wird automatisch veröffentlicht.
+Die App läuft unter **[open-label-studio.netlify.app](https://open-label-studio.netlify.app)**. Netlify veröffentlicht jede Änderung auf GitHub automatisch – die Einstellungen stehen in `netlify.toml`.
