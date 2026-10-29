@@ -4482,7 +4482,7 @@ $('help').addEventListener('click', ev => { if (ev.target === $('help')) $('help
 $('btSection').open = lsGet('labelstudio.btOpen', false);
 $('btSection').addEventListener('toggle', () => { lsSet('labelstudio.btOpen', $('btSection').open); });
 $('model').innerHTML = Object.entries(PRINTERS).map(([k, p]) =>
-  `<option value="${k}">${p.name}${p.tested ? ` · ✓ getestet (${p.tested})` : ''}</option>`).join('');
+  `<option value="${k}">${p.name}${p.tested ? ` · ✓ ${p.tested}` : ''}</option>`).join('');
 // Teststatus des gewählten Modells neben „Druckermodell“ anzeigen: grün = mit echtem Gerät ausprobiert
 function showModelTested(){
   const t = printer().tested, b = $('modelTested');
