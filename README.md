@@ -49,7 +49,7 @@
 | **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S | Bluetooth, USB (Windows-Treiber) |
 | **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
 | **Niimbot** | D101 ✅, D110, B1 | Bluetooth |
-| **DYMO** | LetraTag 200B | Bluetooth |
+| **DYMO** | LetraTag 200B ✅ | Bluetooth |
 | **Alle anderen** | jeder Etikettendrucker mit Windows-Treiber | USB über den Windows-Druck |
 
 ✅ = mit einem echten Gerät getestet. Details zu Druckbreite, Etikett und Teststatus stehen unter [Bluetooth](#-bluetooth).
@@ -97,10 +97,10 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Niimbot D110 | 12 mm | 40 × 12 mm | quer | ungetestet |
 | Niimbot D101 | 24 mm | 40 × 12 mm | quer | ✅ getestet (PC + Android) |
 | Niimbot B1 | 48 mm | 50 × 30 mm | längs | ungetestet |
-| DYMO LetraTag 200B | 12-mm-Band, 3,8 mm druckbar | 40 × 4 mm (Länge frei) | – | ungetestet |
+| DYMO LetraTag 200B | 12-mm-Band, 3,8 mm druckbar | 40 × 4 mm (Länge frei) | – | ✅ getestet (PC + Android) |
 
 > [!TIP]
-> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome), **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) und **Niimbot D101** per Bluetooth am PC und mit Android – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
+> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome), **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows), **Niimbot D101** und **DYMO LetraTag 200B** per Bluetooth am PC und mit Android – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
 
 > [!NOTE]
 > Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken. Die Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, die **Marklife**-Modelle nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz), die **Niimbot**-Modelle nach [niimbluelib](https://github.com/MultiMote/niimbluelib) von MultiMote (MIT-Lizenz, Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)), der **DYMO LetraTag 200B** nach [dymo-bluetooth](https://github.com/ysfchn/dymo-bluetooth) von ysfchn (MIT-Lizenz). Beim LetraTag sind vom 12-mm-Band nur 3,8 mm bedruckbar – das Etikett ist darum 4 mm hoch und beliebig lang. Marklife- und Niimbot-Drucker werden beim Verbinden automatisch erkannt; ihre Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.

@@ -574,7 +574,7 @@ const PRINTERS = {
            widthText:'48 mm', prefixes:['B1-', 'B1_'] },
   // DYMO (Daten aus github.com/ysfchn/dymo-bluetooth, MIT-Lizenz): 12-mm-Band, aber nur 30 Punkte (3,8 mm) druckbar.
   // Das Etikett ist darum 4 mm hoch (32 Punkte); die Länge ist frei, das Band wird nach dem Druck abgeschnitten.
-  lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, continuous:true, widthText:'12-mm-Band (3,8 mm druckbar)',
+  lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, continuous:true, tested:'PC + Android', widthText:'12-mm-Band (3,8 mm druckbar)',
            prefixes:['Letratag', 'LetraTag', 'DYMO LT', 'LT-200B'] }
 };
 // Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
@@ -3446,7 +3446,7 @@ const HELP = {
       es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1 48 mm breit. Passende Rollen:
       „40 × 12 mm (Niimbot D110)“, „40 × 12 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
     <p class="hint"><b>DYMO LetraTag 200B</b> – umgesetzt nach dem Open-Source-Projekt <b>„dymo-bluetooth“</b> von ysfchn
-      (MIT-Lizenz); noch nicht selbst getestet. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
+      (MIT-Lizenz); druckt per Bluetooth am PC und mit Android. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
       Mitte. Das Etikett ist darum 4 mm hoch, die Länge frei wählbar (z. B. 40 × 4 mm) – ideal für eine Zeile Text.
       Den äußersten Rand oben und unten druckt der DYMO nicht, dort also nichts Wichtiges platzieren. Höhere Etiketten
       verkleinert die App automatisch aufs Band. Passende Rolle: „DYMO LetraTag (12-mm-Band)“.<br>
