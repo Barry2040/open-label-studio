@@ -429,7 +429,15 @@ const PRINTERS = {
   p12:   { name:'Marklife P12',        proto:'l11', head:0, align:'left', rotate90:true, packet:90, delay:30, densityCmd:'density',
            widthText:'12–15 mm', prefixes:['P12','LP90','P11'] },
   m60:   { name:'Marklife M60',        proto:'x2',  head:0, align:'left', rotate90:true, packet:237, delay:1,
-           widthText:'bis 50 mm', prefixes:['M60','X2'] }
+           widthText:'bis 50 mm', prefixes:['M60','X2'] },
+  // Niimbot (Daten aus github.com/MultiMote/niimbluelib, MIT-Lizenz). task = Druckablauf der Bibliothek,
+  // head = Druckkopf in Punkten, rotate90 = Druckrichtung „left“ (Etikett läuft quer), densMax = höchste Druckstärke
+  d110:  { name:'Niimbot D110',        proto:'niimbot', task:'D110', head:96,  rotate90:true, densMax:3,
+           widthText:'12 mm', prefixes:['D110'] },
+  d101:  { name:'Niimbot D101',        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
+           widthText:'24 mm', prefixes:['D101'] },
+  b1:    { name:'Niimbot B1',          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
+           widthText:'48 mm', prefixes:['B1-', 'B1_'] }
 };
 // Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
 // Marklife („M1…“) deuten.
@@ -439,7 +447,7 @@ const modelFromName = name => {
   return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
-const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
+const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
 const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
 const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0xfff0,0xff12,
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
@@ -1240,12 +1248,20 @@ async function connect(){
         }
         if (p.write || p.writeWithoutResponse){
           if (!found && c.uuid.includes('ff02')) found = c;
+          // Niimbot: ein Kanal für beides – Benachrichtigung und Schreiben ohne Antwort
+          if (!found && isNiimbot() && p.notify && p.writeWithoutResponse) found = c;
           if (!fallback) fallback = c;
         }
       }
     }
     bt.char = found || fallback;
     if (!bt.char) throw new Error('Kein beschreibbarer Kanal gefunden. Ist das der richtige Drucker?');
+    if (isNiimbot()){
+      step = 'Anmelden am Drucker';
+      bt.nbBuf = null; bt.nbWaiters = [];
+      const r = await niimbotSend(NB.CONNECT, [1]);
+      diag(`Niimbot angemeldet (Antwort ${r[0]})`);
+    }
     diag(`Druckkanal: ${shortUuid(bt.char.uuid)} – bereit`);
     setStatus(true, device.name || 'Verbunden');
     log('');
@@ -1268,6 +1284,7 @@ function onNotify(ev){
   const d = new Uint8Array(ev.target.value.buffer);
   console.log('Drucker:', [...d].map(x => x.toString(16).padStart(2,'0')).join(' '));
   if (isMarklife()){ onNotifyL11(d); return; }
+  if (isNiimbot()){ onNotifyNiimbot(d); return; }
   if (d.length < 3 || d[0] !== 0x1a) return;
   const v = d[2];
   if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
@@ -1301,7 +1318,7 @@ async function writeRaw(bytes){
 }
 // Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
 async function queryStatus(){
-  if (isMarklife()) return;   // Marklife-Drucker melden ihren Status von selbst
+  if (isMarklife() || isNiimbot()) return;   // haben eigene Statusmeldungen
   for (const q of [0x08, 0x11, 0x12, 0x07]){
     if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
     try { await writeRaw(new Uint8Array([0x1f, 0x11, q])); } catch(e){}
@@ -1379,6 +1396,127 @@ async function printMarklife(c, onProgress){
   await sendCredited(bulk, onProgress);
   // Fertigmeldung AA / „O“ / „K“ abwarten (höchstens 30 s)
   if (!await waitFor(() => bt.l11Done, 30000)) diag('Keine Fertigmeldung vom Drucker erhalten (Druck evtl. trotzdem erfolgt)');
+}
+
+// ---- Niimbot (nach MultiMote/niimbluelib, MIT-Lizenz) ----
+// Paket: 55 55 | Befehl | Länge | Daten | XOR-Prüfsumme über Befehl, Länge, Daten | AA AA.
+// Fast jeder Befehl wird mit einem Antwortpaket bestätigt; Bildzeilen gehen ohne Antwort raus.
+const NB = { CONNECT:0xc1, DENSITY:0x21, LABEL_TYPE:0x23, PRINT_START:0x01, PRINT_CLEAR:0x20, PAGE_START:0x03,
+             PAGE_SIZE:0x13, QUANTITY:0x15, ROW:0x85, ROW_INDEXED:0x83, EMPTY_ROW:0x84, PAGE_END:0xe3,
+             STATUS:0xa3, PRINT_END:0xf3 };
+// Antwort auf Befehl X ist meist X + 0x10 (Ausnahmen in der Tabelle der Bibliothek)
+const NB_REPLY = { 0xc1:0xc2, 0x21:0x31, 0x23:0x33, 0x01:0x02, 0x20:0x30, 0x03:0x04, 0x13:0x14, 0x15:0x16,
+                   0xe3:0xe4, 0xa3:0xb3, 0xf3:0xf4 };
+const isNiimbot = () => printer().proto === 'niimbot';
+const u16 = n => [(n >> 8) & 255, n & 255];
+
+function niimbotPacket(cmd, data = [1]){
+  const out = [0x55, 0x55, cmd, data.length, ...data];
+  let x = cmd ^ data.length;
+  for (const b of data) x ^= b;
+  out.push(x & 255, 0xaa, 0xaa);
+  return new Uint8Array(cmd === NB.CONNECT ? [3, ...out] : out);   // „Connect“ trägt ein 03 davor
+}
+// Eingehende Benachrichtigungen sammeln und in ganze Pakete zerlegen
+function onNotifyNiimbot(d){
+  bt.nbBuf = bt.nbBuf ? concatBytes(bt.nbBuf, d) : d;
+  while (bt.nbBuf.length >= 7){
+    if (bt.nbBuf[0] !== 0x55 || bt.nbBuf[1] !== 0x55){ bt.nbBuf = null; return; }
+    const total = bt.nbBuf[3] + 7;
+    if (bt.nbBuf.length < total) return;
+    const cmd = bt.nbBuf[2], data = bt.nbBuf.slice(4, total - 3);
+    bt.nbBuf = bt.nbBuf.length > total ? bt.nbBuf.slice(total) : null;
+    (bt.nbWaiters || []).slice().forEach(w => w(cmd, data));
+    if (!bt.nbBuf) return;
+  }
+}
+// Paket senden und auf die passende Antwort warten (Fehlerpakete DB = Druckfehler, 00 = nicht unterstützt)
+async function niimbotSend(cmd, data, timeout = 1000){
+  const want = NB_REPLY[cmd];
+  const reply = want === undefined ? null : new Promise((resolve, reject) => {
+    const done = (fn, v) => { clearTimeout(t); bt.nbWaiters = bt.nbWaiters.filter(w => w !== waiter); fn(v); };
+    const waiter = (c, d) => {
+      if (c === want) done(resolve, d);
+      else if (c === 0xdb) done(reject, new Error(`Druckerfehler ${d[0]}`));
+      else if (c === 0x00) done(reject, new Error('Befehl wird vom Drucker nicht unterstützt'));
+    };
+    const t = setTimeout(() => done(reject, new Error(`Keine Antwort auf Befehl 0x${cmd.toString(16)}`)), timeout);
+    bt.nbWaiters = [...(bt.nbWaiters || []), waiter];
+  });
+  await sleep(10);   // kurze Pause vor jedem Paket wie in der Bibliothek
+  await bt.char.writeValueWithoutResponse(niimbotPacket(cmd, data));
+  return reply;
+}
+// Schwarze Punkte je Drittel des Druckkopfs zählen (bzw. gesamt, wenn die Zeile nicht in drei Teile passt)
+function niimbotCounts(row, head){
+  const chunk = Math.floor(head / 8 / 3), split = row.length <= chunk * 3, parts = [0, 0, 0];
+  let total = 0;
+  row.forEach((v, i) => { for (let b = 0; b < 8; b++) if (v & (1 << b)){ total++; if (split) parts[Math.floor(i / chunk)]++; } });
+  return { total, parts: split ? parts : [0, total & 255, (total >> 8) & 255] };
+}
+// Bild zeilenweise kodieren: gleiche Zeilen zusammenfassen (höchstens bis zur nächsten 200er-Grenze),
+// leere Zeilen als „Leerzeile“, Zeilen mit ≤ 6 Punkten als Liste der Punktpositionen
+function niimbotImagePackets(c, head){
+  const w = c.width, h = c.height, cols = Math.ceil(w / 8) * 8, bpr = cols / 8;
+  const px = c.getContext('2d').getImageData(0, 0, w, h).data;
+  const runs = [];
+  for (let y = 0; y < h; y++){
+    const row = new Uint8Array(bpr);
+    for (let x = 0; x < w; x++) if (px[(y * w + x) * 4] < 128) row[x >> 3] |= 0x80 >> (x & 7);
+    const empty = row.every(v => v === 0), last = runs[runs.length - 1];
+    if (last && !last.brk && last.empty === empty && (empty || last.row.every((v, i) => v === row[i]))) last.repeat++;
+    else runs.push({ y, row, empty, repeat: 1 });
+    if (y % 200 === 199) runs[runs.length - 1].brk = true;
+  }
+  const packets = runs.map(r => {
+    if (r.empty) return [NB.EMPTY_ROW, [...u16(r.y), r.repeat]];
+    const cnt = niimbotCounts(r.row, head);
+    if (cnt.total <= 6){
+      const idx = [];
+      r.row.forEach((v, i) => { for (let b = 0; b < 8; b++) if (v & (0x80 >> b)) idx.push(...u16(i * 8 + b)); });
+      return [NB.ROW_INDEXED, [...u16(r.y), ...cnt.parts, r.repeat, ...idx]];
+    }
+    return [NB.ROW, [...u16(r.y), ...cnt.parts, r.repeat, ...r.row]];
+  });
+  return { packets, rows: h, cols };
+}
+// Druckstatus abfragen, bis der Drucker `pages` fertige Seiten meldet
+async function niimbotWaitPrinted(pages){
+  for (let t0 = Date.now(); Date.now() - t0 < 30000; ){
+    const d = await niimbotSend(NB.STATUS, [1], 5000);
+    if (d.length === 10 && d[6]) throw new Error(`Druckerfehler ${d[6]}`);   // Seite(2) Fortschritt(2) ?(2) Fehler(1)
+    if (((d[0] << 8) | d[1]) >= pages) return;
+    await sleep(300);
+  }
+  throw new Error('Drucker meldet kein Druckende');
+}
+async function printNiimbot(c, onProgress){
+  const p = printer();
+  const img = niimbotImagePackets(p.rotate90 ? rotateCW(c) : c, p.head);
+  if (img.cols > p.head) diag(`Hinweis: Etikett ist breiter als der Druckkopf (${img.cols} > ${p.head} Punkte)`);
+  const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
+  const density = Math.min(p.densMax, Math.max(1, Math.round(d8 * p.densMax / 8)));
+  const v = 10000;   // Seiten dürfen länger dauern
+  await niimbotSend(NB.DENSITY, [density]);
+  await niimbotSend(NB.LABEL_TYPE, [1]);   // Etiketten mit Lücke
+  if (p.task === 'B1'){
+    await niimbotSend(NB.PRINT_START, [...u16(1), 0, 0, 0, 0, 0]);
+    await niimbotSend(NB.PAGE_START, [1], v);
+    await niimbotSend(NB.PAGE_SIZE, [...u16(img.rows), ...u16(img.cols), ...u16(1)], v);
+  } else {   // D110
+    await niimbotSend(NB.PRINT_START, [1]);
+    await niimbotSend(NB.PRINT_CLEAR, [1], v);
+    await niimbotSend(NB.PAGE_START, [1], v);
+    await niimbotSend(NB.PAGE_SIZE, [...u16(img.rows), ...u16(img.cols)], v);
+    await niimbotSend(NB.QUANTITY, [...u16(1)], v);
+  }
+  for (let i = 0; i < img.packets.length; i++){
+    await niimbotSend(img.packets[i][0], img.packets[i][1]);
+    onProgress && onProgress((i + 1) / img.packets.length);
+  }
+  await niimbotSend(NB.PAGE_END, [1], v);
+  await niimbotWaitPrinted(1);
+  await niimbotSend(NB.PRINT_END, [1], 5000);
 }
 
 // ---------- Druckdaten ----------
@@ -1497,6 +1635,10 @@ $('btnPrint').addEventListener('click', async () => {
       log(`Drucke ${n+1} von ${copies} …`);
       if (isMarklife()){
         await printMarklife(printCanvas(), f => prog.value = (n + f) / copies);
+        continue;
+      }
+      if (isNiimbot()){
+        await printNiimbot(printCanvas(), f => prog.value = (n + f) / copies);
         continue;
       }
       const steps = buildSteps(printCanvas());
@@ -1769,7 +1911,10 @@ function rollsAll(){
     '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' },
     '40 × 12 mm (Marklife P15)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p15', align:'left', density:'6', feed:'4' },
     '40 × 15 mm (Marklife P12)': { w:40, h:15, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p12', align:'left', density:'6', feed:'4' },
-    '50 × 30 mm (Marklife M60)': { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'m60', align:'left', density:'6', feed:'4' }
+    '50 × 30 mm (Marklife M60)': { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'m60', align:'left', density:'6', feed:'4' },
+    '40 × 12 mm (Niimbot D110)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d110', align:'left', density:'6', feed:'4' },
+    '40 × 20 mm (Niimbot D101)': { w:40, h:20, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d101', align:'left', density:'6', feed:'4' },
+    '50 × 30 mm (Niimbot B1)':   { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'b1',   align:'left', density:'6', feed:'4' }
   };
 }
 function refreshRolls(selName){
@@ -2164,7 +2309,7 @@ const HELP = {
     <table>
       <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th><th>Bluetooth</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.widthText || (p.head / PX_PER_MM + ' mm')}</td>
-        <td>${p.rotate90 ? 'quer' : { right:'rechts', center:'mittig', left:'links' }[p.align]}</td>
+        <td>${p.rotate90 ? 'quer' : { right:'rechts', center:'mittig', left:'links' }[p.align] || 'längs'}</td>
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
     <p class="hint"><b>Phomemo</b> – Befehle nach dem Open-Source-Projekt „phomymo“. Der <b>M220</b> druckt mit Android
@@ -2175,6 +2320,11 @@ const HELP = {
       (z. B. 40 × 12 mm) laufen quer durch den Druckkopf – die App dreht das Bild dafür selbst, gestalte das Etikett
       einfach im Querformat. Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Passende Rollen:
       „40 × 12 mm (Marklife P15)“, „40 × 15 mm (Marklife P12)“, „50 × 30 mm (Marklife M60)“.</p>
+    <p class="hint"><b>Niimbot</b> (D110, D101, B1) – umgesetzt nach der Open-Source-Bibliothek <b>„niimbluelib“</b>
+      von MultiMote (MIT-Lizenz), die auch hinter der Web-App „NiimBlue“ steckt; noch nicht selbst getestet. Niimbot-Drucker
+      werden beim Verbinden am Namen erkannt. D110 und D101 drucken quer – gestalte das Etikett im Querformat, die App dreht
+      es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1 48 mm breit. Passende Rollen:
+      „40 × 12 mm (Niimbot D110)“, „40 × 20 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
