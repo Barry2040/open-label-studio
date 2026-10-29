@@ -31,10 +31,22 @@
 | 💾 **Vorlagen & Sicherung** | Vorlagen speichern; Export/Import überträgt Vorlagen, Rollen, Einstellungen und Fensteranordnung auf andere Geräte |
 | 🔗 **Teilen** | Etikett per Link oder QR-Code aufs Handy holen – einfach scannen |
 | 🧻 **Rollen** | Profile je Etikettenrolle: Größe, Papierformat und Versatz mit einem Klick |
+| 🔄 **Druckerwechsel** | Beim Wählen oder Verbinden eines Druckers stellt sich das passende Etikett ein – Text, Rahmen und Bilder skalieren automatisch mit |
 | 🖨️ **Drucken** | Über den Windows-Treiber per USB oder direkt per Bluetooth, Versatz in X und Y einstellbar |
 | 🔋 **Druckerstatus** | Akku, Papier und Deckel werden per Bluetooth angezeigt, mit Warnung vor dem Druck |
 | 🧩 **Arbeitsfläche** | Fenster frei anordnen und in der Breite ziehen, mit Einrasten an Kanten |
 | ❓ **Hilfe** | Anleitung, Treiber-Infos und Fehlerbehebung im Menü **„Label Studio“** oben links |
+
+## 🖨️ Unterstützte Drucker
+
+| Hersteller | Modelle | Verbindung |
+|---|---|---|
+| **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S | Bluetooth, USB (Windows-Treiber) |
+| **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
+| **Niimbot** | D101 ✅, D110, B1 | Bluetooth |
+| **Alle anderen** | jeder Etikettendrucker mit Windows-Treiber | USB über den Windows-Druck |
+
+✅ = mit einem echten Gerät getestet. Details zu Druckbreite, Etikett und Teststatus stehen unter [Bluetooth](#-bluetooth).
 
 ## 🚀 Loslegen
 
@@ -64,22 +76,22 @@ Dann Etikettengröße wählen, gestalten, drucken.
 
 Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **Bluefy** auf dem iPhone – am Handy nur, wenn die App über `https` läuft.
 
-| Modell | Druckbreite | Rolle | Bluetooth |
-|---|---|---|---|
-| Phomemo M220 | 72 mm | rechts | ✅ getestet (Android) |
-| Phomemo M221 | 72 mm | mittig | ungetestet |
-| Phomemo M200 | 76 mm | mittig | ungetestet |
-| Phomemo M110 / M120 | 48 mm | mittig | ungetestet |
-| Phomemo M110S | 48 mm | rechts | ungetestet |
-| Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | quer | ✅ getestet (PC) |
-| Marklife P12 (auch LP90, P11) | 12–15 mm | quer | ungetestet |
-| Marklife M60 (auch X2) | bis 50 mm | quer | ungetestet |
-| Niimbot D110 | 12 mm | quer | ungetestet |
-| Niimbot D101 | 24 mm | quer | ✅ getestet (PC + Android) |
-| Niimbot B1 | 48 mm | längs | ungetestet |
+| Modell | Druckbreite | Standard-Etikett | Lage des Etiketts | Bluetooth |
+|---|---|---|---|---|
+| Phomemo M220 | 72 mm | 40 × 30 mm | rechts | ✅ getestet (Android) |
+| Phomemo M221 | 72 mm | 40 × 30 mm | mittig | ungetestet |
+| Phomemo M200 | 76 mm | 50 × 30 mm | mittig | ungetestet |
+| Phomemo M110 / M120 | 48 mm | 40 × 30 mm | mittig | ungetestet |
+| Phomemo M110S | 48 mm | 40 × 30 mm | rechts | ungetestet |
+| Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | 40 × 12 mm | quer | ✅ getestet (PC) |
+| Marklife P12 (auch LP90, P11) | 12–15 mm | 40 × 15 mm | quer | ungetestet |
+| Marklife M60 (auch X2) | bis 50 mm | 50 × 30 mm | quer | ungetestet |
+| Niimbot D110 | 12 mm | 40 × 12 mm | quer | ungetestet |
+| Niimbot D101 | 24 mm | 40 × 12 mm | quer | ✅ getestet (PC + Android) |
+| Niimbot B1 | 48 mm | 50 × 30 mm | längs | ungetestet |
 
 > [!TIP]
-> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) und **Niimbot D101** per Bluetooth am PC und mit Android – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
+> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome), **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) und **Niimbot D101** per Bluetooth am PC und mit Android – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
 
 > [!NOTE]
 > Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken. Die Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, die **Marklife**-Modelle nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz), die **Niimbot**-Modelle nach [niimbluelib](https://github.com/MultiMote/niimbluelib) von MultiMote (MIT-Lizenz, Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)). Marklife- und Niimbot-Drucker werden beim Verbinden automatisch erkannt; ihre Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
