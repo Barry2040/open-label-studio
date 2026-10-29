@@ -308,7 +308,7 @@ progress{width:100%;height:8px}
           <div class="field"><label for="density">Dichte (1–8)</label><input id="density" type="number" min="1" max="8" value="6"></div>
           <div class="field"><label for="feed">Vorschub danach (mm)</label><input id="feed" type="number" min="0" max="30" step="0.5" value="4"></div>
         </div>
-        <div class="field"><label for="align">Lage am Druckkopf</label>
+        <div class="field"><label for="align" title="Wo das Etikett unter dem Druckkopf liegt – je nach Rollenhalter des Druckers">Lage des Etiketts</label>
           <select id="align"><option value="right">Rechts (M220)</option><option value="center">Mittig (M221)</option><option value="left">Links</option></select>
         </div>
         <button class="primary" id="btnPrint" style="width:100%">Per Bluetooth drucken</button>
@@ -415,28 +415,28 @@ const PX_PER_MM = 8;          // 203 dpi
 const HEAD_PX = 576;          // 72 mm Druckkopf (M220), Obergrenze für Bild-Importe
 // Bluetooth-Direktdruck: Daten aus dem phomymo-Projekt (Druckkopfbreite in Punkten, Lage der Rolle, Befehlssatz)
 const PRINTERS = {
-  m220:  { name:'Phomemo M220',        proto:'mseries', head:576, align:'right', tested:'Android' },
-  // tested = womit der Bluetooth-Druck tatsächlich ausprobiert wurde
-  m221:  { name:'Phomemo M221',        proto:'mseries', head:576, align:'center' },
-  m200:  { name:'Phomemo M200',        proto:'mseries', head:608, align:'center' },
-  m110:  { name:'Phomemo M110 / M120', proto:'m110',    head:384, align:'center' },
-  m110s: { name:'Phomemo M110S',       proto:'m110',    head:384, align:'right'  },
+  m220:  { name:'Phomemo M220', size:[40,30],        proto:'mseries', head:576, align:'right', tested:'Android' },
+  // tested = womit der Bluetooth-Druck tatsächlich ausprobiert wurde; size = Standard-Etikett [Breite, Höhe] in mm
+  m221:  { name:'Phomemo M221', size:[40,30],        proto:'mseries', head:576, align:'center' },
+  m200:  { name:'Phomemo M200', size:[50,30],        proto:'mseries', head:608, align:'center' },
+  m110:  { name:'Phomemo M110 / M120', size:[40,30], proto:'m110',    head:384, align:'center' },
+  m110s: { name:'Phomemo M110S', size:[40,30],       proto:'m110',    head:384, align:'right'  },
   // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
   // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
-  p15:   { name:'Marklife P15 / P7',   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
+  p15:   { name:'Marklife P15 / P7', size:[40,12],   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
            tested:'PC', widthText:'12–15 mm',
            prefixes:['P15','P15R','P15S','P7','iSPACE_LP15','OUT_LPC','M1','LP15','S15','S12','P1s','LPC74'] },
-  p12:   { name:'Marklife P12',        proto:'l11', head:0, align:'left', rotate90:true, packet:90, delay:30, densityCmd:'density',
+  p12:   { name:'Marklife P12', size:[40,15],        proto:'l11', head:0, align:'left', rotate90:true, packet:90, delay:30, densityCmd:'density',
            widthText:'12–15 mm', prefixes:['P12','LP90','P11'] },
-  m60:   { name:'Marklife M60',        proto:'x2',  head:0, align:'left', rotate90:true, packet:237, delay:1,
+  m60:   { name:'Marklife M60', size:[50,30],        proto:'x2',  head:0, align:'left', rotate90:true, packet:237, delay:1,
            widthText:'bis 50 mm', prefixes:['M60','X2'] },
   // Niimbot (Daten aus github.com/MultiMote/niimbluelib, MIT-Lizenz). task = Druckablauf der Bibliothek,
   // head = Druckkopf in Punkten, rotate90 = Druckrichtung „left“ (Etikett läuft quer), densMax = höchste Druckstärke
-  d110:  { name:'Niimbot D110',        proto:'niimbot', task:'D110', head:96,  rotate90:true, densMax:3,
+  d110:  { name:'Niimbot D110', size:[40,12],        proto:'niimbot', task:'D110', head:96,  rotate90:true, densMax:3,
            widthText:'12 mm', prefixes:['D110'] },
-  d101:  { name:'Niimbot D101',        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
+  d101:  { name:'Niimbot D101', size:[40,20],        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
            widthText:'24 mm', prefixes:['D101'] },
-  b1:    { name:'Niimbot B1',          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
+  b1:    { name:'Niimbot B1', size:[50,30],          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
            widthText:'48 mm', prefixes:['B1-', 'B1_'] }
 };
 // Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
@@ -2423,9 +2423,32 @@ function showModelTested(){
   b.textContent = t ? `✓ getestet (${t})` : 'ungetestet';
   b.className = 'badge' + (t ? ' ok' : '');
   b.title = t ? `Bluetooth-Druck mit ${printer().name} über ${t} erfolgreich ausprobiert` : 'Noch nicht mit einem echten Gerät ausprobiert';
+  // „Lage des Etiketts“ nur bei Phomemo (Bild wird auf volle Kopfbreite aufgefüllt), Vorschub nur bei der M-Serie
+  const proto = printer().proto;
+  $('align').closest('.field').hidden = !['mseries', 'm110'].includes(proto);
+  $('feed').closest('.field').hidden = proto !== 'mseries';
 }
 $('model').addEventListener('change', showModelTested);
-$('model').addEventListener('change', () => { $('align').value = printer().align; savePrintSettings(); });
+// Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
+// damit Größe und Lage zum Druckkopf passen
+$('model').addEventListener('change', () => {
+  const key = $('model').value, p = printer();
+  const rollName = Object.keys(rollsAll()).find(n => rollsAll()[n].model === key);
+  if (rollName){
+    $('rollSel').value = rollName;
+    $('rollSel').dispatchEvent(new Event('change'));   // stellt Größe und Druckeinstellungen der Rolle ein
+    return;
+  }
+  // keine passende Rolle: Auswahl leeren, damit keine Rolle eines anderen Druckers angezeigt wird
+  $('rollSel').value = ''; $('rollDel').disabled = true; lsSet(LS_ROLL, '');
+  if (p.align) $('align').value = p.align;
+  savePrintSettings();
+  if (p.size && (design.w !== p.size[0] || design.h !== p.size[1])){
+    setLabelSize(p.size[0], p.size[1]);
+    fitCanvas(); render();
+    toast(`Etikett auf ${p.size[0]} × ${p.size[1]} mm für ${p.name} angepasst`);
+  }
+});
 const view = lsGet(LS_VIEW, {});
 if (view.grid) $('grid').value = view.grid;
 if ('rulers' in view) $('rulers').checked = view.rulers;
