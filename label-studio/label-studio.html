@@ -282,8 +282,10 @@ progress{width:100%;height:8px}
           <select id="preset"></select>
         </div>
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="72" step="1"></div>
-        <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="5" max="300" step="1"></div>
+        <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="3" max="300" step="1"></div>
       </div>
+      <label class="check" style="margin:-4px 0 10px" title="Für Endlosband (z. B. DYMO LetraTag): das Etikett ist genau so lang wie der Inhalt plus 2 mm Rand an jeder Seite">
+        <input type="checkbox" id="autoLen"> Länge automatisch (Endlosband)</label>
       <div class="toolbar addtools" id="addTools">
         <button data-add="text" title="Text hinzufügen"><span class="ti" style="font-weight:700">T</span><span>Text</span></button>
         <button data-add="qr" title="QR-Code hinzufügen"><span class="ti">▦</span><span>QR</span></button>
@@ -572,7 +574,7 @@ const PRINTERS = {
            widthText:'48 mm', prefixes:['B1-', 'B1_'] },
   // DYMO (Daten aus github.com/ysfchn/dymo-bluetooth, MIT-Lizenz): 12-mm-Band, aber nur 30 Punkte (3,8 mm) druckbar.
   // Das Etikett ist darum 4 mm hoch (32 Punkte); die Länge ist frei, das Band wird nach dem Druck abgeschnitten.
-  lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, widthText:'12-mm-Band (3,8 mm druckbar)',
+  lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, continuous:true, widthText:'12-mm-Band (3,8 mm druckbar)',
            prefixes:['Letratag', 'LetraTag', 'DYMO LT', 'LT-200B'] }
 };
 // Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
@@ -633,7 +635,23 @@ const H = () => Math.round(design.h * PX_PER_MM);
 // schnelle Änderungen hintereinander (Tippen, Regler) werden so zu einem Schritt zusammengefasst.
 let saveT = null;
 function save(){ clearTimeout(saveT); saveT = setTimeout(flushSave, 300); updateUndoButtons(); }
-function flushSave(){ saveT = null; lsSet(LS_DRAFT, design); commitHistory(); }
+function flushSave(){ saveT = null; if (autoLength()) render(); lsSet(LS_DRAFT, design); commitHistory(); }
+// Endlosband: Etikett so lang wie der Inhalt + 2 mm Rand je Seite (mindestens 10 mm); der Inhalt rückt dafür an den
+// linken Rand. Läuft kurz nach jeder Änderung, nicht während des Ziehens.
+function autoLength(){
+  if (!design.autoLen || drag) return false;
+  const bs = design.elements.filter(e => !e.hidden).map(bbox);
+  if (!bs.length) return false;
+  const margin = 2 * PX_PER_MM;
+  const x0 = Math.min(...bs.map(b => b.x)), x1 = Math.max(...bs.map(b => b.x + b.w));
+  const w = Math.max(10, Math.ceil((x1 - x0 + 2 * margin) / PX_PER_MM)), dx = Math.round(margin - x0);
+  if (!dx && w === design.w) return false;
+  for (const e of design.elements) e.x += dx;
+  design.w = w;
+  scaleRef = null;
+  syncLabelControls(); fitCanvas(); refreshProps();
+  return true;
+}
 
 // ---------- Rückgängig / Wiederholen ----------
 const undoStack = [], redoStack = [];
@@ -781,7 +799,8 @@ function drawText(c, e){
   });
 }
 // Schrift so groß wie möglich, ohne über das Etikett hinauszuragen, dann mittig setzen
-function fitText(e, box = { x:0, y:0, w:W(), h:H() }, margin = 4){
+// Bei automatischer Länge (Endlosband) zählt nur die Höhe – das Etikett wächst danach mit
+function fitText(e, box = { x:0, y:0, w:design.autoLen ? 8000 : W(), h:H() }, margin = design.h <= 5 ? 2 : 4){
   const bw = box.w - margin * 2, bh = box.h - margin * 2;
   for (let i = 0; i < 4; i++){
     const b = bbox(e);
@@ -1717,6 +1736,11 @@ function initLabelControls(){
     setLabelSize(w, h, true);
   };
   $('lw').addEventListener('change', onSize);
+  $('autoLen').addEventListener('change', () => {
+    design.autoLen = $('autoLen').checked;
+    if (!design.autoLen) delete design.autoLen;
+    syncLabelControls(); save(); flushPending(); render();
+  });
   $('lh').addEventListener('change', onSize);
 }
 // Mehrere Größenwechsel hintereinander (ohne Bearbeiten dazwischen) skalieren immer vom Ausgangslayout,
@@ -1777,6 +1801,7 @@ function scaleElements(ow, oh, nw, nh){
 }
 function syncLabelControls(){
   $('lw').value = design.w; $('lh').value = design.h;
+  $('autoLen').checked = !!design.autoLen; $('lw').disabled = !!design.autoLen;
   const key = design.w + 'x' + design.h;
   $('preset').value = PRESETS.some(([w,h]) => w+'x'+h === key) ? key : 'custom';
 }
@@ -2975,7 +3000,7 @@ function rollsAll(){
     '40 × 12 mm (Niimbot D110)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d110', align:'left', density:'6', feed:'4' },
     '40 × 12 mm (Niimbot D101)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d101', align:'left', density:'6', feed:'4' },
     '50 × 30 mm (Niimbot B1)':   { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'b1',   align:'left', density:'6', feed:'4' },
-    '40 × 4 mm (DYMO LetraTag)': { w:40, h:4, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'lt200b', align:'left', density:'6', feed:'4' }
+    'DYMO LetraTag (12-mm-Band)': { w:40, h:4, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'lt200b', align:'left', density:'6', feed:'4' }
   };
 }
 function refreshRolls(selName){
@@ -3398,7 +3423,11 @@ const HELP = {
       (MIT-Lizenz); noch nicht selbst getestet. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
       Mitte. Das Etikett ist darum 4 mm hoch, die Länge frei wählbar (z. B. 40 × 4 mm) – ideal für eine Zeile Text.
       Den äußersten Rand oben und unten druckt der DYMO nicht, dort also nichts Wichtiges platzieren. Höhere Etiketten
-      verkleinert die App automatisch aufs Band. Passende Rolle: „40 × 4 mm (DYMO LetraTag)“.</p>
+      verkleinert die App automatisch aufs Band. Passende Rolle: „DYMO LetraTag (12-mm-Band)“.<br>
+      Die Kassette (z. B. „12 mm × 4 m“) ist ein <b>Endlosband</b>: Mit <b>„Länge automatisch“</b> (unter der Etikettengröße,
+      beim LetraTag schon an) ist jedes Etikett genau so lang wie der Text plus 2 mm Rand – Text tippen, „⤢ Einpassen“
+      drücken, drucken. Danach schiebt der Drucker das Band hinaus; mit dem Schneidhebel abschneiden. Mehrere Kopien oder
+      Seriendruck kommen nacheinander heraus – jedes Etikett einzeln abschneiden.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
@@ -3532,6 +3561,10 @@ function adaptLabelToModel(){
   }
 }
 $('model').addEventListener('change', adaptLabelToModel);
+// Endlosband-Drucker (DYMO): Länge automatisch einschalten – auch wenn die Größe über eine Rolle kam
+$('model').addEventListener('change', () => {
+  if (printer().continuous && !design.autoLen){ design.autoLen = true; syncLabelControls(); save(); flushPending(); render(); }
+});
 const view = lsGet(LS_VIEW, {});
 if (view.grid) $('grid').value = view.grid;
 if ('rulers' in view) $('rulers').checked = view.rulers;
