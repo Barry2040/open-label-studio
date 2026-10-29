@@ -130,6 +130,7 @@ textarea{resize:vertical;min-height:60px}
 }
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+[hidden]{display:none !important}
 .field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
 .field label{font-size:12px;color:var(--muted)}
 .check{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -434,8 +435,8 @@ const PRINTERS = {
   // head = Druckkopf in Punkten, rotate90 = Druckrichtung „left“ (Etikett läuft quer), densMax = höchste Druckstärke
   d110:  { name:'Niimbot D110', size:[40,12],        proto:'niimbot', task:'D110', head:96,  rotate90:true, densMax:3,
            widthText:'12 mm', prefixes:['D110'] },
-  d101:  { name:'Niimbot D101', size:[40,20],        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
-           widthText:'24 mm', prefixes:['D101'] },
+  d101:  { name:'Niimbot D101', size:[40,12],        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
+           tested:'PC + Android', widthText:'24 mm', prefixes:['D101'] },
   b1:    { name:'Niimbot B1', size:[50,30],          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
            widthText:'48 mm', prefixes:['B1-', 'B1_'] }
 };
@@ -1171,10 +1172,61 @@ function initLabelControls(){
   $('lw').addEventListener('change', onSize);
   $('lh').addEventListener('change', onSize);
 }
+// Mehrere Größenwechsel hintereinander (ohne Bearbeiten dazwischen) skalieren immer vom Ausgangslayout,
+// damit z. B. 40 × 30 → 40 × 12 → 40 × 30 wieder genau das ursprüngliche Etikett ergibt
+let scaleRef = null;
 function setLabelSize(w, h, fromInputs){
+  if (scaleRef && JSON.stringify(design.elements) === scaleRef.after){
+    design.elements = JSON.parse(scaleRef.elements);
+    design.w = scaleRef.w; design.h = scaleRef.h;
+  } else scaleRef = { w:design.w, h:design.h, elements:JSON.stringify(design.elements) };
+  scaleElements(design.w, design.h, w, h);
+  scaleRef.after = JSON.stringify(design.elements);
   design.w = w; design.h = h;
   syncLabelControls(fromInputs);
   save(); render();
+}
+// Neue Etikettengröße: Elemente mitskalieren, damit das Layout erhalten bleibt.
+// Rahmen und Linien werden gestreckt, Text, QR-Code, Barcode und Bilder behalten ihr Seitenverhältnis
+// und bleiben an derselben relativen Stelle.
+function scaleElements(ow, oh, nw, nh){
+  if (ow === nw && oh === nh) return;
+  const sx = nw / ow, sy = nh / oh, k = Math.min(sx, sy);
+  const NW = Math.round(nw * PX_PER_MM), NH = Math.round(nh * PX_PER_MM), margin = 4;
+  const fit = (e, b) => {   // ins Etikett schieben
+    e.x = Math.round(Math.min(Math.max(e.x, 0), Math.max(0, NW - b.w)));
+    e.y = Math.round(Math.min(Math.max(e.y, 0), Math.max(0, NH - b.h)));
+  };
+  for (const e of design.elements){
+    const b = bbox(e), cx = (b.x + b.w / 2) * sx, cy = (b.y + b.h / 2) * sy;
+    if (e.type === 'rect'){
+      // dünne Seite (Linie) behält ihre Dicke, sonst strecken
+      const bw = b.w <= 8 ? Math.max(1, Math.round(b.w * k)) : Math.round(b.w * sx);
+      const bh = b.h <= 8 ? Math.max(1, Math.round(b.h * k)) : Math.round(b.h * sy);
+      if (quarterTurn(e)){ e.w = bh; e.h = bw; } else { e.w = bw; e.h = bh; }
+      e.x = b.w <= 8 ? Math.round(cx - bw / 2) : Math.round(b.x * sx);
+      e.y = b.h <= 8 ? Math.round(cy - bh / 2) : Math.round(b.y * sy);
+      e.lw = Math.max(Math.min(e.lw, 2), Math.round(e.lw * k));   // Rahmen nicht dünner als 2 px, sonst druckt er kaum
+      e.radius = Math.round((e.radius || 0) * k);
+      fit(e, { w:bw, h:bh });
+      continue;
+    }
+    if (e.type === 'text'){
+      e.size = Math.max(6, Math.round(e.size * k));
+      // passt der Text nicht ins Etikett, weiter verkleinern
+      let nb = bbox(e);
+      const f = Math.min(1, (NW - margin * 2) / nb.w, (NH - margin * 2) / nb.h);
+      if (f < 1){ e.size = Math.max(6, Math.floor(e.size * f)); nb = bbox(e); }
+      e.x = Math.round(cx - nb.w / 2); e.y = Math.round(cy - nb.h / 2);
+      fit(e, nb);
+      continue;
+    }
+    // QR-Code, Barcode, Bild
+    e.w = Math.max(4, Math.round(e.w * k)); e.h = Math.max(4, Math.round(e.h * k));
+    const nb = bbox(e);
+    e.x = Math.round(cx - nb.w / 2); e.y = Math.round(cy - nb.h / 2);
+    fit(e, nb);
+  }
 }
 function syncLabelControls(){
   $('lw').value = design.w; $('lh').value = design.h;
@@ -1207,8 +1259,9 @@ async function connect(){
     bt.credits = 0; bt.lastGrant = Date.now(); bt.packetMax = 0;
     // bekanntes Modell am Namen erkennen und automatisch einstellen (z. B. Marklife P15)
     const m = modelFromName(device.name);
-    if (m && m !== $('model').value){
-      $('model').value = m; $('model').dispatchEvent(new Event('change'));
+    if (m){
+      if (m !== $('model').value){ $('model').value = m; $('model').dispatchEvent(new Event('change')); }
+      else adaptLabelToModel();   // Modell war schon gewählt: Etikett trotzdem passend einstellen
       diag(`Druckermodell erkannt: ${PRINTERS[m].name}`);
     }
     device.addEventListener('gattserverdisconnected', () => { bt.char = null; setStatus(false); clearPrinterInfo(); diag('Verbindung wurde getrennt'); });
@@ -1905,7 +1958,16 @@ const LS_ROLLS = 'labelstudio.rolls', LS_ROLL = 'labelstudio.roll';
 const ROLL_KEYS = ['offset','offsetY','rotate','sysPaper','model','align','density','feed'];
 function rollsAll(){
   const r = lsGet(LS_ROLLS, null);
-  if (r) return r;
+  if (r){
+    // früheres Startprofil 40 × 20 für den D101 → die meist genutzte 40 × 12-Rolle
+    const old = r['40 × 20 mm (Niimbot D101)'];
+    if (old && old.w === 40 && old.h === 20 && !r['40 × 12 mm (Niimbot D101)']){
+      delete r['40 × 20 mm (Niimbot D101)'];
+      r['40 × 12 mm (Niimbot D101)'] = { ...old, h:12 };
+      lsSet(LS_ROLLS, r);
+    }
+    return r;
+  }
   // Startprofil für die 40 × 30-Rolle am M220
   return {
     '40 × 30 mm (M220)': { w:40, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'50x30', model:'m220', align:'right', density:'6', feed:'4' },
@@ -1913,7 +1975,7 @@ function rollsAll(){
     '40 × 15 mm (Marklife P12)': { w:40, h:15, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'p12', align:'left', density:'6', feed:'4' },
     '50 × 30 mm (Marklife M60)': { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'m60', align:'left', density:'6', feed:'4' },
     '40 × 12 mm (Niimbot D110)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d110', align:'left', density:'6', feed:'4' },
-    '40 × 20 mm (Niimbot D101)': { w:40, h:20, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d101', align:'left', density:'6', feed:'4' },
+    '40 × 12 mm (Niimbot D101)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d101', align:'left', density:'6', feed:'4' },
     '50 × 30 mm (Niimbot B1)':   { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'b1',   align:'left', density:'6', feed:'4' }
   };
 }
@@ -2324,7 +2386,7 @@ const HELP = {
       von MultiMote (MIT-Lizenz), die auch hinter der Web-App „NiimBlue“ steckt; noch nicht selbst getestet. Niimbot-Drucker
       werden beim Verbinden am Namen erkannt. D110 und D101 drucken quer – gestalte das Etikett im Querformat, die App dreht
       es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1 48 mm breit. Passende Rollen:
-      „40 × 12 mm (Niimbot D110)“, „40 × 20 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
+      „40 × 12 mm (Niimbot D110)“, „40 × 12 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
@@ -2431,8 +2493,11 @@ function showModelTested(){
 $('model').addEventListener('change', showModelTested);
 // Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
 // damit Größe und Lage zum Druckkopf passen
-$('model').addEventListener('change', () => {
+function adaptLabelToModel(){
   const key = $('model').value, p = printer();
+  // gewählte Rolle gehört schon zu diesem Drucker und passt zum Etikett: nichts ändern
+  const cur = rollsAll()[$('rollSel').value];
+  if (cur && cur.model === key && cur.w === design.w && cur.h === design.h) return;
   const rollName = Object.keys(rollsAll()).find(n => rollsAll()[n].model === key);
   if (rollName){
     $('rollSel').value = rollName;
@@ -2448,7 +2513,8 @@ $('model').addEventListener('change', () => {
     fitCanvas(); render();
     toast(`Etikett auf ${p.size[0]} × ${p.size[1]} mm für ${p.name} angepasst`);
   }
-});
+}
+$('model').addEventListener('change', adaptLabelToModel);
 const view = lsGet(LS_VIEW, {});
 if (view.grid) $('grid').value = view.grid;
 if ('rulers' in view) $('rulers').checked = view.rulers;
@@ -2463,6 +2529,8 @@ loadPrintSettings();
 showModelTested();
 refreshTplList();
 refreshRolls(lsGet(LS_ROLL, ''));
+// gespeicherte Rolle passt nicht (mehr) zur Etikettengröße: nicht als gewählt anzeigen
+{ const r = rollsAll()[$('rollSel').value]; if (r && (r.w !== design.w || r.h !== design.h)){ $('rollSel').value = ''; $('rollDel').disabled = true; } }
 histSnap = JSON.stringify(design);
 updateUndoButtons();
 loadSharedFromHash();

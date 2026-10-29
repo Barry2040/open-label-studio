@@ -75,11 +75,11 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Marklife P12 (auch LP90, P11) | 12–15 mm | quer | ungetestet |
 | Marklife M60 (auch X2) | bis 50 mm | quer | ungetestet |
 | Niimbot D110 | 12 mm | quer | ungetestet |
-| Niimbot D101 | 24 mm | quer | ungetestet |
+| Niimbot D101 | 24 mm | quer | ✅ getestet (PC + Android) |
 | Niimbot B1 | 48 mm | längs | ungetestet |
 
 > [!TIP]
-> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) und **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
+> ✅ **Mit echten Geräten getestet:** **Phomemo M220** per Bluetooth mit Android (Chrome) **Marklife P15** per Bluetooth am PC (Chrome/Edge unter Windows) und **Niimbot D101** per Bluetooth am PC und mit Android – Verbinden und Drucken funktionieren. Einfach [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) öffnen.
 
 > [!NOTE]
 > Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken. Die Phomemo-Modelle sind nach dem Open-Source-Projekt [phomymo](https://github.com/transcriptionstream/phomymo) eingestellt, die **Marklife**-Modelle nach [thermoprint](https://github.com/tomLadder/thermoprint) von tomLadder (MIT-Lizenz), die **Niimbot**-Modelle nach [niimbluelib](https://github.com/MultiMote/niimbluelib) von MultiMote (MIT-Lizenz, Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)). Marklife- und Niimbot-Drucker werden beim Verbinden automatisch erkannt; ihre Etiketten (z. B. 40 × 12 mm) gestaltest du einfach im Querformat, die App dreht das Bild selbst.
