@@ -58,19 +58,21 @@ Dann Etikettengröße wählen, gestalten, drucken.
 
 ## 🖨️ Drucken am PC (USB)
 
-1. Den Windows-Treiber für dein Modell von [phomemo.com](https://phomemo.com) installieren und den Drucker per USB anschließen.
+Funktioniert mit **jedem Etikettendrucker, für den es einen Windows-Treiber gibt** – die App nutzt einfach den normalen Windows-Druck.
+
+1. Den Windows-Treiber deines Druckers **von der offiziellen Seite des Herstellers** installieren (siehe [Treiber & Software](#-treiber--software)) und den Drucker per USB anschließen.
 2. In der App **„Über Windows-Drucker drucken (USB)“** klicken.
 3. Im Druckfenster einstellen:
 
    | Einstellung | Wert |
    |---|---|
    | Ziel | dein Etikettendrucker |
-   | Papierformat | wie in der App (M220: 50 × 30 mm) |
+   | Papierformat | wie in der App bzw. das passende Etikett im Treiber |
    | Ränder | Keine |
    | Skalierung | 100 |
 
 > [!TIP]
-> Der M220-Treiber kennt nur 50 × 30 und 50 × 70 mm. Kleinere Etiketten (z. B. 40 × 30) setzt die App automatisch mittig auf die Seite.
+> Bietet der Treiber deine Etikettengröße nicht an, wähle in der App unter **„Papierformat im Treiber“** das nächstgrößere Format – die App setzt das Etikett dann mittig auf die Seite. Beispiel: Der Phomemo-M220-Treiber kennt nur 50 × 30 und 50 × 70 mm, 40 × 30-Etiketten landen so mittig auf 50 × 30.
 
 ## 📶 Bluetooth
 
@@ -107,3 +109,35 @@ Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellun
 ## 🌐 Online
 
 Die App läuft über **GitHub Pages** unter **[barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/)**. Jede Änderung auf `main` wird automatisch veröffentlicht (Workflow `.github/workflows/pages.yml`).
+
+## 📚 Treiber & Software
+
+Nur offizielle Seiten der Hersteller – bitte Treiber nicht von Drittanbieter-Seiten laden.
+
+| Hersteller | Offizielle Downloads |
+|---|---|
+| **Phomemo** | [phomemo.com/pages/drivers](https://phomemo.com/pages/drivers) – Windows-/Mac-Treiber je Modell |
+| **Marklife** | [marklifeprinter.com/Download.html](https://www.marklifeprinter.com/Download.html) – Treiber je Modell (Windows, Mac, Linux) |
+| **Niimbot** | [niimbot.com – Download-Center](https://www.niimbot.com/de/downloadCenter) – Windows-/Mac-Software und Treiber |
+
+Für den Bluetooth-Druck aus Label Studio ist **kein Treiber nötig** – der wird nur für den USB-Druck über Windows gebraucht.
+
+## 🙏 Quellen & Danke
+
+Die Bluetooth-Befehle der Drucker stammen aus diesen Open-Source-Projekten:
+
+| Projekt | Autor | Verwendet für | Lizenz |
+|---|---|---|---|
+| [phomymo](https://github.com/transcriptionstream/phomymo) | transcriptionstream | Phomemo M-Serie (M220, M221, M200, M110 …) | keine angegeben |
+| [thermoprint](https://github.com/tomLadder/thermoprint) | tomLadder | Marklife P15 / P7, P12, M60 | MIT |
+| [niimbluelib](https://github.com/MultiMote/niimbluelib) | MultiMote | Niimbot D110, D101, B1 (Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)) | MIT |
+
+Mitgeladene Bibliotheken:
+
+| Bibliothek | Wofür | Lizenz |
+|---|---|---|
+| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR-Codes | MIT |
+| [JsBarcode](https://github.com/lindell/JsBarcode) | Barcodes | MIT |
+| [PDF.js](https://github.com/mozilla/pdf.js) (Mozilla) | PDF-Import | Apache 2.0 |
+
+Phomemo, Marklife und Niimbot sind Marken ihrer jeweiligen Inhaber. Label Studio ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.
