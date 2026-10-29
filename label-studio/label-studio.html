@@ -853,6 +853,8 @@ const EN = {
   'Danke! Dein Druckervorschlag ist angekommen.':'Thanks! Your printer suggestion has arrived.', 'Senden hat nicht geklappt (':'Sending failed (', '). Bitte später nochmal versuchen.':'). Please try again later.',
   'Breite ändern':'Change width', 'Etikett auf':'Label set to',
   'Sprache: Deutsch':'Language: German',
+  'Browser-Speicher ist voll – nicht gespeichert. Alte Vorlagen löschen oder eine Sicherung machen.':'Browser storage is full – not saved. Delete old templates or make a backup.',
+  'Die Vorlage konnte nicht gespeichert werden: Der Browser-Speicher ist voll.\n\nLösche alte Vorlagen (besonders mit großen Bildern oder Versandlabels) oder speichere vorher eine Sicherung.':'The template could not be saved: the browser storage is full.\n\nDelete old templates (especially with large images or shipping labels) or save a backup first.',
   '📦 Versandlabel einlesen (DHL, Hermes, DPD …)':'📦 Read shipping label (DHL, Hermes, DPD …)',
   'Paketmarke als PDF laden: die App findet das Label auf der Seite, schneidet es aus und passt es auf 100 × 150 mm ein':'Load a shipping label PDF: the app finds the label on the page, crops it and fits it to 100 × 150 mm',
   'Welches ist das Versandlabel?':'Which one is the shipping label?', 'Auf der Seite gibt es mehrere Bereiche. Tippe auf den, der aufs Paket soll.':'The page has several areas. Tap the one that goes on the parcel.',
@@ -911,7 +913,7 @@ const EN_RE = [
   [/^(\d+) installierte Schriften stehen in der Schriftauswahl\.$/, '$1 installed fonts are in the font list.'],
   [/^(\d+) installierte Schriften übernommen$/, '$1 installed fonts added'],
   [/^Drucker-Wunsch: (.*)$/, 'Printer request: $1'],
-  [/^Sicherung gespeichert: (.*)$/, 'Backup saved: $1'],
+  [/^Sicherung gespeichert: (.*)$/, 'Backup saved: $1'], [/^Bluetooth-Fehler: (.*)$/s, 'Bluetooth error: $1'],
   [/^Versandlabel auf (.+) mm eingepasst$/, 'Shipping label fitted to $1 mm'], [/^Versandlabel eingepasst: (.*)$/, 'Shipping label fitted: $1'], [/^Letzte Sicherung: (.*)$/, 'Last backup: $1'],
   [/^Sicherung konnte nicht geladen werden: (.*)$/s, (m, e) => 'Could not load the backup: ' + tr(e)],
   [/^Kamera nicht verfügbar \((.*)\)$/, 'Camera not available ($1)'],
@@ -962,7 +964,17 @@ const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
-function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function lsSet(k, v){
+  try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+  catch(e){
+    // Speicher voll (z. B. viele Vorlagen mit Versandlabels): höchstens alle 10 s melden
+    if (e && e.name === 'QuotaExceededError' && Date.now() - (lsSet.warned || 0) > 10000){
+      lsSet.warned = Date.now();
+      try { toast('Browser-Speicher ist voll – nicht gespeichert. Alte Vorlagen löschen oder eine Sicherung machen.'); } catch(err){}
+    }
+    return false;
+  }
+}
 
 if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
@@ -1464,7 +1476,9 @@ function previewScale(){
   if ($('preview1bit').checked) return 1;
   const cssW = parseFloat(cv.style.width) || W();
   // mindestens doppelt so fein wie die Druckpunkte, damit kleine Schrift und Bilder nicht treppig wirken
-  return Math.max(2, Math.min(4, Math.ceil(cssW / W() * (window.devicePixelRatio || 1))));
+  let s = Math.max(2, Math.min(4, Math.ceil(cssW / W() * (window.devicePixelRatio || 1))));
+  while (s > 1 && W() * H() * s * s > 4e6) s--;   // große Etiketten: flüssig bleiben (v. a. am Handy)
+  return s;
 }
 function render(){
   const w = W(), h = H();
@@ -1829,7 +1843,7 @@ function addImageFile(f){
   r.onload = () => {
     const im = new Image();
     im.onload = () => {
-      const k = Math.min(1, HEAD_PX / Math.max(im.width, im.height));
+      const k = Math.min(1, Math.max(HEAD_PX, 2 * Math.max(W(), H())) / Math.max(im.width, im.height));
       const t = document.createElement('canvas');
       t.width = Math.round(im.width * k); t.height = Math.round(im.height * k);
       const tc = t.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, t.width, t.height);
@@ -2012,7 +2026,7 @@ async function pageToCanvas(file){
     }
     const page = await (await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise).getPage(1);
     const v1 = page.getViewport({ scale:1 }), mm = 25.4 / 72;
-    const ppm = Math.min(16, 4000 / (Math.max(v1.width, v1.height) * mm));
+    const ppm = Math.min(8, 2400 / (Math.max(v1.width, v1.height) * mm));   // zum Suchen reicht das; der Ausschnitt wird danach scharf gezeichnet
     const vp = page.getViewport({ scale: ppm * mm });
     const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
     const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height);
@@ -2872,7 +2886,13 @@ function clearPrinterInfo(){
 }
 // solange verbunden, jede Minute nachfragen
 setInterval(() => { if (bt.char) queryStatus(); }, 60000);
-$('btnConnect').addEventListener('click', connect);
+$('btnConnect').addEventListener('click', () => printer().proto === 'tspl' ? connectSerialPrinter() : connect());
+// PM-241: „Verbinden“ nutzt Bluetooth „klassisch“ (vorher in den Bluetooth-Einstellungen koppeln)
+async function connectSerialPrinter(){
+  if (serPrn.writer){ await serialClose(); setStatus(false); return; }
+  try { setStatus(false, 'Suche …'); await serialConnect(); setStatus(true, printer().name); }
+  catch(err){ setStatus(false); if (err.name !== 'NotFoundError') log('Bluetooth-Fehler: ' + err.message); }
+}
 $('btDiagCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('btDiag').textContent); $('btDiagCopy').textContent = 'Kopiert ✓'; }
   catch(e){ $('btDiagCopy').textContent = 'Kopieren nicht möglich – bitte Screenshot'; }
@@ -3349,6 +3369,7 @@ async function serialClose(){
   try { serPrn.writer && serPrn.writer.releaseLock(); } catch(e){}
   try { serPrn.port && await serPrn.port.close(); } catch(e){}
   serPrn.port = serPrn.writer = null;
+  if (printer().proto === 'tspl') setStatus(false);
 }
 // TSPL: Größe, Lücke, Dichte, dann das Bild als BITMAP (0 = schwarz) und PRINT
 function tsplJob(c){
@@ -3356,14 +3377,15 @@ function tsplJob(c){
   const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
   const enc = t => new TextEncoder().encode(t);
   const inv = bits.map(b => b ^ 0xff);
-  return concatBytes(enc(`SIZE ${design.w} mm, ${design.h} mm\r\nGAP 3 mm, 0 mm\r\nOFFSET -3 mm\r\nDENSITY ${Math.round(d8 / 8 * 15)}\r\n`
+  const mmW = Math.round(c.width / PX_PER_MM), mmH = Math.round(c.height / PX_PER_MM);   // „Um 90° drehen“ tauscht die Seiten
+  return concatBytes(enc(`SIZE ${mmW} mm, ${mmH} mm\r\nGAP 3 mm, 0 mm\r\nOFFSET -3 mm\r\nDENSITY ${Math.round(d8 / 8 * 15)}\r\n`
     + `SPEED 4\r\nDIRECTION 0\r\nCLS\r\nBITMAP 0,0,${bpr},${h},0,`), inv, enc('\r\nPRINT 1\r\nEND\r\n'));
 }
 async function printTspl(via){
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
   const btn = via === 'usb' ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
-  try { await (via === 'usb' ? usbConnect() : serialConnect()); }
+  try { await (via === 'usb' ? usbConnect() : serialConnect()); if (via !== 'usb') setStatus(true, printer().name); }
   catch(err){ if (err.name !== 'NotFoundError') log('Druckfehler: ' + err.message); return; }
   const chunk = via === 'usb' ? 4096 : 512;
   const send = via === 'usb' ? b => usbPrn.dev.transferOut(usbPrn.ep, b) : async b => { await serPrn.writer.write(b); await sleep(15); };
@@ -3528,7 +3550,9 @@ function loadDesign(d){
 $('tplSave').addEventListener('click', () => {
   const name = prompt('Name der Vorlage:', $('tplList').value || '');
   if (!name) return;
-  const all = tplAll(); all[name] = design; lsSet(LS_TPL, all); refreshTplList(name);
+  const all = tplAll(); all[name] = design;
+  if (!lsSet(LS_TPL, all)) alert('Die Vorlage konnte nicht gespeichert werden: Der Browser-Speicher ist voll.\n\nLösche alte Vorlagen (besonders mit großen Bildern oder Versandlabels) oder speichere vorher eine Sicherung.');
+  refreshTplList(name);
 });
 $('tplLoad').addEventListener('click', () => { const t = tplAll()[$('tplList').value]; if (t) loadDesign(t); });
 $('tplDel').addEventListener('click', () => {
