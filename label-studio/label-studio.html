@@ -527,7 +527,7 @@ progress{width:100%;height:8px}
       <p class="hint"><b>Umzug aufs neue Handy:</b> 1. Hier „Sicherung speichern“ bzw. „teilen“. 2. Datei aufs neue Gerät bringen
         (Mail, Messenger, Cloud, Kabel). 3. Label Studio dort öffnen, „Sicherung laden“ und die Datei wählen.</p>
     </details>
-    <input type="file" id="fileBackup" accept=".json,application/json" hidden>
+    <input type="file" id="fileBackup" hidden>
   </div>
 </dialog>
 <dialog id="help">
@@ -642,6 +642,7 @@ const PRINTERS = {
 const modelFromName = name => {
   name = name || '';
   if (/^M(11|12|2\d)\d/.test(name)) return undefined;
+  if (/^B21(S|[ _-]?PRO)/i.test(name)) return undefined;   // andere Druckabläufe als der B21 (B21 Pro: 300 dpi)
   return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
@@ -745,7 +746,7 @@ const EN = {
   // Ebenen
   'Ebenen':'Layers', 'Oben liegt vorne. Am ⠿ ziehen ändert die Reihenfolge, Doppelklick auf den Namen benennt um.':'Top is in front. Drag ⠿ to reorder, double-click a name to rename.',
   'Ziehen, um die Reihenfolge zu ändern':'Drag to reorder', 'Ausblenden (wird dann nicht gedruckt)':'Hide (will not be printed)',
-  'Einblenden':'Show', 'Sperren (nicht mehr verschiebbar)':'Lock (can no longer be moved)', 'Noch keine Elemente auf dem Etikett.':'No elements on the label yet.',
+  'Einblenden':'Show', 'Doppelklick zum Umbenennen':'Double-click to rename', 'Sperren (nicht mehr verschiebbar)':'Lock (can no longer be moved)', 'Noch keine Elemente auf dem Etikett.':'No elements on the label yet.',
   'Name der Ebene (leer lassen = automatisch):':'Layer name (leave empty = automatic):',
   // Drucken
   'Drucken':'Print', 'Rolle (Profil)':'Roll (profile)', 'Speichern…':'Save…', '– Rolle wählen –':'– choose a roll –',
@@ -901,12 +902,15 @@ function tr(s){
 }
 // Alles, was im Fenster erscheint, beim Einfügen übersetzen (Texte, Tooltips, Platzhalter)
 const I18N_ATTRS = ['title', 'placeholder', 'aria-label'];
+// Eigene Inhalte (Namen von Ebenen, Vorlagen, Rollen und Schriften) bleiben, wie der Nutzer sie geschrieben hat
+const isUserText = el => !!el && (el.classList.contains('lname') || el.classList.contains('font-pick')
+  || (el.tagName === 'OPTION' && !!el.value && /^(tplList|rollSel)$/.test(el.parentElement && el.parentElement.id)));
 function translateTree(n){
   if (LANG !== 'en' || !n) return;
-  if (n.nodeType === 3){ const t = tr(n.data); if (t !== n.data) n.data = t; return; }
+  if (n.nodeType === 3){ if (isUserText(n.parentElement)) return; const t = tr(n.data); if (t !== n.data) n.data = t; return; }
   if (n.nodeType !== 1 || /^(SCRIPT|STYLE)$/.test(n.tagName)) return;
   for (const a of I18N_ATTRS) if (n.hasAttribute(a)){ const v = n.getAttribute(a), t = tr(v); if (t !== v) n.setAttribute(a, t); }
-  if (/^(CANVAS|TEXTAREA|VIDEO)$/.test(n.tagName)) return;   // Inhalt eines Textfelds ist Eingabe, keine Oberfläche
+  if (/^(CANVAS|TEXTAREA|VIDEO)$/.test(n.tagName) || isUserText(n)) return;   // Eingaben und eigene Namen nicht anfassen
   for (const c of n.childNodes) translateTree(c);
 }
 function startTranslation(){
@@ -1851,7 +1855,9 @@ async function openScanner(){
       };
       $('scanInfo').textContent = tr('Halte einen QR-Code vor die Kamera. (Barcodes liest nur Chrome am Handy.)');
     }
-    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+    if (!$('scan').open){ stream.getTracks().forEach(t => t.stop()); return; }   // inzwischen geschlossen
+    scanStream = stream;
   } catch(e){
     $('scanInfo').textContent = tr('Kamera nicht verfügbar') + ' (' + e.message + ')';
     return;
@@ -1963,7 +1969,7 @@ $('fileLabel').addEventListener('change', async ev => {
 
 // Regler auf Ausgangswerte, Bild wieder eingepasst und mittig aufs Etikett
 function resetImageEl(e){
-  Object.assign(e, e.orig || { threshold:128, thicken:'0', dither:'', contrast:0, invertImg:false });
+  Object.assign(e, { contrast:0, invertImg:false }, e.orig || { threshold:128, thicken:'0', dither:'' });
   const b = bbox(e), k = Math.min(W() / b.w, H() / b.h);
   e.w = Math.round(e.w * k); e.h = Math.round(e.w * e.ratio);
   const b2 = bbox(e);
@@ -3120,6 +3126,7 @@ function applyBackupSettings(data){
 // ---------- Sicherung & Umzug: alles lokal als Datei, ohne Konto ----------
 // Version 3 enthält alle Einstellungen (localStorage „labelstudio.*“) und die eigenen Schriftdateien (IndexedDB).
 const LS_LASTBACKUP = 'labelstudio.lastBackup', LS_REMIND = 'labelstudio.backupRemind';
+const OPENED_SHARED = /^#t=/.test(location.hash);   // vor dem Aufräumen der Adresse merken
 const bufToB64 = buf => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
 const b64ToBuf = str => Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
 function storageKeys(){
@@ -3191,7 +3198,10 @@ async function restoreFull(data, merge){
   if (!confirm(merge ? 'Sicherung laden? Einstellungen werden übernommen, deine vorhandenen Vorlagen und Rollen bleiben erhalten.'
                      : 'Sicherung laden und alles hier ersetzen? Vorhandene Vorlagen und Rollen gehen dabei verloren.')) return;
   const get = (k, d) => { try { return JSON.parse(data.storage[k]); } catch(e){ return d; } };
-  if (!merge) for (const k of storageKeys()) localStorage.removeItem(k);
+  if (!merge){
+    for (const k of storageKeys()) localStorage.removeItem(k);
+    await fontStore('readwrite', st => st.clear()).catch(() => {});
+  }
   for (const [k, v] of Object.entries(data.storage)){
     if (merge && k === LS_TPL){ lsSet(k, { ...tplAll(), ...get(k, {}) }); continue; }
     if (merge && k === LS_ROLLS){ lsSet(k, { ...rollsAll(), ...get(k, {}) }); continue; }
@@ -3223,7 +3233,7 @@ function backupReminder(){
     toast('Sicherung geladen – alles ist wieder da'); return;
   }
   const day = 864e5, now = Date.now();
-  if (!Object.keys(tplAll()).length) return;
+  if (OPENED_SHARED || !Object.keys(tplAll()).length) return;
   if (now - lsGet(LS_LASTBACKUP, 0) < 30 * day || now - lsGet(LS_REMIND, 0) < 7 * day) return;
   lsSet(LS_REMIND, now);
   setTimeout(() => toast('Tipp: Sichere deine Vorlagen ab und zu – Vorlagen → „💾 Sicherung“'), 2500);
