@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Eine eigene Etiketten-App für deinen Etikettendrucker – am PC und am Handy, direkt im Browser.</b><br>
-  Keine Installation, alles in einer einzigen HTML-Datei.
+  Keine Installation nötig – läuft im Browser oder als installierbare App, auf Deutsch und Englisch.
 </p>
 
 <p align="center">
@@ -31,7 +31,13 @@
 | 🗂️ **Ebenen** | Alle Elemente als Liste wie in Photoshop: auswählen, ausblenden, sperren, umsortieren, umbenennen |
 | 📐 **Präzise** | Lineal in mm, zuschaltbares Raster (1/2/5 mm) mit Einrasten, Rückgängig/Wiederholen (Strg+Z/Y) |
 | 📥 **Importieren** | Fertige Etiketten als PNG, SVG oder PDF, z. B. von [3dfilamentprofiles.com](https://3dfilamentprofiles.com) |
-| 🔢 **Platzhalter** | `{datum}`, `{zeit}` und `{nr}` – die Nummer zählt bei mehreren Kopien hoch |
+| 🔢 **Platzhalter** | `{datum}`, `{datum+7}` (auch Wochen/Monate/Jahre), `{kw}`, `{wochentag}`, `{monat}`, `{jahr}`, `{zeit}` und `{nr}` – per Knopf „{ } Platzhalter“ einfügen |
+| 📷 **Scannen & Einfügen** | QR-Code/Barcode mit der Kamera einlesen oder ein geteiltes Etikett direkt öffnen; Bilder und Text mit Strg+V einfügen oder aufs Etikett ziehen |
+| 🎛️ **Bilder** | Schwärzung, Kontrast, Rasterverfahren (Floyd-Steinberg, Atkinson, Punktraster), Linien verstärken, Umkehren |
+| 🧲 **Einrasten** | Elemente rasten an Rand, Mitte und an anderen Elementen ein (Alt = frei verschieben) |
+| ✂️ **Endlosband** | DYMO LetraTag: Länge passt sich dem Text an; mehrere Etiketten kommen auf einem Streifen mit Schnittmarken |
+| 📲 **Als App** | Installierbar (PWA) mit eigenem Symbol, funktioniert auch offline – die Browser-Version bleibt gleich |
+| 🌐 **Sprachen** | Deutsch und Englisch, umschaltbar im Menü |
 | 🕘 **Zuletzt gedruckt** | Die letzten 10 gedruckten Etiketten mit einem Klick zurückholen |
 | 💾 **Vorlagen & Sicherung** | Vorlagen speichern; Export/Import überträgt Vorlagen, Rollen, Einstellungen und Fensteranordnung auf andere Geräte |
 | 🔗 **Teilen** | Etikett per Link oder QR-Code aufs Handy holen – einfach scannen |
@@ -46,9 +52,9 @@
 
 | Hersteller | Modelle | Verbindung |
 |---|---|---|
-| **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S | Bluetooth, USB (Windows-Treiber) |
+| **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S, D30 / D35, Q30 / Q30S | Bluetooth, USB (Windows-Treiber) |
 | **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
-| **Niimbot** | D101 ✅, D110, B1 | Bluetooth |
+| **Niimbot** | D101 ✅, D110, B1, B21 | Bluetooth |
 | **DYMO** | LetraTag 200B ✅ | Bluetooth |
 | **Alle anderen** | jeder Etikettendrucker mit Windows-Treiber | USB über den Windows-Druck |
 
@@ -58,7 +64,9 @@
 
 **Online:** [barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/) in **Chrome** oder **Edge** öffnen – am PC wie am Handy.
 
-**Offline:** [`label-studio/label-studio.html`](label-studio/label-studio.html) herunterladen und im Browser öffnen.
+**Als App:** Im Menü **„Label Studio“ → „📲 Als App installieren“** (Chrome/Edge am PC und auf Android). Die App bekommt ein eigenes Symbol, öffnet ohne Browserleiste und funktioniert auch ohne Internet. Sie ist dieselbe Seite wie die Browser-Version – Updates kommen automatisch.
+
+**Offline als Datei:** [`label-studio/label-studio.html`](label-studio/label-studio.html) herunterladen und im Browser öffnen.
 
 Dann Etikettengröße wählen, gestalten, drucken.
 
@@ -91,12 +99,15 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M200 | 76 mm | 50 × 30 mm | mittig | ungetestet |
 | Phomemo M110 / M120 | 48 mm | 40 × 30 mm | mittig | ungetestet |
 | Phomemo M110S | 48 mm | 40 × 30 mm | rechts | ungetestet |
+| Phomemo D30 / D35 | 12 mm | 40 × 12 mm | quer | ungetestet |
+| Phomemo Q30 / Q30S | 12–15 mm | 40 × 14 mm | quer | ungetestet |
 | Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | 40 × 12 mm | quer | ✅ getestet (PC) |
 | Marklife P12 (auch LP90, P11) | 12–15 mm | 40 × 15 mm | quer | ungetestet |
 | Marklife M60 (auch X2) | bis 50 mm | 50 × 30 mm | quer | ungetestet |
 | Niimbot D110 | 12 mm | 40 × 12 mm | quer | ungetestet |
 | Niimbot D101 | 24 mm | 40 × 12 mm | quer | ✅ getestet (PC + Android) |
 | Niimbot B1 | 48 mm | 50 × 30 mm | längs | ungetestet |
+| Niimbot B21 | 48 mm | 50 × 30 mm | längs | ungetestet |
 | DYMO LetraTag 200B | 12-mm-Band, 3,8 mm druckbar | 40 × 4 mm (Länge frei) | – | ✅ getestet (PC + Android) |
 
 > [!TIP]
@@ -113,7 +124,7 @@ In der App im Menü **„Label Studio“ → „Drucker vorschlagen …“** –
 
 Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellungen speichert die App **nur im Browser** des jeweiligen Geräts – sie landen weder in der Datei noch auf GitHub.
 
-Die Web-Schriften kommen von **Google Fonts**, die Bibliotheken für QR-Code, Barcode und PDF von **cdnjs** – dabei sieht der jeweilige Anbieter wie bei jeder Webseite deine IP-Adresse. Etikett-Inhalte werden nicht übertragen.
+Die Web-Schriften kommen von **Google Fonts**, die Bibliotheken für QR-Code, Barcode und PDF von **cdnjs**, der QR-Leser für den Scanner (nur wenn der Browser selbst keine Codes lesen kann) von **jsDelivr** – dabei sieht der jeweilige Anbieter wie bei jeder Webseite deine IP-Adresse. Etikett-Inhalte werden nicht übertragen.
 Google Fonts lässt sich im Menü unter **„Schriften …“** abschalten; dann wird nichts von Google geladen. Eigene Schriftdateien bleiben nur im Browser gespeichert.
 
 ## 🌐 Online
@@ -139,9 +150,9 @@ Die Bluetooth-Befehle der Drucker stammen aus diesen Open-Source-Projekten:
 
 | Projekt | Autor | Verwendet für | Lizenz |
 |---|---|---|---|
-| [phomymo](https://github.com/transcriptionstream/phomymo) | transcriptionstream | Phomemo M-Serie (M220, M221, M200, M110 …) | keine angegeben |
+| [phomymo](https://github.com/transcriptionstream/phomymo) | transcriptionstream | Phomemo M-Serie (M220, M221, M200, M110 …) und D-Serie (D30, Q30) | keine angegeben |
 | [thermoprint](https://github.com/tomLadder/thermoprint) | tomLadder | Marklife P15 / P7, P12, M60 | MIT |
-| [niimbluelib](https://github.com/MultiMote/niimbluelib) | MultiMote | Niimbot D110, D101, B1 (Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)) | MIT |
+| [niimbluelib](https://github.com/MultiMote/niimbluelib) | MultiMote | Niimbot D110, D101, B1, B21 (Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)) | MIT |
 | [dymo-bluetooth](https://github.com/ysfchn/dymo-bluetooth) | ysfchn | DYMO LetraTag 200B | MIT |
 
 Mitgeladene Bibliotheken:
@@ -151,6 +162,7 @@ Mitgeladene Bibliotheken:
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR-Codes | MIT |
 | [JsBarcode](https://github.com/lindell/JsBarcode) | Barcodes | MIT |
 | [PDF.js](https://github.com/mozilla/pdf.js) (Mozilla) | PDF-Import | Apache 2.0 |
+| [jsQR](https://github.com/cozmo/jsQR) | QR-Scanner, wenn der Browser keine Codes lesen kann | Apache 2.0 |
 | [Google Fonts](https://fonts.google.com) | Web-Schriften und Symbol-Schrift (Noto Sans Symbols) | SIL Open Font License / Apache 2.0 |
 
-Phomemo, Marklife und Niimbot sind Marken ihrer jeweiligen Inhaber. Label Studio ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.
+Phomemo, Marklife, Niimbot und DYMO sind Marken ihrer jeweiligen Inhaber. Label Studio ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.

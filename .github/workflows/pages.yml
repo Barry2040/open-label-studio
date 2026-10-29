@@ -30,6 +30,8 @@ jobs:
           mkdir _site
           cp label-studio/label-studio.html _site/index.html
           cp label-studio/label-studio.html _site/label-studio.html
+          # installierbare App: Manifest, Offline-Speicher und Symbole
+          cp label-studio/manifest.webmanifest label-studio/sw.js label-studio/icon*.svg label-studio/icon*.png _site/
           touch _site/.nojekyll
 
       - uses: actions/configure-pages@v5

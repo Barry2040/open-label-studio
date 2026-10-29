@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Label Studio</title>
 <meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script>
@@ -53,12 +56,13 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help,#share,#request,#setup,#gallery,#fonts{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share,#request,#setup,#gallery,#fonts,#scan{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
-#share{width:min(380px,calc(100vw - 32px))}
+#share,#scan{width:min(380px,calc(100vw - 32px))}
+#scanVideo{width:100%;max-height:50vh;border-radius:8px;background:#000;object-fit:cover}
 #request,#setup,#fonts{width:min(520px,calc(100vw - 32px))}
 #gallery{width:min(860px,calc(100vw - 32px))}
-#help::backdrop,#share::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
+#help::backdrop,#share::backdrop,#scan::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
 .request-body{padding:8px 16px 16px}
 .menu-list hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 .share-body{padding:8px 16px 16px;text-align:center}
@@ -295,6 +299,7 @@ progress{width:100%;height:8px}
         <button data-add="line" title="Linie hinzufügen"><span class="ti">—</span><span>Linie</span></button>
         <button id="btnShapes" title="Form hinzufügen: Kreis, Pfeil, Stern …"><span class="ti">◆</span><span>Form ▾</span></button>
         <button id="btnSymbols" title="Symbol hinzufügen: Warnung, Recycling, Schneeflocke …"><span class="ti">★</span><span>Symbol ▾</span></button>
+        <button id="btnScan" title="QR-Code oder Barcode mit der Kamera einlesen – oder ein geteiltes Etikett öffnen"><span class="ti">📷</span><span>Scannen</span></button>
       </div>
       <div class="toolbar">
         <button id="btnUndo" title="Rückgängig (Strg+Z)" aria-label="Rückgängig">↶</button>
@@ -390,6 +395,8 @@ progress{width:100%;height:8px}
         <div class="field"><label for="align" title="Wo das Etikett unter dem Druckkopf liegt – je nach Rollenhalter des Druckers">Lage des Etiketts</label>
           <select id="align"><option value="right">Rechts (M220)</option><option value="center">Mittig (M221)</option><option value="left">Links</option></select>
         </div>
+        <label class="check" title="Bei mehreren Etiketten (Kopien oder Seriendruck): alle hintereinander auf ein Stück Band, dazwischen eine gestrichelte Schnittmarke – spart den Vorlauf vor jedem Druck">
+          <input type="checkbox" id="strip" checked> Alle auf einen Streifen (mit Schnittmarken)</label>
         <button class="primary" id="btnPrint" style="width:100%">Per Bluetooth drucken</button>
         <pre id="btDiag" class="diag" hidden></pre>
         <button id="btDiagCopy" hidden style="width:100%;margin-top:6px">Diagnose kopieren</button>
@@ -477,6 +484,20 @@ progress{width:100%;height:8px}
   <p class="hint" id="galleryHint" style="padding:0 16px;margin:8px 0 0"></p>
   <div id="galleryBody" class="gal"></div>
 </dialog>
+<dialog id="scan" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Code scannen</b>
+    <button id="scanClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="share-body">
+    <video id="scanVideo" playsinline muted></video>
+    <p id="scanInfo" class="hint">Halte einen QR-Code oder Barcode vor die Kamera.</p>
+    <div id="scanResult" hidden>
+      <input id="scanValue" aria-label="Gelesener Inhalt">
+      <div id="scanActions" class="btn-grid" style="margin-top:8px"></div>
+    </div>
+  </div>
+</dialog>
 <dialog id="help">
   <div class="help-head">
     <div id="helpTabs" class="help-tabs"></div>
@@ -555,6 +576,10 @@ const PRINTERS = {
   m200:  { name:'Phomemo M200', size:[50,30],        proto:'mseries', head:608, align:'center' },
   m110:  { name:'Phomemo M110 / M120', size:[40,30], proto:'m110',    head:384, align:'center' },
   m110s: { name:'Phomemo M110S', size:[40,30],       proto:'m110',    head:384, align:'right'  },
+  // D-Serie (Daten aus phomymo): kleine Etiketten laufen quer durch den Kopf, das Bild wird gedreht und so breit
+  // gesendet wie das Etikett hoch ist (head 0 = Breite aus dem Bild)
+  d30:   { name:'Phomemo D30 / D35', size:[40,12],  proto:'dseries', head:0, rotate90:true, widthText:'12 mm', prefixes:['D30', 'D35'] },
+  q30:   { name:'Phomemo Q30 / Q30S', size:[40,14], proto:'dseries', head:0, rotate90:true, widthText:'12–15 mm', prefixes:['Q30'] },
   // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
   // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
   p15:   { name:'Marklife P15 / P7', size:[40,12],   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
@@ -572,6 +597,9 @@ const PRINTERS = {
            tested:'PC + Android', widthText:'24 mm', prefixes:['D101'] },
   b1:    { name:'Niimbot B1', size:[50,30],          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
            widthText:'48 mm', prefixes:['B1-', 'B1_'] },
+  // B21: aktuelle Geräte (B21 C2B) nutzen in niimbluelib denselben Ablauf wie der B1
+  b21:   { name:'Niimbot B21', size:[50,30],         proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
+           widthText:'48 mm', prefixes:['B21'] },
   // DYMO (Daten aus github.com/ysfchn/dymo-bluetooth, MIT-Lizenz): 12-mm-Band, aber nur 30 Punkte (3,8 mm) druckbar.
   // Das Etikett ist darum 4 mm hoch (32 Punkte); die Länge ist frei, das Band wird nach dem Druck abgeschnitten.
   lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, continuous:true, tested:'PC + Android', widthText:'12-mm-Band (3,8 mm druckbar)',
@@ -600,6 +628,247 @@ const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0x
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455','be3dd650-2b3d-42f1-99c1-f0f749dd0678'];
 const LS_DRAFT = 'labelstudio.draft', LS_TPL = 'labelstudio.templates', LS_PRINT = 'labelstudio.print';
 
+// Sprache der Oberfläche: Deutsch (Original) oder Englisch. Übersetzt wird beim Anzeigen – jeder deutsche Text, der
+// ins Fenster kommt (auch Meldungen und Menüs), wird im Wörterbuch nachgeschlagen. Fehlt ein Eintrag, bleibt er deutsch.
+const LS_LANG = 'labelstudio.lang';
+let LANG = (() => { try { return JSON.parse(localStorage.getItem(LS_LANG)) || (/^de\b/i.test(navigator.language || 'de') ? 'de' : 'en'); } catch(e){ return 'de'; } })();
+const uiLocale = () => LANG === 'en' ? 'en-GB' : 'de-DE';
+const EN = {
+  // Kopfzeile & Menü
+  'Menü & Hilfe':'Menu & help', 'Nicht verbunden':'Not connected', 'Verbunden':'Connected', 'Layout zurücksetzen':'Reset layout',
+  'Verbinden':'Connect', 'Trennen':'Disconnect', 'Suche …':'Searching …',
+  'Menü öffnen: Anleitung, Treiber, Drucker, Tipps':'Open menu: guide, drivers, printers, tips',
+  'Farbschema: automatisch / hell / dunkel':'Colour scheme: auto / light / dark', 'Farbschema umschalten':'Switch colour scheme',
+  'Farbschema: automatisch (klicken zum Wechseln)':'Colour scheme: auto (click to change)',
+  'Farbschema: hell (klicken zum Wechseln)':'Colour scheme: light (click to change)',
+  'Farbschema: dunkel (klicken zum Wechseln)':'Colour scheme: dark (click to change)',
+  'Fenster wieder an ihre ursprüngliche Position setzen':'Put all panels back in their original place',
+  '🖼️ Vorlagen-Galerie …':'🖼️ Template gallery …', '🔤 Schriften …':'🔤 Fonts …', '⚙️ Drucker einrichten …':'⚙️ Set up printer …',
+  '🖨️ Drucker vorschlagen …':'🖨️ Suggest a printer …', '📲 Als App installieren …':'📲 Install as app …',
+  'Kurzanleitung':'Quick guide', 'Treiber & Einrichtung':'Drivers & setup', 'Unterstützte Drucker':'Supported printers',
+  'Tipps & Fehlerbehebung':'Tips & troubleshooting', 'Bereiche':'Sections', 'Schließen':'Close',
+  'Label Studio ist installiert – du findest es bei deinen Apps':'Label Studio is installed – you’ll find it with your apps',
+  'Im Browser-Menü „App installieren“ bzw. „Zum Startbildschirm hinzufügen“ wählen':'Choose “Install app” or “Add to home screen” in the browser menu',
+  // Etikett
+  'Etikett':'Label', 'Breite (mm)':'Width (mm)', 'Höhe (mm)':'Height (mm)', 'Eigene Größe':'Custom size',
+  'Länge automatisch (Endlosband)':'Automatic length (continuous tape)',
+  'Für Endlosband (z. B. DYMO LetraTag): das Etikett ist genau so lang wie der Inhalt plus 2 mm Rand an jeder Seite':'For continuous tape (e.g. DYMO LetraTag): the label is exactly as long as its content plus a 2 mm margin on each side',
+  'Feste Größe gewählt – „Länge automatisch“ ist aus':'Fixed size chosen – “Automatic length” is off',
+  'Text':'Text', 'QR':'QR', 'Barcode':'Barcode', 'Bild':'Image', 'Rahmen':'Frame', 'Linie':'Line', 'Form ▾':'Shape ▾', 'Symbol ▾':'Symbol ▾',
+  'Scannen':'Scan', 'Raster':'Grid', 'aus':'off', 'Lineal':'Ruler', 'Druckvorschau (schwarz/weiß)':'Print preview (black/white)',
+  'Fertiges Etikett importieren (PNG, SVG, PDF)':'Import a finished label (PNG, SVG, PDF)',
+  'Text hinzufügen':'Add text', 'QR-Code hinzufügen':'Add QR code', 'Barcode hinzufügen':'Add barcode', 'Bild hinzufügen':'Add image',
+  'Rahmen hinzufügen':'Add frame', 'Linie hinzufügen':'Add line', 'Form hinzufügen: Kreis, Pfeil, Stern …':'Add a shape: circle, arrow, star …',
+  'Symbol hinzufügen: Warnung, Recycling, Schneeflocke …':'Add a symbol: warning, recycling, snowflake …',
+  'QR-Code oder Barcode mit der Kamera einlesen – oder ein geteiltes Etikett öffnen':'Read a QR code or barcode with the camera – or open a shared label',
+  'Rückgängig (Strg+Z)':'Undo (Ctrl+Z)', 'Rückgängig':'Undo', 'Wiederholen (Strg+Y)':'Redo (Ctrl+Y)', 'Wiederholen':'Redo',
+  'QR: Inhalt zu lang':'QR: content too long', 'Ungültiger Barcode':'Invalid barcode',
+  'Bild eingefügt':'Image pasted', 'Text eingefügt':'Text pasted',
+  'Importiere …':'Importing …', 'Konnte PDF-Leser nicht laden':'Could not load the PDF reader',
+  'Datei konnte nicht gelesen werden':'Could not read the file', 'Datei hat keine erkennbare Größe':'File has no recognisable size',
+  // Element
+  'Element':'Element', 'Tippe ein Element auf dem Etikett an, um es zu bearbeiten.':'Tap an element on the label to edit it.',
+  'Tippe ein Element auf dem Etikett an, um es zu bearbeiten. Mehrere wählst du mit Strg+Klick oder indem du auf freier Fläche einen Rahmen aufziehst.':'Tap an element on the label to edit it. Select several with Ctrl+click or by dragging a box on an empty area.',
+  'QR-Code':'QR code', 'Rahmen / Linie':'Frame / line', 'Form':'Shape',
+  'Inhalt (Text, Link …)':'Content (text, link …)', 'Schrift':'Font', 'Schriftgröße (px)':'Font size (px)', 'Ausrichtung':'Alignment',
+  'Links':'Left', 'Mitte':'Centre', 'Rechts':'Right', 'Fett':'Bold', 'Kursiv':'Italic', 'Unterstrichen':'Underline', 'Durchgestrichen':'Strikethrough',
+  'Weiß auf Schwarz':'White on black', 'Zeilenabstand (1 = eng, 1,15 = normal)':'Line spacing (1 = tight, 1.15 = normal)',
+  'Zeichenabstand (px)':'Letter spacing (px)', 'Bogen in Grad (0 = gerade, + nach oben, − nach unten)':'Arc in degrees (0 = straight, + upwards, − downwards)',
+  'Größe (px)':'Size (px)', 'Fehlerkorrektur':'Error correction', 'L – niedrig':'L – low', 'M – mittel':'M – medium', 'Q – hoch':'Q – high', 'H – sehr hoch':'H – very high',
+  'Inhalt':'Content', 'Typ':'Type', 'Breite (px)':'Width (px)', 'Höhe (px)':'Height (px)', 'Text darunter':'Text below',
+  'Schwärzung, rechts = dunkler':'Darkness, right = darker', 'Kontrast':'Contrast', 'Raster (für Fotos)':'Dithering (for photos)',
+  'Aus – klare Kanten (Logos, Text)':'Off – sharp edges (logos, text)', 'Floyd-Steinberg – weich (Fotos)':'Floyd–Steinberg – smooth (photos)',
+  'Atkinson – kontrastreich':'Atkinson – high contrast', 'Gleichmäßiges Punktraster':'Even dot pattern',
+  'Linien verstärken':'Thicken lines', 'Normal':'Normal', 'Etwas kräftiger':'A bit bolder', 'Kräftig':'Bold', 'Umkehren (Negativ)':'Invert (negative)',
+  'Linienart':'Line style', 'Durchgezogen':'Solid', 'Gestrichelt':'Dashed', 'Gepunktet':'Dotted', 'Doppelt':'Double', 'Nur Ecken':'Corners only',
+  'Gefüllt':'Filled', 'Linienstärke (px)':'Line width (px)', 'Eckenradius (px)':'Corner radius (px)',
+  'Kreis / Ellipse':'Circle / ellipse', 'Dreieck':'Triangle', 'Raute':'Diamond', 'Sechseck':'Hexagon', 'Stern':'Star', 'Herz':'Heart',
+  'Pfeil':'Arrow', 'Sprechblase':'Speech bubble',
+  '↔ Mitte':'↔ Centre', '↕ Mitte':'↕ Centre', '⤢ Einpassen':'⤢ Fit', 'Zurücksetzen':'Reset', 'Duplizieren':'Duplicate',
+  'Nach vorne':'Bring forward', 'Nach hinten':'Send backward', 'Löschen':'Delete',
+  '{ } Platzhalter ▾':'{ } Placeholder ▾', 'Datum, Uhrzeit, Nummer … einfügen – wird beim Drucken ersetzt':'Insert date, time, number … – replaced when printing',
+  'Datum':'Date', 'Heute':'Today', 'In 7 Tagen':'In 7 days', 'In 1 Monat':'In 1 month', 'In 1 Jahr':'In 1 year', 'Gestern':'Yesterday',
+  'Wochentag':'Weekday', 'Tag':'Day', 'Monat (Zahl)':'Month (number)', 'Monat (Name)':'Month (name)', 'Jahr':'Year', 'Kalenderwoche':'Calendar week',
+  'Uhrzeit':'Time', 'Zähler & Liste':'Counter & list', 'Laufende Nummer (pro Kopie)':'Running number (per copy)',
+  'Seriendruck: Spalte 1':'Batch print: column 1', 'Seriendruck: Spalte 2':'Batch print: column 2', 'Seriendruck: ganze Zeile':'Batch print: whole line',
+  '⇤ Links':'⇤ Left', '⇥ Rechts':'⇥ Right', '⤒ Oben':'⤒ Top', '⤓ Unten':'⤓ Bottom', '⇹ Verteilen':'⇹ Distribute', '⇳ Verteilen':'⇳ Distribute',
+  '⊡ Zentrieren':'⊡ Centre', 'Gleiche Abstände nebeneinander':'Equal spacing side by side', 'Gleiche Abstände untereinander':'Equal spacing top to bottom',
+  'Gruppe mittig aufs Etikett':'Centre the group on the label', 'Auswahl aufheben':'Deselect',
+  'Ziehen verschiebt alle zusammen, Pfeiltasten auch. Strg/Umschalt + Klick nimmt Elemente dazu oder heraus.':'Dragging moves them all together, so do the arrow keys. Ctrl/Shift + click adds or removes elements.',
+  'Gesperrt – erst in den Ebenen entsperren (🔒)':'Locked – unlock it in the layers first (🔒)',
+  'Eigene Schriften':'Your own fonts', 'Überall gleich (Google Fonts)':'Same everywhere (Google Fonts)', 'Systemschriften (je nach Gerät)':'System fonts (depend on the device)',
+  'Installiert auf diesem PC':'Installed on this PC', 'Schriften verwalten …':'Manage fonts …',
+  // Rechtsklick-Menü
+  'Alles auswählen':'Select all', 'Links ausrichten':'Align left', 'Rechts ausrichten':'Align right', 'Oben ausrichten':'Align top', 'Unten ausrichten':'Align bottom',
+  'Horizontal mittig':'Centre horizontally', 'Vertikal mittig':'Centre vertically', 'Auf dem Etikett zentrieren':'Centre on the label',
+  'Auf Etikett einpassen':'Fit to label', 'Ausblenden':'Hide', 'Duplizieren (Strg+D)':'Duplicate (Ctrl+D)', 'Ganz nach vorne':'Bring to front',
+  'Ganz nach hinten':'Send to back', 'Sperren':'Lock', 'Entsperren':'Unlock', 'Um 90° drehen':'Rotate 90°', 'Form …':'Shape …', 'Symbol …':'Symbol …',
+  // Symbole
+  'Achtung':'Warning', 'Strom':'Electricity', 'Radioaktiv':'Radioactive', 'Biogefahr':'Biohazard', 'Heiß':'Hot', 'Kalt / gefroren':'Cold / frozen',
+  'Sonne':'Sun', 'Trocken lagern':'Keep dry', 'Recycling':'Recycling', 'Schneiden':'Cut', 'Technik':'Engineering', 'Werkzeug':'Tools', 'Ein/Aus':'On/off',
+  'Anker':'Anchor', 'Flugzeug':'Plane', 'Haus':'House', 'Telefon':'Phone', 'Brief':'Letter', 'Kaffee':'Coffee', 'Musik':'Music', 'Fahne':'Flag',
+  'Blume':'Flower', 'Kleeblatt':'Shamrock', 'Pflanze':'Plant', 'Smiley':'Smiley', 'Haken':'Tick', 'Kreuz':'Cross', 'Hoch':'Up', 'Runter':'Down',
+  'Drehen':'Rotate', 'Unendlich':'Infinity', 'Euro':'Euro', 'Durchmesser':'Diameter', 'Grad':'Degree', 'Plus/Minus':'Plus/minus', 'Ohm':'Ohm',
+  'Mikro':'Micro', 'Weiblich':'Female', 'Männlich':'Male', 'Waage':'Scales', 'Sanduhr':'Hourglass', 'Kästchen':'Box', 'Abgehakt':'Checked',
+  // Ebenen
+  'Ebenen':'Layers', 'Oben liegt vorne. Am ⠿ ziehen ändert die Reihenfolge, Doppelklick auf den Namen benennt um.':'Top is in front. Drag ⠿ to reorder, double-click a name to rename.',
+  'Ziehen, um die Reihenfolge zu ändern':'Drag to reorder', 'Ausblenden (wird dann nicht gedruckt)':'Hide (will not be printed)',
+  'Einblenden':'Show', 'Sperren (nicht mehr verschiebbar)':'Lock (can no longer be moved)', 'Noch keine Elemente auf dem Etikett.':'No elements on the label yet.',
+  'Name der Ebene (leer lassen = automatisch):':'Layer name (leave empty = automatic):',
+  // Drucken
+  'Drucken':'Print', 'Rolle (Profil)':'Roll (profile)', 'Speichern…':'Save…', '– Rolle wählen –':'– choose a roll –',
+  'Aktuelle Etikettengröße und Druckeinstellungen als Rolle speichern':'Save the current label size and print settings as a roll',
+  'Ausgewählte Rolle löschen':'Delete the selected roll', 'Rolle löschen':'Delete roll', 'Kopien':'Copies', '{nr} beginnt bei':'{nr} starts at',
+  'Versatz X (mm)':'Offset X (mm)', 'Versatz Y (mm)':'Offset Y (mm)', 'Seriendruck (Liste)':'Batch print (list)',
+  'Ein Etikett pro Zeile drucken':'Print one label per line', 'CSV/Text laden …':'Load CSV/text …', 'Im Etikett':'In the label, use',
+  '… für die Spalten einsetzen (getrennt mit':'… for the columns (separated by', 'oder Tab),':'or tab),',
+  'für die ganze Zeile. „Kopien“ gilt pro Zeile.':'for the whole line. “Copies” applies per line.',
+  'Schwarz;PLA\nWeiß;PETG\nRot;PLA':'Black;PLA\nWhite;PETG\nRed;PLA',
+  'Windows-Drucker (USB)':'Windows printer (USB)', 'Papierformat im Treiber':'Paper size in the driver', 'Wie Etikett':'Same as label',
+  'Über Windows-Drucker drucken (USB)':'Print via Windows printer (USB)',
+  'Im Druckfenster dasselbe Papierformat wählen, Ränder „Keine“, Skalierung 100.':'In the print dialog choose the same paper size, margins “None”, scale 100.',
+  'Bluetooth-Direktdruck':'Bluetooth direct print', 'Druckermodell':'Printer model', 'Dichte (1–8)':'Density (1–8)', 'Vorschub danach (mm)':'Feed afterwards (mm)',
+  'Lage des Etiketts':'Label position', 'Rechts (M220)':'Right (M220)', 'Mittig (M221)':'Centre (M221)',
+  'Wo das Etikett unter dem Druckkopf liegt – je nach Rollenhalter des Druckers':'Where the label sits under the print head – depends on the printer’s roll holder',
+  'Alle auf einen Streifen (mit Schnittmarken)':'All on one strip (with cut marks)',
+  'Bei mehreren Etiketten (Kopien oder Seriendruck): alle hintereinander auf ein Stück Band, dazwischen eine gestrichelte Schnittmarke – spart den Vorlauf vor jedem Druck':'With several labels (copies or batch print): all in a row on one piece of tape with a dashed cut mark in between – saves the lead-in before every print',
+  'Per Bluetooth drucken':'Print via Bluetooth', 'Diagnose kopieren':'Copy diagnostics', 'Kopiert ✓':'Copied ✓',
+  'Kopieren nicht möglich – bitte Screenshot':'Copying not possible – please take a screenshot',
+  'PNG speichern':'Save PNG', 'ungetestet':'untested', 'Noch nicht mit einem echten Gerät ausprobiert':'Not yet tried with a real device',
+  'Etikett gesendet.':'Label sent.', 'kein Papier':'no paper', 'Deckel offen':'lid open', 'Kein Papier':'No paper', 'Papier ✓':'Paper ✓',
+  'Akku schwach':'Battery low', 'Überhitzt':'Overheated',
+  'Seriendruck ist an, aber die Liste ist leer.':'Batch print is on, but the list is empty.',
+  'Alle Druckeinstellungen auf Standard zurücksetzen?':'Reset all print settings to default?',
+  'Druck fehlgeschlagen':'Print failed', 'Druck abgebrochen':'Print cancelled', 'Akku zu schwach zum Drucken':'Battery too low to print',
+  'Keine Kassette eingelegt':'No cassette inserted', 'Keine Antwort vom DYMO – ist er eingeschaltet und die Kassette eingelegt?':'No answer from the DYMO – is it switched on with a cassette inserted?',
+  'Drucker meldet kein Druckende':'Printer did not report the end of printing', 'Befehl wird vom Drucker nicht unterstützt':'Command not supported by the printer',
+  'Keine Fertigmeldung vom Drucker erhalten (Druck evtl. trotzdem erfolgt)':'No completion message from the printer (it may have printed anyway)',
+  'Dieser Browser unterstützt kein Web Bluetooth.\n\nPC: Chrome oder Edge verwenden.\nAndroid: Chrome verwenden.\niPhone: die App „Bluefy“ verwenden.':'This browser does not support Web Bluetooth.\n\nPC: use Chrome or Edge.\nAndroid: use Chrome.\niPhone: use the “Bluefy” app.',
+  'Der Drucker meldet keinen der bekannten Druckdienste.':'The printer reports none of the known print services.',
+  'Kein beschreibbarer Kanal gefunden. Ist das der richtige Drucker?':'No writable channel found. Is this the right printer?',
+  'Verbindung getrennt':'Disconnected', 'Verbindung wurde getrennt':'Connection was closed',
+  'Gerät auswählen':'Choose device', 'Kanal wählen':'Choose channel', 'Kanäle lesen':'Read channels', 'Anmelden am Drucker':'Log in to printer',
+  // Vorlagen
+  'Vorlagen':'Templates', 'Galerie':'Gallery', 'Zuletzt gedruckt':'Recently printed', 'Laden':'Load', 'Zuletzt bearbeitet':'Last edited', 'Neu':'New',
+  'Export':'Export', 'Import':'Import', 'Teilen':'Share', 'Fertige Vorlagen: Filamentspule, Kabel-Fahne, Gewürzglas …':'Ready-made templates: filament spool, cable flag, spice jar …',
+  'Die zuletzt gedruckten Etiketten':'The labels you printed last', 'Das Etikett laden, an dem du zuletzt gearbeitet hast':'Load the label you last worked on',
+  'Sicherung als Datei: Vorlagen, Rollen, Einstellungen und Fensteranordnung':'Backup as a file: templates, rolls, settings and panel layout',
+  'Sicherung einspielen (z. B. auf einem anderen Gerät)':'Restore a backup (e.g. on another device)', 'Aktuelles Etikett per Link oder QR-Code teilen':'Share the current label as a link or QR code',
+  'Name der Vorlage:':'Template name:', 'Neues leeres Etikett anlegen?':'Create a new empty label?',
+  'Sicherung eingespielt: Vorlagen, Rollen, Einstellungen und Fenster':'Backup restored: templates, rolls, settings and panels',
+  '– Vorlage wählen –':'– choose a template –',
+  'Vorlagen-Galerie':'Template gallery', 'Vorlage geladen – Strg+Z holt das vorige Etikett zurück':'Template loaded – Ctrl+Z brings back the previous label',
+  'Antippen lädt das Etikett wieder in den Editor.':'Tap to load the label back into the editor.', 'Noch nichts gedruckt.':'Nothing printed yet.',
+  'Filamentspule':'Filament spool', 'Kabel-Fahne':'Cable flag', 'fragt Text und Kabeldurchmesser ab':'asks for text and cable diameter', 'Gewürzglas':'Spice jar',
+  'Preisschild':'Price tag', 'Namensschild':'Name badge', 'Ordner / Kiste':'Folder / box', 'Inventar mit QR':'Inventory with QR', 'Achtung heiß':'Caution hot',
+  'Eingefroren':'Frozen', 'Adresse':'Address', 'Seriennummer':'Serial number', 'Text im Bogen':'Curved text',
+  'Text auf der Kabel-Fahne:':'Text on the cable flag:', 'Kabeldurchmesser in mm:':'Cable diameter in mm:',
+  'Schwarz':'Black', 'Paprika':'Paprika', 'edelsüß':'sweet', 'ANGEBOT':'SPECIAL', 'HALLO, ICH BIN':'HELLO, MY NAME IS', 'ACHTUNG':'CAUTION', 'HEISS':'HOT',
+  'EINGEFROREN':'FROZEN', 'Max Mustermann\nMusterstraße 1\n12345 Musterstadt':'Jane Doe\n1 Sample Street\nSampletown AB1 2CD',
+  'Etikett teilen':'Share label', 'Kopieren':'Copy', 'Teilen über …':'Share via …', 'Link zum Etikett':'Link to the label',
+  'Mit der Handy-Kamera scannen oder den Link schicken.':'Scan with a phone camera or send the link.',
+  'Das Etikett ist zu groß für einen QR-Code (meist wegen Bildern). Den Link kannst du trotzdem kopieren und schicken.':'The label is too big for a QR code (usually because of images). You can still copy and send the link.',
+  'Link kopiert':'Link copied', 'Bitte mit Strg+C kopieren':'Please copy with Ctrl+C', 'Label Studio – Etikett':'Label Studio – label',
+  'Geteiltes Etikett geladen – unter „Vorlagen“ kannst du es speichern':'Shared label loaded – you can save it under “Templates”',
+  'Der geteilte Link ist beschädigt oder unvollständig':'The shared link is damaged or incomplete',
+  // Scanner
+  'Code scannen':'Scan code', 'Halte einen QR-Code oder Barcode vor die Kamera.':'Hold a QR code or barcode in front of the camera.',
+  'Halte einen QR-Code vor die Kamera. (Barcodes liest nur Chrome am Handy.)':'Hold a QR code in front of the camera. (Only Chrome on phones reads barcodes.)',
+  'Kamera nicht verfügbar':'Camera not available', 'Gelesen:':'Read:', 'Gelesener Inhalt':'Content read', 'Etikett öffnen':'Open label',
+  'Als QR-Code':'As QR code', 'Als Barcode':'As barcode', 'Als Text':'As text', 'In Auswahl übernehmen':'Put into selection', 'Nochmal scannen':'Scan again',
+  // Ersteinrichtung, Schriften
+  'Willkommen bei Label Studio 👋':'Welcome to Label Studio 👋',
+  'Welchen Etikettendrucker hast du? Dann stelle ich Etikettengröße und Druck gleich passend ein.':'Which label printer do you have? Then I’ll set the label size and printing to match.',
+  'Später änderbar im Fenster „Drucken“ unter „Bluetooth-Direktdruck“ oder im Menü „Label Studio“.':'You can change this later in the “Print” panel under “Bluetooth direct print” or in the “Label Studio” menu.',
+  'Anderer Drucker – ich drucke über den Windows-Treiber (USB)':'Another printer – I print via the Windows driver (USB)',
+  'Schriften':'Fonts', 'Web-Schriften von Google Fonts laden':'Load web fonts from Google Fonts',
+  'Aus: Die App verbindet sich nicht mit Google. Etiketten mit Web-Schriften (z. B. Roboto, Oswald) nutzen dann eine Ersatzschrift, Symbole kommen aus der Systemschrift.':'Off: the app does not connect to Google. Labels with web fonts (e.g. Roboto, Oswald) then use a fallback font; symbols come from the system font.',
+  'Schriftdatei laden …':'Load font file …', 'Installierte Schriften …':'Installed fonts …',
+  'Schriften, die auf diesem PC installiert sind (Chrome/Edge am PC)':'Fonts installed on this PC (Chrome/Edge on a PC)',
+  'TTF, OTF, WOFF oder WOFF2. Geladene Schriften bleiben nur in diesem Browser gespeichert und gehen nicht ins Internet. Auf anderen Geräten (oder beim Teilen) erscheint dafür eine Ersatzschrift.':'TTF, OTF, WOFF or WOFF2. Loaded fonts are only stored in this browser and never go online. Other devices (or shared labels) show a fallback font instead.',
+  'Noch keine eigenen Schriften geladen.':'No fonts of your own loaded yet.', 'Schrift entfernen':'Remove font', 'Eigene Schrift':'Own font',
+  'Web-Schriften werden von Google Fonts geladen':'Web fonts are loaded from Google Fonts', 'Google Fonts aus – es wird nichts mehr von Google geladen':'Google Fonts off – nothing is loaded from Google any more',
+  'Schrift geladen – sie steht oben in der Schriftauswahl':'Font loaded – it’s at the top of the font list',
+  'Der Zugriff auf die installierten Schriften wurde nicht erlaubt oder wird von diesem Browser nicht unterstützt.':'Access to the installed fonts was not allowed or is not supported by this browser.',
+  // Drucker vorschlagen
+  'Drucker vorschlagen':'Suggest a printer', 'Drucker vorschlagen …':'Suggest a printer …',
+  'Du hast einen anderen Etikettendrucker? Schick uns die Angaben – dann kann er vielleicht in einer späteren Version unterstützt werden.':'Do you have a different label printer? Send us the details – maybe it can be supported in a later version.',
+  'Nicht ausfüllen:':'Do not fill in:', 'Hersteller *':'Manufacturer *', 'Modell *':'Model *', 'Verbindung':'Connection', 'WLAN':'Wi-Fi', 'Weiß ich nicht':'Don’t know',
+  'Etikettengrößen':'Label sizes', 'Bluetooth-Name des Druckers':'Bluetooth name of the printer', 'Link zu Projekt, App oder Anleitung (optional)':'Link to project, app or manual (optional)',
+  'Weitere Infos (optional)':'More info (optional)', 'Bluetooth-Diagnose (optional)':'Bluetooth diagnostics (optional)', 'Deine E-Mail für Rückfragen (optional)':'Your e-mail for questions (optional)',
+  'Absenden':'Send', 'z. B. Niimbot':'e.g. Niimbot', 'z. B. B1':'e.g. B1', 'z. B. 40 × 12 mm':'e.g. 40 × 12 mm',
+  'wie in der Geräteliste beim Verbinden angezeigt':'as shown in the device list when connecting', 'Was funktioniert, was nicht …':'What works, what doesn’t …',
+  'Wird automatisch eingefügt, wenn du vorher „Verbinden“ probiert hast':'Filled in automatically if you tried “Connect” before', 'nur wenn du eine Antwort möchtest':'only if you want a reply',
+  'Beim Absenden öffnet sich GitHub mit deinen Angaben – dort noch auf „Create“ klicken (kostenloses GitHub-Konto nötig).':'Sending opens GitHub with your details – click “Create” there (free GitHub account needed).',
+  'GitHub ist geöffnet – dort noch auf „Create“ klicken':'GitHub is open – click “Create” there', 'Wird gesendet …':'Sending …',
+  'Danke! Dein Druckervorschlag ist angekommen.':'Thanks! Your printer suggestion has arrived.', 'Senden hat nicht geklappt (':'Sending failed (', '). Bitte später nochmal versuchen.':'). Please try again later.',
+  'Breite ändern':'Change width', 'Etikett auf':'Label set to',
+  'Sprache: Deutsch':'Language: German', '🌐 English':'🌐 English', '🌐 Deutsch':'🌐 Deutsch'
+};
+// Texte mit eingesetzten Werten (Zahlen, Namen): Muster → Übersetzung
+const EN_RE = [
+  [/^Etikett auf (.+) mm für (.+) angepasst$/, 'Label set to $1 mm for $2'],
+  [/^Rolle „(.+)“ eingestellt$/, 'Roll “$1” selected'], [/^Rolle „(.+)“ gespeichert$/, 'Roll “$1” saved'], [/^Rolle „(.+)“ löschen\?$/, 'Delete roll “$1”?'],
+  [/^Name der Rolle \(z\. B\. „40 × 30 Filament“\):$/, 'Roll name (e.g. “40 × 30 filament”):'],
+  [/^Vorlage „(.+)“ löschen\?$/, 'Delete template “$1”?'], [/^Vorlage „(.+)“ gespeichert$/, 'Template “$1” saved'],
+  [/^(\d+) Elemente ausgewählt$/, '$1 elements selected'], [/^(\d+) Elemente$/, '$1 elements'],
+  [/^(\d+) Zeilen? → (\d+) Etiketten$/, (m, a, b) => `${a} line${a === '1' ? '' : 's'} → ${b} labels`],
+  [/^Drucke (\d+) von (\d+) …$/, 'Printing $1 of $2 …'], [/^Drucke (\d+) Etiketten auf einem Streifen …$/, 'Printing $1 labels on one strip …'],
+  [/^(\d+) Etiketten gesendet\.$/, '$1 labels sent.'], [/^Druckfehler: (.*)$/s, (m, e) => 'Print error: ' + tr(e)],
+  [/^Druckerfehler (\d+)$/, 'Printer error $1'], [/^Keine Antwort auf Befehl (.+)$/, 'No answer to command $1'], [/^(.+): keine Antwort nach (.+) s$/, '$1: no answer after $2 s'],
+  [/^Import fehlgeschlagen: (.*)$/s, (m, e) => 'Import failed: ' + tr(e)], [/^Importiert: (.*)$/, 'Imported: $1'],
+  [/^Fehler: (.*)$/, (m, e) => 'Error: ' + tr(e)], [/^Bluetooth-Fehler bei „(.+)“: (.*)$/s, (m, a, b) => `Bluetooth error during “${tr(a)}”: ${b}`],
+  [/^Verbinde … \((\d)\/4\)$/, 'Connecting … ($1/4)'],
+  [/^Der Drucker meldet: (.+)\.\nTrotzdem drucken\?$/s, (m, a) => `The printer reports: ${a.split(', ').map(tr).join(', ')}.\nPrint anyway?`],
+  [/^✓ getestet \((.+)\)$/, '✓ tested ($1)'], [/^(.+) · ✓ getestet \((.+)\)$/, '$1 · ✓ tested ($2)'], [/^(.+) mm · ✓ getestet$/, '$1 mm · ✓ tested'],
+  [/^Bluetooth-Druck mit (.+) über (.+) erfolgreich ausprobiert$/, 'Bluetooth printing with $1 via $2 successfully tried'],
+  [/^Alle Vorlagen passen sich an dein Etikett an \((.+)\)\. Antippen lädt sie in den Editor\.$/, 'All templates adapt to your label ($1). Tap to load one into the editor.'],
+  [/^Das Etikett ist für (.+) mm Kabel zu kurz: Es bleiben weniger als 6 mm pro Fahnenseite\.$/, 'The label is too short for a $1 mm cable: less than 6 mm remain per flag side.'],
+  [/^Schrift „(.+)“ entfernen\?$/, 'Remove font “$1”?'], [/^„(.+)“ konnte nicht als Schrift gelesen werden\.$/, '“$1” could not be read as a font.'],
+  [/^(\d+) installierte Schriften stehen in der Schriftauswahl\.$/, '$1 installed fonts are in the font list.'],
+  [/^(\d+) installierte Schriften übernommen$/, '$1 installed fonts added'],
+  [/^Drucker-Wunsch: (.*)$/, 'Printer request: $1'],
+  [/^Kamera nicht verfügbar \((.*)\)$/, 'Camera not available ($1)'],
+  [/^(\d+) × (\d+) mm \(([^)]+)\)$/, (m, a, b, c) => `${a} × ${b} mm (${tr(c)})`],
+  [/^DYMO LetraTag \(12-mm-Band\)$/, 'DYMO LetraTag (12 mm tape)'], [/^12-mm-Band \(3,8 mm druckbar\)$/, '12 mm tape (3.8 mm printable)'],
+  [/^\{(\S+)\} {2}· {2}(.+?): (.*)$/s, (m, a, b, c) => `{${a}}  ·  ${tr(b)}: ${c}`],
+  [/^Seriendruck: Spalte (\d+)$/, 'Batch print: column $1']
+];
+function tr(s){
+  if (LANG !== 'en' || s == null) return s;
+  s = String(s);
+  const raw = s.trim(); if (!raw || !/[A-Za-zÄÖÜäöüß]/.test(raw)) return s;
+  let v = EN[raw];
+  if (v === undefined){ const k = raw.replace(/\s+/g, ' '); v = EN[k]; }
+  if (v === undefined) for (const [re, rep] of EN_RE) if (re.test(raw)){ v = raw.replace(re, rep); break; }
+  if (v === undefined || v === raw) return s;
+  const i = s.indexOf(raw);
+  return s.slice(0, i) + v + s.slice(i + raw.length);
+}
+// Alles, was im Fenster erscheint, beim Einfügen übersetzen (Texte, Tooltips, Platzhalter)
+const I18N_ATTRS = ['title', 'placeholder', 'aria-label'];
+function translateTree(n){
+  if (LANG !== 'en' || !n) return;
+  if (n.nodeType === 3){ const t = tr(n.data); if (t !== n.data) n.data = t; return; }
+  if (n.nodeType !== 1 || /^(SCRIPT|STYLE)$/.test(n.tagName)) return;
+  for (const a of I18N_ATTRS) if (n.hasAttribute(a)){ const v = n.getAttribute(a), t = tr(v); if (t !== v) n.setAttribute(a, t); }
+  if (/^(CANVAS|TEXTAREA|VIDEO)$/.test(n.tagName)) return;   // Inhalt eines Textfelds ist Eingabe, keine Oberfläche
+  for (const c of n.childNodes) translateTree(c);
+}
+function startTranslation(){
+  if (LANG !== 'en') return;
+  document.documentElement.lang = 'en';
+  translateTree(document.body);
+  new MutationObserver(list => {
+    for (const m of list){
+      if (m.type === 'childList') m.addedNodes.forEach(translateTree);
+      else if (m.type === 'characterData') translateTree(m.target);
+      else { const v = m.target.getAttribute(m.attributeName), t = tr(v); if (v !== null && t !== v) m.target.setAttribute(m.attributeName, t); }
+    }
+  }).observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:I18N_ATTRS });
+  for (const f of ['alert', 'confirm', 'prompt']){ const o = window[f].bind(window); window[f] = (msg, ...a) => o(tr(msg), ...a); }
+}
+function setLang(l){ try { localStorage.setItem(LS_LANG, JSON.stringify(l)); } catch(e){} location.reload(); }
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -702,14 +971,38 @@ function updateUndoButtons(){
 }
 
 // ---------- Zeichnen ----------
-function fillVars(t){
+// Datum mit Versatz: {datum+7} = in 7 Tagen, {datum+2w} Wochen, {datum+3m} Monate, {datum+1j} Jahre, {datum-1} gestern
+function shiftDate(n, unit){
   const d = new Date();
+  n = parseInt(n) || 0;
+  unit = (unit || 'd').toLowerCase();
+  if (unit === 'w') d.setDate(d.getDate() + 7*n);
+  else if (unit === 'm'){ const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  else if (unit === 'j' || unit === 'y') d.setFullYear(d.getFullYear() + n);
+  else d.setDate(d.getDate() + n);
+  return d;
+}
+// Kalenderwoche nach ISO 8601 (Woche mit dem ersten Donnerstag ist KW 1)
+function isoWeek(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+}
+const DATE_RE = '(?:datum|date)';
+function fillVars(t){
+  const d = new Date(), loc = uiLocale();
   return String(t)
-    .replace(/\{datum\}/gi, d.toLocaleDateString('de-DE'))
-    .replace(/\{zeit\}/gi, d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}))
+    .replace(new RegExp(`\\{${DATE_RE}(?:([+-]\\d{1,4})([dtwmjy])?)?\\}`, 'gi'), (m, n, u) => shiftDate(n, u === 't' ? 'd' : u).toLocaleDateString(loc, { day:'2-digit', month:'2-digit', year:'numeric' }))
+    .replace(/\{(?:zeit|time)\}/gi, d.toLocaleTimeString(loc, { hour:'2-digit', minute:'2-digit' }))
+    .replace(/\{(?:tag|day)\}/gi, String(d.getDate()).padStart(2, '0'))
+    .replace(/\{(?:wochentag|weekday)\}/gi, d.toLocaleDateString(loc, { weekday:'long' }))
+    .replace(/\{(?:monatsname|monthname)\}/gi, d.toLocaleDateString(loc, { month:'long' }))
+    .replace(/\{(?:monat|month)\}/gi, String(d.getMonth() + 1).padStart(2, '0'))
+    .replace(/\{(?:jahr|year)\}/gi, String(d.getFullYear()))
+    .replace(/\{(?:kw|week)\}/gi, String(isoWeek(d)))
     .replace(/\{nr\}/gi, String(curNr))
     // Seriendruck: {1}, {2} … = Spalten der aktuellen Zeile, {zeile} = ganze Zeile
-    .replace(/\{zeile\}/gi, curRow ? curRow.line : '{zeile}')
+    .replace(/\{(zeile|line)\}/gi, (m) => curRow ? curRow.line : m)
     .replace(/\{(\d{1,2})\}/g, (m, n) => curRow ? (curRow.cols[n - 1] ?? '') : m);
 }
 // Symbol-Schriften als Ersatz: so kommen Zeichen wie ⚠ ♻ ❄ schwarz-weiß statt als bunte Emojis
@@ -876,7 +1169,7 @@ function getImg(src){
 function processedImage(e, scale = 1){
   const im = getImg(e.src);
   if (!im.complete || !im.naturalWidth) return null;
-  const key = [e.id, e.w, e.h, e.threshold, e.dither, e.thicken, e.src.length, scale].join('|');
+  const key = [e.id, e.w, e.h, e.threshold, e.dither, e.thicken, e.contrast, e.invertImg, e.src.length, scale].join('|');
   if (imgProc.has(key)) return imgProc.get(key);
   if (imgProc.size > 200) imgProc.clear();
   const w = Math.max(1, Math.round(e.w * scale)), h = Math.max(1, Math.round(e.h * scale));
@@ -886,19 +1179,26 @@ function processedImage(e, scale = 1){
   tc.imageSmoothingQuality = 'high';
   tc.drawImage(im, 0, 0, w, h);
   const id = tc.getImageData(0, 0, w, h), d = id.data;
-  const g = new Float32Array(w*h), bias = 128 - e.threshold;
-  for (let i = 0; i < w*h; i++) g[i] = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2] + bias;
+  // Kontrast (−100 … 100) um die Mitte, Schwärzung verschiebt die Helligkeit, „Umkehren“ tauscht Schwarz und Weiß
+  const g = new Float32Array(w*h), bias = 128 - e.threshold, con = Math.max(-100, Math.min(100, e.contrast || 0)) * 2.55;
+  const cf = 259 * (con + 255) / (255 * (259 - con));
+  for (let i = 0; i < w*h; i++){
+    let v = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2];
+    if (e.invertImg) v = 255 - v;
+    g[i] = (v - 128) * cf + 128 + bias;
+  }
+  // Rasterverfahren: Floyd-Steinberg (weich, Fotos), Atkinson (kontrastreich, hell), Raster (gleichmäßiges Muster)
+  const mode = e.dither === true ? 'fs' : (e.dither || '');
+  const BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  const spread = (x, y, err, list) => { for (const [dx, dy, f] of list){ const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < w && yy < h) g[yy*w + xx] += err * f; } };
+  const FS = [[1,0,7/16],[-1,1,3/16],[0,1,5/16],[1,1,1/16]];
+  const ATK = [[1,0,1/8],[2,0,1/8],[-1,1,1/8],[0,1,1/8],[1,1,1/8],[0,2,1/8]];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
-    const i = y*w + x, old = g[i], nw = old < 128 ? 0 : 255;
-    if (e.dither){
-      const err = old - nw;
-      if (x+1 < w) g[i+1] += err*7/16;
-      if (y+1 < h){
-        if (x > 0) g[i+w-1] += err*3/16;
-        g[i+w] += err*5/16;
-        if (x+1 < w) g[i+w+1] += err/16;
-      }
-    }
+    const i = y*w + x, old = g[i];
+    const lim = mode === 'bayer' ? (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) * 16 : 128;
+    const nw = old < lim ? 0 : 255;
+    if (mode === 'fs') spread(x, y, old - nw, FS);
+    else if (mode === 'atkinson') spread(x, y, old - nw, ATK);
     d[i*4] = d[i*4+1] = d[i*4+2] = nw; d[i*4+3] = 255;
   }
   // Dünne Linien verstärken: jeden schwarzen Punkt um einen Druckpunkt nach rechts (bei Stufe 2 auch nach unten)
@@ -1025,7 +1325,7 @@ function errorBox(c, e, msg){
   c.strokeStyle = '#000'; c.lineWidth = 2; c.setLineDash([6,4]);
   c.strokeRect(e.x, e.y, e.w, e.h); c.setLineDash([]);
   c.fillStyle = '#000'; c.font = '16px Arial'; c.textBaseline = 'top';
-  c.fillText(msg, e.x + 4, e.y + 4);
+  c.fillText(tr(msg), e.x + 4, e.y + 4);
 }
 
 function drawEl(c, e){
@@ -1100,8 +1400,8 @@ function render(){
   if (guides){
     ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = s;
     ctx.beginPath();
-    if (guides.v) { ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); }
-    if (guides.h) { ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); }
+    for (const x of guides.xs){ ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (const y of guides.ys){ ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke(); ctx.restore();
   }
   for (const e of multi){
@@ -1245,9 +1545,27 @@ cv.addEventListener('pointermove', ev => {
     const b = bbox(sel), snap = 8*p.s, g = gridPx();
     // erst aufs Raster, dann hat die Etikettmitte Vorrang
     if (g){ nx = Math.round(nx / g) * g; ny = Math.round(ny / g) * g; }
-    guides = { v:false, h:false };
-    if (Math.abs(nx + b.w/2 - W()/2) < snap){ nx = W()/2 - b.w/2; guides.v = true; }
-    if (Math.abs(ny + b.h/2 - H()/2) < snap){ ny = H()/2 - b.h/2; guides.h = true; }
+    // Kanten und Mitte des Elements rasten an Rand und Mitte des Etiketts sowie an Kanten/Mitten anderer Elemente ein
+    // (Alt gedrückt halten = frei verschieben)
+    guides = { xs:[], ys:[] };
+    if (!ev.altKey){
+      const others = design.elements.filter(e => e !== sel && !e.hidden).map(bbox);
+      const lx = [0, W()/2, W(), ...others.flatMap(o => [o.x, o.x + o.w/2, o.x + o.w])];
+      const ly = [0, H()/2, H(), ...others.flatMap(o => [o.y, o.y + o.h/2, o.y + o.h])];
+      // bbox kann bei gedrehten Elementen von x/y abweichen: Versatz merken
+      const ox = b.x - sel.x, oy = b.y - sel.y;
+      const best = (pos, size, lines) => {
+        let hit = null;
+        for (const [k, f] of [[0, 0], [1, 0.5], [2, 1]]) for (const l of lines){
+          const d = l - (pos + size * f);
+          if (Math.abs(d) < snap && (!hit || Math.abs(d) < Math.abs(hit.d))) hit = { d, l };
+        }
+        return hit;
+      };
+      const hx = best(nx + ox, b.w, lx), hy = best(ny + oy, b.h, ly);
+      if (hx){ nx += hx.d; guides.xs.push(hx.l); }
+      if (hy){ ny += hy.d; guides.ys.push(hy.l); }
+    }
     sel.x = Math.round(nx); sel.y = Math.round(ny);
   } else {
     // bei 90°/270° zeigen Breite und Höhe des Inhalts in die andere Richtung
@@ -1375,7 +1693,7 @@ cv.addEventListener('contextmenu', ev => {
 function addEl(e){
   e.id = uid(); multi = [];
   // Ausgangswerte der Bildregler merken, damit „Zurücksetzen“ dorthin zurückkehren kann
-  if (e.type === 'image' && !e.orig) e.orig = { threshold:e.threshold, thicken:e.thicken || '0', dither:e.dither };
+  if (e.type === 'image' && !e.orig) e.orig = { threshold:e.threshold, thicken:e.thicken || '0', dither:e.dither, contrast:e.contrast || 0, invertImg:!!e.invertImg };
   design.elements.push(e); sel = e;
   buildProps(); save(); render();
   if (narrow()) showTab('element');
@@ -1414,7 +1732,9 @@ const openSymbols = (x, y) => openPop(x, y, symbolItems(), true);
 $('btnSymbols').addEventListener('click', ev => { ev.stopPropagation(); popBelow($('btnSymbols'), symbolItems(), true); });
 $('fileImg').addEventListener('change', ev => {
   const f = ev.target.files[0]; ev.target.value = '';
-  if (!f) return;
+  if (f) addImageFile(f);
+});
+function addImageFile(f){
   const r = new FileReader();
   r.onload = () => {
     const im = new Image();
@@ -1427,12 +1747,100 @@ $('fileImg').addEventListener('change', ev => {
       const ratio = t.height / t.width;
       let w = Math.round(W() * 0.6), h = Math.round(w * ratio);
       if (h > H() * 0.9){ h = Math.round(H() * 0.9); w = Math.round(h / ratio); }
-      addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio, src:t.toDataURL('image/png'), threshold:128, dither:true });
+      addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio, src:t.toDataURL('image/png'), threshold:128, dither:'fs' });
     };
     im.src = r.result;
   };
   r.readAsDataURL(f);
+}
+// Strg+V: Bild aus der Zwischenablage als Bild-Element, Text als Text-Element (nicht beim Tippen in Feldern)
+document.addEventListener('paste', ev => {
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.querySelector('dialog[open]')) return;
+  const items = [...(ev.clipboardData?.items || [])];
+  const img = items.find(i => i.kind === 'file' && i.type.startsWith('image/'));
+  if (img){ ev.preventDefault(); addImageFile(img.getAsFile()); toast('Bild eingefügt'); return; }
+  const txt = (ev.clipboardData?.getData('text/plain') || '').trim();
+  if (txt){
+    ev.preventDefault();
+    addByType('text'); sel.text = txt.slice(0, 500); fitText(sel); changed();
+    toast('Text eingefügt');
+  }
 });
+// Bilddatei aufs Etikett ziehen
+$('stage').addEventListener('dragover', ev => { if ([...ev.dataTransfer.types].includes('Files')) ev.preventDefault(); });
+$('stage').addEventListener('drop', ev => {
+  const f = [...ev.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (f){ ev.preventDefault(); addImageFile(f); }
+});
+
+// ---------- Kamera-Scanner: QR-Code/Barcode einlesen oder geteiltes Etikett öffnen ----------
+// Chrome am Handy (und macOS) kann Codes selbst lesen (BarcodeDetector); sonst liest jsQR wenigstens QR-Codes.
+const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+const SCAN_FORMATS = { ean_13:'EAN13', ean_8:'EAN8', upc_a:'UPC', code_39:'CODE39', code_128:'CODE128', itf:'ITF14' };
+let scanStream = null, scanTimer = null;
+async function openScanner(){
+  $('scanResult').hidden = true; $('scanVideo').hidden = false; $('scanInfo').textContent = tr('Halte einen QR-Code oder Barcode vor die Kamera.');
+  $('scan').showModal();
+  let detect;
+  try {
+    if ('BarcodeDetector' in window){
+      const bd = new BarcodeDetector();
+      detect = async v => { const r = (await bd.detect(v))[0]; return r && { value:r.rawValue, format:r.format }; };
+    } else {
+      await loadScript(JSQR);
+      const c = document.createElement('canvas'), cc = c.getContext('2d', { willReadFrequently:true });
+      detect = async v => {
+        c.width = v.videoWidth; c.height = v.videoHeight; if (!c.width) return null;
+        cc.drawImage(v, 0, 0);
+        const r = jsQR(cc.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts:'dontInvert' });
+        return r && { value:r.data, format:'qr_code' };
+      };
+      $('scanInfo').textContent = tr('Halte einen QR-Code vor die Kamera. (Barcodes liest nur Chrome am Handy.)');
+    }
+    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+  } catch(e){
+    $('scanInfo').textContent = tr('Kamera nicht verfügbar') + ' (' + e.message + ')';
+    return;
+  }
+  const v = $('scanVideo'); v.srcObject = scanStream; await v.play().catch(() => {});
+  const loop = async () => {
+    if (!scanStream) return;
+    const r = await detect(v).catch(() => null);
+    if (r && r.value){ showScanResult(r); return; }
+    scanTimer = setTimeout(loop, 250);
+  };
+  loop();
+}
+function stopScanner(){
+  clearTimeout(scanTimer);
+  if (scanStream) scanStream.getTracks().forEach(t => t.stop());
+  scanStream = null; $('scanVideo').srcObject = null;
+}
+function showScanResult(r){
+  stopScanner(); $('scanVideo').hidden = true;
+  if (navigator.vibrate) navigator.vibrate(60);
+  $('scanInfo').textContent = tr('Gelesen:');
+  $('scanValue').value = r.value;
+  const box = $('scanActions'); box.textContent = '';
+  const val = () => $('scanValue').value;
+  const act = (label, fn, primary) => { const b = document.createElement('button'); b.textContent = tr(label); if (primary) b.className = 'primary'; b.onclick = () => { $('scan').close(); fn(); }; box.appendChild(b); };
+  const share = /#t=([\w-]+)$/.exec(r.value);
+  if (share) act('Etikett öffnen', async () => {
+    try { loadDesign(await decodeDesign(share[1])); toast(tr('Geteiltes Etikett geladen – unter „Vorlagen“ kannst du es speichern')); }
+    catch(e){ toast(tr('Der geteilte Link ist beschädigt oder unvollständig')); }
+  }, true);
+  act('Als QR-Code', () => { addByType('qr'); sel.value = val(); changed(); }, !share && r.format === 'qr_code');
+  const fmt = SCAN_FORMATS[r.format];
+  if (fmt) act('Als Barcode', () => { addByType('barcode'); sel.value = val(); sel.format = fmt === 'ITF14' && val().length !== 14 ? 'CODE128' : fmt; changed(); }, true);
+  act('Als Text', () => { addByType('text'); sel.text = val(); fitText(sel); changed(); });
+  // ausgewähltes QR/Barcode/Text-Element übernimmt den Inhalt
+  if (sel && ['qr', 'barcode', 'text'].includes(sel.type)) act('In Auswahl übernehmen', () => { sel[sel.type === 'text' ? 'text' : 'value'] = val(); changed(); });
+  act('Nochmal scannen', openScanner);
+  $('scanResult').hidden = false;
+}
+$('btnScan').addEventListener('click', openScanner);
+$('scanClose').addEventListener('click', () => $('scan').close());
+$('scan').addEventListener('close', stopScanner);
 
 // ---------- Fertige Etiketten importieren (PNG/JPG/SVG/PDF) ----------
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -1489,7 +1897,7 @@ async function importLabel(file){
   const w = Math.round(iw * k), h = Math.round(ih * k);
   // vierfache Auflösung speichern, damit beim Verkleinern auf Druckpunkte feine Schrift erhalten bleibt
   addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio:h/w,
-          src:rasterTo(src, w*4, h*4, rot), threshold:160, thicken:'0', dither:false });
+          src:rasterTo(src, w*4, h*4, rot), threshold:160, thicken:'0', dither:'' });
 }
 $('btnImport').addEventListener('click', () => $('fileLabel').click());
 $('fileLabel').addEventListener('change', async ev => {
@@ -1501,7 +1909,7 @@ $('fileLabel').addEventListener('change', async ev => {
 
 // Regler auf Ausgangswerte, Bild wieder eingepasst und mittig aufs Etikett
 function resetImageEl(e){
-  Object.assign(e, e.orig || { threshold:128, thicken:'0', dither:false });
+  Object.assign(e, e.orig || { threshold:128, thicken:'0', dither:'', contrast:0, invertImg:false });
   const b = bbox(e), k = Math.min(W() / b.w, H() / b.h);
   e.w = Math.round(e.w * k); e.h = Math.round(e.w * e.ratio);
   const b2 = bbox(e);
@@ -1521,8 +1929,11 @@ const FIELDS = {
   barcode: [['value','Inhalt','text'],['format','Typ','select',[['CODE128','Code 128'],['EAN13','EAN-13'],['EAN8','EAN-8'],['UPC','UPC-A'],['CODE39','Code 39'],['ITF14','ITF-14']]],
             ['w','Breite (px)','number'],['h','Höhe (px)','number'],['showText','Text darunter','check']],
   image: [['w','Breite (px)','number'],['h','Höhe (px)','number'],['threshold','Schwärzung, rechts = dunkler','range',[0,255]],
+          ['contrast','Kontrast','range',[-100,100]],
+          ['dither','Raster (für Fotos)','select',[['','Aus – klare Kanten (Logos, Text)'],['fs','Floyd-Steinberg – weich (Fotos)'],
+            ['atkinson','Atkinson – kontrastreich'],['bayer','Gleichmäßiges Punktraster']]],
           ['thicken','Linien verstärken','select',[['0','Normal'],['1','Etwas kräftiger'],['2','Kräftig']]],
-          ['dither','Dithering (für Fotos)','check']],
+          ['invertImg','Umkehren (Negativ)','check']],
   rect: [['w','Breite (px)','number'],['h','Höhe (px)','number'],
          ['style','Linienart','select',[['solid','Durchgezogen'],['dashed','Gestrichelt'],['dotted','Gepunktet'],['double','Doppelt'],['corners','Nur Ecken']]],
          ['filled','Gefüllt','check'],['lw','Linienstärke (px)','number'],['radius','Eckenradius (px)','number']],
@@ -1540,6 +1951,8 @@ function buildProps(){
   title.style.cssText = 'font-weight:600;margin-bottom:8px';
   title.textContent = TYPE_NAMES[sel.type];
   box.appendChild(title);
+  if (sel.type === 'image' && typeof sel.dither === 'boolean') sel.dither = sel.dither ? 'fs' : '';
+  if (sel.type === 'image' && sel.contrast === undefined) sel.contrast = 0;
   const defs = [...FIELDS[sel.type]];
   const pos = document.createElement('div'); pos.className = 'grid2';
   for (const [k, l] of [['x','X (px)'],['y','Y (px)']]) pos.appendChild(makeField(k, l, 'number'));
@@ -1552,11 +1965,8 @@ function buildProps(){
     }
     checks = null;
     box.appendChild(f);
-    if (d[0] === 'text' && sel.type === 'text'){
-      const h = document.createElement('p'); h.className = 'hint';
-      h.textContent = 'Platzhalter: {datum}, {zeit}, {nr} (zählt pro Kopie hoch)';
-      f.appendChild(h);
-    }
+    if ((d[0] === 'text' && sel.type === 'text') || (d[0] === 'value' && (sel.type === 'qr' || sel.type === 'barcode')))
+      f.appendChild(placeholderButton(f.querySelector('textarea, input')));
   }
   box.appendChild(pos);
   const acts = document.createElement('div'); acts.className = 'row'; acts.style.marginTop = '4px';
@@ -1571,6 +1981,34 @@ function buildProps(){
   mk('Nach hinten', () => toBack(sel));
   mk('Löschen', removeSel, 'danger');
   box.appendChild(acts);
+}
+// Knopf „{ } Platzhalter“: Datum, Zeit, Nummer usw. an der Schreibmarke einfügen
+const PLACEHOLDERS = [
+  { head:'Datum' },
+  ['{datum}', 'Heute'], ['{datum+7}', 'In 7 Tagen'], ['{datum+1m}', 'In 1 Monat'], ['{datum+1j}', 'In 1 Jahr'], ['{datum-1}', 'Gestern'],
+  ['{wochentag}', 'Wochentag'], ['{tag}', 'Tag'], ['{monat}', 'Monat (Zahl)'], ['{monatsname}', 'Monat (Name)'], ['{jahr}', 'Jahr'],
+  ['{kw}', 'Kalenderwoche'], ['{zeit}', 'Uhrzeit'],
+  { head:'Zähler & Liste' },
+  ['{nr}', 'Laufende Nummer (pro Kopie)'], ['{1}', 'Seriendruck: Spalte 1'], ['{2}', 'Seriendruck: Spalte 2'], ['{zeile}', 'Seriendruck: ganze Zeile']
+];
+// in der englischen Oberfläche die englischen Namen anbieten ({date+7}, {week} …) – beide Schreibweisen funktionieren
+const PH_EN = { datum:'date', wochentag:'weekday', tag:'day', monatsname:'monthname', monat:'month', jahr:'year', kw:'week', zeit:'time', zeile:'line' };
+const phCode = c => LANG === 'en' ? c.replace(/^\{([a-z]+)/, (m, w) => '{' + (PH_EN[w] || w)).replace(/(\d)j\}$/, '$1y}') : c;
+function placeholderButton(inp){
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = '{ } Platzhalter ▾'; b.style.cssText = 'align-self:flex-start;margin-top:4px;font-size:13px;padding:4px 10px';
+  b.title = 'Datum, Uhrzeit, Nummer … einfügen – wird beim Drucken ersetzt';
+  b.addEventListener('click', ev => {
+    ev.stopPropagation();
+    popBelow(b, PLACEHOLDERS.map(p => p.head ? { head:tr(p.head) } : {
+      label:`${phCode(p[0])}  ·  ${tr(p[1])}: ${fillVars(p[0]).slice(0, 24)}`, fn:() => {
+        const code = phCode(p[0]), a = inp.selectionStart ?? inp.value.length, z = inp.selectionEnd ?? a;
+        inp.value = inp.value.slice(0, a) + code + inp.value.slice(z);
+        inp.dispatchEvent(new Event('input'));
+        inp.focus(); inp.setSelectionRange(a + code.length, a + code.length);
+      } }));
+  });
+  return b;
 }
 // Mehrere Elemente: ausrichten, verteilen, duplizieren, löschen
 function buildMultiProps(box){
@@ -2299,7 +2737,7 @@ function rotateCW(src){
 function rasterize(c){
   const head = printer().head || Math.ceil(c.width / 8) * 8;
   const w = c.width, h = c.height, bpr = head / 8;
-  const align = $('align').value;
+  const align = printer().head ? $('align').value : 'left';
   let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
   startX += Math.round((parseFloat($('offset').value) || 0) * PX_PER_MM);
   // Versatz Y: positiv = leere Zeilen davor (Druck rutscht nach unten), negativ = oben abschneiden
@@ -2351,6 +2789,7 @@ async function buildMarklifeJob(c){
 
 // Liefert die Druckschritte: [Bytes, Pause danach in ms]
 function buildSteps(c){
+  if (printer().rotate90) c = rotateCW(c);   // D-Serie: Etikett läuft quer durch den Kopf
   const { bits, bpr, h } = rasterize(c);
   const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
   const raster = [0x1d,0x76,0x30,0x00, bpr & 255, bpr >> 8, h & 255, h >> 8];
@@ -2365,8 +2804,18 @@ function buildSteps(c){
       [B([0x1f,0xf0,0x05,0x00, 0x1f,0xf0,0x03,0x00]), 500]
     ];
   }
-  // M-Serie (M200/M220/M221/M260)
   const heat = [40,60,80,100,120,140,160,200][d8 - 1];
+  // D-Serie (D30/D35/Q30, nach phomymo): Heizzeit, Etiketten mit Lücke, Init + Rasterbild, Ende ohne Vorschub
+  if (printer().proto === 'dseries'){
+    return [
+      [B([0x1b,0x37,0x07,heat,0x02]), 30],
+      [B([0x1f,0x11,0x0a]), 30],
+      [B([0x1b,0x40, ...raster]), 0],
+      [bits, 100],
+      [B([0x1b,0x64,0x00]), 500]
+    ];
+  }
+  // M-Serie (M200/M220/M221/M260)
   const feed = Math.min(255, Math.round((parseFloat($('feed').value) || 0) * PX_PER_MM));
   return [
     [B([0x1b,0x40]), 100],                 // Init
@@ -2416,6 +2865,29 @@ $('fileCsv').addEventListener('change', async ev => {
 
 // Druck-Verlauf: die letzten 10 gedruckten Etiketten (ohne sehr große Bilder, damit der Speicher reicht)
 const LS_HIST = 'labelstudio.history';
+// Ein Etikett eines Druckauftrags. Bei „Länge automatisch“ bekommt jedes Etikett seine eigene Länge
+// (Seriendruck: kurze Namen = kurzes Band); das eigentliche Etikett im Editor bleibt dabei unverändert.
+function jobCanvas(job){
+  curNr = job.nr; curRow = job.row;
+  if (!design.autoLen) return printCanvas();
+  const ref = scaleRef;
+  const c = withDesign(JSON.parse(JSON.stringify(design)), () => { autoLength(); return printCanvas(); });
+  scaleRef = ref; syncLabelControls(); fitCanvas();   // Anzeige wieder auf das echte Etikett
+  return c;
+}
+// Endlosband: mehrere Etiketten hintereinander, dazwischen eine gestrichelte Schnittmarke (1 Punkt breit)
+function stripCanvas(list){
+  const h = Math.max(...list.map(c => c.height)), w = list.reduce((s, c) => s + c.width, 0) + list.length - 1;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cc = c.getContext('2d');
+  cc.fillStyle = '#fff'; cc.fillRect(0, 0, w, h); cc.fillStyle = '#000';
+  let x = 0;
+  list.forEach((l, i) => {
+    cc.drawImage(l, x, Math.floor((h - l.height) / 2)); x += l.width;
+    if (i < list.length - 1){ for (let y = 0; y < h; y += 4) cc.fillRect(x, y, 1, 2); x += 1; }
+  });
+  return c;
+}
 function recordPrint(){
   const json = JSON.stringify(design);
   if (json.length > 400000) return;
@@ -2434,22 +2906,27 @@ $('btnPrint').addEventListener('click', async () => {
   const btn = $('btnPrint'), prog = $('prog');
   btn.disabled = true; prog.hidden = false; bt.busy = true;
   try {
-    for (let n = 0; n < copies; n++){
-      curNr = jobs[n].nr; curRow = jobs[n].row;
+    if (isDymo() && copies > 1 && $('strip').checked){
+      log(`Drucke ${copies} Etiketten auf einem Streifen …`);
+      await printDymo(stripCanvas(jobs.map(jobCanvas)), f => prog.value = f);
+      jobs.length = 0;
+    }
+    for (let n = 0; n < jobs.length; n++){
       log(`Drucke ${n+1} von ${copies} …`);
+      const pc = jobCanvas(jobs[n]);
       if (isMarklife()){
-        await printMarklife(printCanvas(), f => prog.value = (n + f) / copies);
+        await printMarklife(pc, f => prog.value = (n + f) / copies);
         continue;
       }
       if (isNiimbot()){
-        await printNiimbot(printCanvas(), f => prog.value = (n + f) / copies);
+        await printNiimbot(pc, f => prog.value = (n + f) / copies);
         continue;
       }
       if (isDymo()){
-        await printDymo(printCanvas(), f => prog.value = (n + f) / copies);
+        await printDymo(pc, f => prog.value = (n + f) / copies);
         continue;
       }
-      const steps = buildSteps(printCanvas());
+      const steps = buildSteps(pc);
       const total = steps.reduce((s, [b]) => s + b.length, 0);
       let done = 0;
       for (const [bytes, pause] of steps){
@@ -2514,7 +2991,7 @@ $('btnSysPrint').addEventListener('click', async () => {
   savePrintSettings(); render();
 });
 
-const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper','offsetY'];
+const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper','offsetY','strip'];
 function savePrintSettings(){
   const o = {};
   for (const k of PRINT_KEYS){ const el = $(k); o[k] = el.type === 'checkbox' ? el.checked : el.value; }
@@ -2705,7 +3182,7 @@ document.addEventListener('pointerup', endLayerDrag);
 document.addEventListener('pointercancel', endLayerDrag);
 
 // ---------- Vorlagen-Galerie: fertige Etiketten, passend zur aktuellen Etikettengröße erzeugt ----------
-const T = (text, font, o = {}) => ({ id:uid(), type:'text', text, font, size:40, bold:false, italic:false, align:'center', invert:false, x:0, y:0, ...o });
+const T = (text, font, o = {}) => ({ id:uid(), type:'text', text:tr(text), font, size:40, bold:false, italic:false, align:'center', invert:false, x:0, y:0, ...o });
 const R = (x, y, w, h, o = {}) => ({ id:uid(), type:'rect', x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h), lw:3, filled:false, radius:0, ...o });
 const box = (x, y, w, h) => ({ x, y, w, h });
 // Jede Vorlage bekommt Breite/Höhe in Druckpunkten und liefert die Elemente
@@ -2809,7 +3286,7 @@ async function openGallery(tab){
     $('galleryHint').textContent = list.length ? 'Antippen lädt das Etikett wieder in den Editor.' : 'Noch nichts gedruckt – hier erscheinen deine letzten 10 Etiketten.';
     for (const h of list){
       const dt = new Date(h.t);
-      card(thumb(h.d), `${h.d.w} × ${h.d.h} mm`, dt.toLocaleDateString('de-DE') + ', ' + dt.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }), () => load(h.d));
+      card(thumb(h.d), `${h.d.w} × ${h.d.h} mm`, dt.toLocaleDateString(uiLocale()) + ', ' + dt.toLocaleTimeString(uiLocale(), { hour:'2-digit', minute:'2-digit' }), () => load(h.d));
     }
     return;
   }
@@ -3360,7 +3837,15 @@ const HELP = {
         <b>fertiges Etikett importieren</b> (PNG, SVG, PDF – z. B. von 3dfilamentprofiles.com, am schärfsten ist SVG).</li>
       <li><b>Bearbeiten</b> – Element auf dem Etikett antippen. Ziehen verschiebt es, das blaue Eck ändert die Größe.
         Alle Einstellungen stehen im Fenster „Element“. Pfeiltasten verschieben um 1 Punkt (mit Shift 8), Entf löscht.</li>
-      <li><b>Platzhalter</b> im Text: <code>{datum}</code>, <code>{zeit}</code> und <code>{nr}</code> (zählt bei mehreren Kopien hoch).</li>
+      <li><b>Platzhalter</b> – der Knopf „{ } Platzhalter“ unter dem Textfeld fügt z. B. <code>{datum}</code> (heute),
+        <code>{datum+7}</code> (in 7 Tagen; auch <code>+2w</code> Wochen, <code>+3m</code> Monate, <code>+1j</code> Jahre), <code>{kw}</code>
+        (Kalenderwoche), <code>{wochentag}</code>, <code>{monat}</code>, <code>{jahr}</code>, <code>{zeit}</code> und <code>{nr}</code>
+        (zählt bei mehreren Kopien hoch) ein.</li>
+      <li><b>Scannen</b> – „📷 Scannen“ liest mit der Kamera einen QR-Code oder Barcode und fügt ihn als QR-Code, Barcode oder Text ein.
+        Der QR-Code eines <b>geteilten Etiketts</b> öffnet dieses direkt. (Barcodes liest Chrome am Handy, sonst nur QR-Codes.)</li>
+      <li><b>Einfügen</b> – <b>Strg+V</b> fügt ein Bild oder einen Text aus der Zwischenablage ein; Bilddateien kannst du auch aufs Etikett ziehen.</li>
+      <li><b>Einrasten</b> – beim Verschieben rastet ein Element an Rand und Mitte des Etiketts sowie an Kanten und Mitten anderer
+        Elemente ein (rosa Hilfslinie). Mit gedrückter <b>Alt</b>-Taste frei verschieben.</li>
       <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ per Bluetooth (im Drucken-Fenster <b>„Bluetooth-Direktdruck“</b> aufklappen).</li>
       <li><b>Rückgängig / Wiederholen</b> – Pfeile ↶ ↷ über dem Etikett oder <b>Strg+Z</b> / <b>Strg+Y</b>.</li>
       <li><b>Drehen</b> – Element anklicken und „↻ 90°“ (Text, QR-Code, Barcode, Bild, Rahmen).</li>
@@ -3386,6 +3871,10 @@ const HELP = {
         Versatz auf einmal ein. „Speichern…“ legt die aktuellen Einstellungen als neue Rolle an.</li>
       <li><b>Fenster anordnen</b> – an der Titelzeile (⠿) ziehen, sie rasten an Rändern und anderen Fenstern ein.
         Der Griff unten rechts ändert die Breite. „Layout zurücksetzen“ stellt alles wieder her.</li>
+      <li><b>Bilder</b> – Schwärzung, Kontrast, Rasterverfahren (Floyd-Steinberg, Atkinson, Punktraster), Linien verstärken und Umkehren.</li>
+      <li><b>Als App installieren</b> – Menü „Label Studio“ → „📲 Als App installieren“ (Chrome/Edge). Die App bekommt ein eigenes
+        Symbol und Fenster und funktioniert auch offline. Die Browser-Version bleibt genau gleich.</li>
+      <li><b>Sprache</b> – Menü „Label Studio“ → „🌐 English / Deutsch“.</li>
     </ol>
     <p class="hint">Beim Öffnen erscheint immer das Startetikett. Dein zuletzt bearbeitetes Etikett holst du im Fenster
       „Vorlagen“ mit <b>„Zuletzt bearbeitet“</b> zurück.</p>
@@ -3412,7 +3901,7 @@ const HELP = {
       <li>Unter Windows kann die Kopplung mit „Verbindungsfehler“ scheitern – dann den USB-Weg nehmen.</li>
     </ul>
     <h3>Sonstiges</h3>
-    <ul><li>Der <b>PDF-Import</b> lädt beim ersten Mal einen PDF-Leser aus dem Internet.</li></ul>` },
+    <ul><li>Der <b>PDF-Import</b> und der <b>QR-Scanner</b> (außer in Chrome am Handy) laden beim ersten Mal eine kleine Bibliothek aus dem Internet.</li></ul>` },
   printers: { title: 'Unterstützte Drucker', html: `
     <h3>Windows-Druck (USB)</h3>
     <p>Funktioniert grundsätzlich mit <b>jedem Etikettendrucker, der einen Windows-Treiber hat</b>, z. B. andere
@@ -3433,17 +3922,19 @@ const HELP = {
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
     <p class="hint"><b>Phomemo</b> – Befehle nach dem Open-Source-Projekt „phomymo“. Der <b>M220</b> druckt mit Android
-      (Chrome); unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen.</p>
+      (Chrome); unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen.
+      <b>D30, D35 und Q30</b> drucken kleine Etiketten quer – gestalte das Etikett im Querformat, die App dreht es selbst.</p>
     <p class="hint"><b>Marklife</b> (P15, P7, P12, M60 und baugleiche wie LP15, S15, LP90) – umgesetzt nach dem
       Open-Source-Projekt <b>„thermoprint“</b> von tomLadder (MIT-Lizenz). Der <b>P15</b> druckt per Bluetooth am PC.
       Marklife-Drucker werden beim Verbinden am Namen erkannt und automatisch eingestellt. Ihre Etiketten
       (z. B. 40 × 12 mm) laufen quer durch den Druckkopf – die App dreht das Bild dafür selbst, gestalte das Etikett
       einfach im Querformat. Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Passende Rollen:
       „40 × 12 mm (Marklife P15)“, „40 × 15 mm (Marklife P12)“, „50 × 30 mm (Marklife M60)“.</p>
-    <p class="hint"><b>Niimbot</b> (D110, D101, B1) – umgesetzt nach der Open-Source-Bibliothek <b>„niimbluelib“</b>
-      von MultiMote (MIT-Lizenz), die auch hinter der Web-App „NiimBlue“ steckt; noch nicht selbst getestet. Niimbot-Drucker
+    <p class="hint"><b>Niimbot</b> (D110, D101, B1, B21) – umgesetzt nach der Open-Source-Bibliothek <b>„niimbluelib“</b>
+      von MultiMote (MIT-Lizenz), die auch hinter der Web-App „NiimBlue“ steckt; der <b>D101</b> ist per Bluetooth am PC und mit
+      Android getestet. Niimbot-Drucker
       werden beim Verbinden am Namen erkannt. D110 und D101 drucken quer – gestalte das Etikett im Querformat, die App dreht
-      es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1 48 mm breit. Passende Rollen:
+      es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1/B21 48 mm breit. Passende Rollen:
       „40 × 12 mm (Niimbot D110)“, „40 × 12 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
     <p class="hint"><b>DYMO LetraTag 200B</b> – umgesetzt nach dem Open-Source-Projekt <b>„dymo-bluetooth“</b> von ysfchn
       (MIT-Lizenz); druckt per Bluetooth am PC und mit Android. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
@@ -3453,9 +3944,10 @@ const HELP = {
       Die Kassette (z. B. „12 mm × 4 m“) ist ein <b>Endlosband</b>: Mit <b>„Länge automatisch“</b> (unter der Etikettengröße,
       beim LetraTag schon an) ist jedes Etikett genau so lang wie der Text plus 2 mm Rand – Text tippen, „⤢ Einpassen“
       drücken, drucken. Danach schiebt der Drucker das Band hinaus; mit dem Schneidhebel abschneiden. Mehrere Kopien oder
-      Seriendruck kommen nacheinander heraus – jedes Etikett einzeln abschneiden.</p>
-    <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
-      Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
+      Seriendruck kommen <b>auf einem Streifen</b> heraus, dazwischen eine gestrichelte Schnittmarke (abschaltbar unter
+      „Bluetooth-Direktdruck“). Bei „Länge automatisch“ ist dabei jedes Etikett so lang wie sein eigener Text.</p>
+    <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Brother-Geräte nutzen eigene
+      Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
   tips: { title: 'Tipps & Fehlerbehebung', html: `
     <ul>
@@ -3466,7 +3958,7 @@ const HELP = {
         oben. Beim allerersten Druck nach dem Einschalten sucht der Drucker oft noch die Etikettenlücke.</li>
       <li><b>Druckerstatus</b> – per Bluetooth verbunden zeigt die Kopfzeile Akku und Papier, rot bei
         „Kein Papier“ oder „Deckel offen“. Vor dem Drucken kommt dann eine Warnung.</li>
-      <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“ oder die Schwärzung erhöhen.
+      <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“, die Schwärzung oder den Kontrast erhöhen.
         Am meisten bringt eine fettere Schrift in der Vorlage.</li>
       <li><b>Element steht falsch herum</b> – anklicken und „↻ 90°“, bis es passt.</li>
       <li><b>Etwas versehentlich geändert oder gelöscht</b> – Strg+Z bzw. ↶.</li>
@@ -3475,14 +3967,112 @@ const HELP = {
         Drucker neu starten, Handy-Bluetooth aus. Hilft das nicht: USB nehmen.</li>
     </ul>` }
 };
+// Englische Anleitung (Gegenstück zu HELP)
+const HELP_EN = {
+  start: { title: 'Quick guide', html: `
+    <ol>
+      <li><b>Choose the label size</b> – at the top of the “Label” panel (e.g. 40 × 30 mm).</li>
+      <li><b>Add content</b> – text, QR code, barcode, image, frame or line. Or <b>import a finished label</b>
+        (PNG, SVG, PDF – SVG is the sharpest). <b>Ctrl+V</b> pastes an image or text, and you can drop an image file onto the label.</li>
+      <li><b>Edit</b> – tap an element on the label. Drag to move it, the blue corner changes its size. All settings are in the
+        “Element” panel. Arrow keys move by 1 dot (with Shift 8), Delete removes it.</li>
+      <li><b>Snapping</b> – while moving, an element snaps to the edges and centre of the label and to the edges and centres of
+        other elements (pink guide line). Hold <b>Alt</b> to move freely.</li>
+      <li><b>Placeholders</b> – the “{ } Placeholder” button under the text field inserts e.g. <code>{datum}</code> (today),
+        <code>{datum+7}</code> (in 7 days; also <code>+2w</code>, <code>+3m</code>, <code>+1j</code>), <code>{kw}</code> (calendar week),
+        <code>{wochentag}</code>, <code>{monat}</code>, <code>{jahr}</code>, <code>{zeit}</code> and <code>{nr}</code> (counts up per copy).
+        English names like <code>{date+7}</code>, <code>{week}</code> or <code>{year}</code> work too.</li>
+      <li><b>Scan</b> – “📷 Scan” reads a QR code or barcode with the camera and adds it as a QR code, barcode or text.
+        A QR code of a <b>shared label</b> opens that label directly. (Barcodes need Chrome on a phone; elsewhere only QR codes.)</li>
+      <li><b>Print</b> – on a PC via <b>“Print via Windows printer (USB)”</b>, or via Bluetooth (open <b>“Bluetooth direct print”</b> in the Print panel).</li>
+      <li><b>Undo / redo</b> – arrows ↶ ↷ above the label or <b>Ctrl+Z</b> / <b>Ctrl+Y</b>.</li>
+      <li><b>Rotate</b> – select an element and press “↻ 90°”.</li>
+      <li><b>Several elements</b> – Ctrl/Shift + click, or drag a box on an empty area; then align and distribute them in the
+        “Element” panel. <b>Right-click</b> (long press on a phone) opens a menu with all actions.</li>
+      <li><b>Shapes and symbols</b> – via “◆ Shape” and “★ Symbol”. Text can also run <b>in an arc</b> and fill the whole label with “⤢ Fit”.</li>
+      <li><b>Images</b> – darkness, contrast, dithering method (Floyd–Steinberg, Atkinson, dot pattern), thicker lines and invert.</li>
+      <li><b>Template gallery</b> – ready-made labels that adapt to your label size. <b>Recently printed</b> brings back the last 10 labels.</li>
+      <li><b>Batch print</b> – paste a list or load a CSV in the Print panel; one label per line, use <code>{1}</code>, <code>{2}</code> … for the columns.</li>
+      <li><b>Layers</b> – lists all elements, top is in front. 👁 hides (not printed), 🔒 locks, drag ⠿ to reorder, double-click to rename.</li>
+      <li><b>Grid &amp; ruler</b> – switch on a grid (1, 2 or 5 mm) above the label; elements snap to it. The ruler shows mm.</li>
+      <li><b>Templates</b> – save and load. <b>“Export”</b> makes a full backup file (templates, rolls, print settings, panel layout);
+        <b>“Import”</b> restores it on another device or browser.</li>
+      <li><b>Share</b> – “Share” in the Templates panel creates a link and a QR code. Scan it with a phone and the label opens there.</li>
+      <li><b>Rolls</b> – a roll sets label size, paper size and offsets in one go. “Save…” stores the current settings as a new roll.</li>
+      <li><b>Install as app</b> – menu “Label Studio” → “📲 Install as app” (Chrome/Edge). The app gets its own icon and window and also
+        works offline. The browser version stays exactly the same.</li>
+      <li><b>Language</b> – menu “Label Studio” → “🌐 Deutsch / English”.</li>
+    </ol>
+    <p class="hint">Everything is stored in the browser – another browser, or clearing browser data, starts empty. Export your templates now and then.
+      The browser stores separately per address, so always use the same one (or move with Export/Import).</p>` },
+  driver: { title: 'Drivers & setup', html: `
+    <h3>Windows printing via USB (recommended on a PC)</h3>
+    <ol>
+      <li>Download and install the <b>Windows driver</b> for your model from the manufacturer’s website.</li>
+      <li>Connect the printer by <b>USB cable</b> – it appears in Windows, e.g. as “M220 Printer”.</li>
+      <li>In the app choose the “Paper size in the driver” that matches your roll.</li>
+      <li>In Chrome’s print dialog: <b>Destination</b> = your printer, <b>Paper size</b> = the same as in the app,
+        <b>Margins</b> = None, <b>Scale</b> = 100, headers and footers off.</li>
+    </ol>
+    <p>The M220 driver only knows <b>50 × 30</b> and <b>50 × 70 mm</b>. Smaller labels are centred on that page. The zero point is
+      corrected by 2 mm for the M220; fine-tune with “Offset X”.</p>
+    <h3>Bluetooth (no driver)</h3>
+    <ul>
+      <li>No driver needed, but a browser with Web Bluetooth: <b>Chrome</b> or <b>Edge</b> on a PC, <b>Chrome</b> on Android,
+        the <b>Bluefy</b> app on iPhone.</li>
+      <li>On a phone the app must run over <b>https</b> – simply open <b>barry2040.github.io/open-label-studio</b> (or install it as an app).</li>
+      <li>On Windows pairing can fail with a “connection error” – then use USB.</li>
+    </ul>
+    <h3>Other</h3>
+    <ul><li><b>PDF import</b> and the <b>QR scanner</b> (outside Chrome on phones) load a small library from the internet the first time.</li></ul>` },
+  printers: { title: 'Supported printers', html: `
+    <h3>Windows printing (USB)</h3>
+    <p>Works with basically <b>any label printer that has a Windows driver</b>, e.g. other Phomemo models, Brother QL,
+      DYMO LabelWriter or Zebra. If the driver supports custom paper sizes, set the paper size to <b>“Same as label”</b>;
+      otherwise choose the next larger size – the app centres the label on it.</p>
+    <h3>Bluetooth direct print</h3>
+    <p>Choose under “Bluetooth direct print” → “Printer model”. The “Bluetooth” column shows what has been tried with a real device –
+      “untested” means prepared but not yet checked.</p>
+    <table>
+      <tr><th>Model</th><th>Print width</th><th>Roll</th><th>Bluetooth</th></tr>
+      ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${tr(p.widthText) || (p.head / PX_PER_MM + ' mm')}</td>
+        <td>${p.rotate90 ? 'sideways' : { right:'right', center:'centre', left:'left' }[p.align] || 'lengthwise'}</td>
+        <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">untested</span>'}</td></tr>`).join('')}
+    </table>
+    <p class="hint"><b>Phomemo</b> – commands from the open-source project “phomymo”. The <b>M220</b> prints with Android (Chrome).
+      The <b>D30/D35/Q30</b> print small labels sideways – design the label in landscape, the app rotates it.</p>
+    <p class="hint"><b>Marklife</b> (P15, P7, P12, M60) – after the open-source project <b>“thermoprint”</b> by tomLadder (MIT).
+      The <b>P15</b> prints via Bluetooth on a PC. Labels run sideways – the app rotates them.</p>
+    <p class="hint"><b>Niimbot</b> (D110, D101, B1, B21) – after the open-source library <b>“niimbluelib”</b> by MultiMote (MIT).
+      The <b>D101</b> is tested via Bluetooth on a PC and with Android. D110 and D101 print sideways – the app rotates the label.</p>
+    <p class="hint"><b>DYMO LetraTag 200B</b> – after the open-source project <b>“dymo-bluetooth”</b> by ysfchn (MIT); tested on a PC and with Android.
+      The tape is 12 mm wide, but only 3.8 mm in the middle is printable, so the label is 4 mm high. With <b>“Automatic length”</b> each label is
+      exactly as long as its text plus 2 mm. Several copies or a batch print come out on <b>one strip</b> with dashed cut marks
+      (can be switched off under “Bluetooth direct print”).</p>
+    <p><b>Your printer is missing?</b> <button class="primary" data-request>Suggest a printer …</button></p>` },
+  tips: { title: 'Tips & troubleshooting', html: `
+    <ul>
+      <li><b>Print preview is empty</b> – reload the page with F5 and try again.</li>
+      <li><b>Print spreads over two labels</b> – the wrong paper size is chosen in the print dialog.</li>
+      <li><b>Print shifted sideways</b> – adjust “Offset X (mm)”, e.g. 1 or -1.</li>
+      <li><b>Print too high or too low</b> – adjust “Offset Y (mm)”: positive moves down, negative up.</li>
+      <li><b>Printer status</b> – when connected via Bluetooth the header shows battery and paper, red for “No paper” or “Lid open”.</li>
+      <li><b>Thin text hard to read</b> – select the image and use “Thicken lines”, more darkness or contrast. A bolder font helps most.</li>
+      <li><b>Something changed or deleted by accident</b> – Ctrl+Z or ↶.</li>
+      <li><b>Bluetooth connection error</b> – remove the printer in the Windows Bluetooth settings, restart the printer, switch off phone Bluetooth.
+        If that doesn’t help: use USB.</li>
+    </ul>` }
+};
 function openHelp(key){
   $('helpTabs').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.help === key));
-  $('helpBody').innerHTML = HELP[key].html;
+  $('helpBody').innerHTML = (LANG === 'en' ? HELP_EN : HELP)[key].html;
   if (!$('help').open) $('help').showModal();
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
 $('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-gallery>🖼️ Vorlagen-Galerie …</button>'
-  + '<button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>';
+  + '<button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>'
+  + '<button data-install hidden>📲 Als App installieren …</button>'
+  + `<hr><button data-lang>${LANG === 'en' ? '🌐 Deutsch' : '🌐 English'}</button>`;
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
 $('btnMenu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu($('menuList').hidden); });
 document.addEventListener('click', () => toggleMenu(false));
@@ -3493,7 +4083,26 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   if (ev.target.closest('[data-gallery]')){ toggleMenu(false); openGallery('tpl'); }
   if (ev.target.closest('[data-setup]')){ toggleMenu(false); openSetup(); }
   if (ev.target.closest('[data-fonts]')){ toggleMenu(false); openFonts(); }
+  if (ev.target.closest('[data-install]')){ toggleMenu(false); installApp(); }
+  if (ev.target.closest('[data-lang]')){ toggleMenu(false); setLang(LANG === 'en' ? 'de' : 'en'); }
 }));
+
+// ---------- Als App installieren (PWA): eigenes Symbol, ohne Browserleiste, auch offline ----------
+// Die Browser-Version bleibt genau gleich – die App ist dieselbe Seite, nur mit eigenem Fenster.
+let installPrompt = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function showInstallEntry(){ const b = document.querySelector('[data-install]'); if (b) b.hidden = isStandalone() || !installPrompt; }
+window.addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); installPrompt = ev; showInstallEntry(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; showInstallEntry(); toast('Label Studio ist installiert – du findest es bei deinen Apps'); });
+async function installApp(){
+  if (!installPrompt){ toast('Im Browser-Menü „App installieren“ bzw. „Zum Startbildschirm hinzufügen“ wählen'); return; }
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => {});
+  installPrompt = null; showInstallEntry();
+}
+// Offline-Speicher nur online (http/https); als lokal geöffnete Datei geht das nicht
+if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
 // ---------- Drucker vorschlagen (GitHub-Issue, auf Netlify über Netlify Forms) ----------
 function openRequest(){
@@ -3561,6 +4170,7 @@ function showModelTested(){
   $('align').closest('.field').hidden = !['mseries', 'm110'].includes(proto);
   $('feed').closest('.field').hidden = proto !== 'mseries';
   $('density').closest('.field').hidden = proto === 'dymo';   // DYMO: Druckstärke lässt sich nicht einstellen
+  $('strip').closest('.check').hidden = !printer().continuous;
 }
 $('model').addEventListener('change', showModelTested);
 // Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
@@ -3615,6 +4225,7 @@ if (document.fonts) document.fonts.ready.then(render);
 updateSerialInfo();
 // Ersteinrichtung nur beim allerersten Besuch (bestehende Nutzer haben schon Druckeinstellungen)
 if (!lsGet(LS_SETUP, null) && !lsGet(LS_PRINT, null) && !location.hash) openSetup();
+startTranslation();
 </script>
 </body>
 </html>
