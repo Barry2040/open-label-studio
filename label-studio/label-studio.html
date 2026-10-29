@@ -2023,13 +2023,32 @@ async function pageToCanvas(file){
         return { x, y, str:i.str };
       });
     } catch(e){}
-    return { c, ppm, texts };
+    // eingebettete Bilder (Amazon/Hermes legen das Label oft als Bild ins PDF): Lage über die Zeichenbefehle bestimmen
+    let images = [];
+    try {
+      const ops = await page.getOperatorList(), O = pdfjsLib.OPS, st = [];
+      const mul = (m, n) => [m[0]*n[0] + m[2]*n[1], m[1]*n[0] + m[3]*n[1], m[0]*n[2] + m[2]*n[3], m[1]*n[2] + m[3]*n[3], m[0]*n[4] + m[2]*n[5] + m[4], m[1]*n[4] + m[3]*n[5] + m[5]];
+      let m = [1, 0, 0, 1, 0, 0];
+      for (let i = 0; i < ops.fnArray.length; i++){
+        const fn = ops.fnArray[i];
+        if (fn === O.save) st.push(m);
+        else if (fn === O.restore) m = st.pop() || m;
+        else if (fn === O.transform) m = mul(m, ops.argsArray[i]);
+        else if (fn === O.paintImageXObject || fn === O.paintInlineImageXObject || fn === O.paintJpegXObject){
+          const pts = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([x, y]) => vp.convertToViewportPoint(m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]));
+          const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+          const x = Math.max(0, Math.min(...xs)), y = Math.max(0, Math.min(...ys));
+          images.push({ x, y, w:Math.min(c.width, Math.max(...xs)) - x, h:Math.min(c.height, Math.max(...ys)) - y });
+        }
+      }
+    } catch(e){}
+    return { c, ppm, texts, images };
   }
   const im = await fileToImage(file);
   const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
   const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height); cc.drawImage(im, 0, 0);
   // Bilder: Größe unbekannt – Annahme A4, wenn hochkant und groß genug, sonst wie ein Etikett
-  return { c, ppm: Math.max(c.width, c.height) / 297, texts:[] };
+  return { c, ppm: Math.max(c.width, c.height) / 297, texts:[], images:[] };
 }
 // Bereiche auf der Seite finden: Tinte in 1-mm-Zellen, Lücken bis `gap` mm schließen, zusammenhängende Flächen bilden.
 // Paketmarken haben Barcodes: Zellen mit senkrechten (oder waagrechten) Strichen zählen stark für einen Bereich.
@@ -2156,6 +2175,54 @@ function cutBands(c, ppm){
   }
   return bands;
 }
+// Gerahmte Labels (z. B. Amazon-/Hermes-Rücksendeseite): Rechtecke aus langen waagrechten und senkrechten Linien
+// (mind. 5 × 5 cm). Liegen Rahmen ineinander, zählt der äußerste.
+function findFrames(c, ppm){
+  const W0 = c.width, H0 = c.height, d = c.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, W0, H0).data;
+  const dark = new Uint8Array(W0 * H0);
+  for (let i = 0; i < W0 * H0; i++) dark[i] = (d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114) < 200 ? 1 : 0;
+  const minLen = 50 * ppm, tol = 2 * ppm, hs = [], vs = [];
+  for (let y = 0; y < H0; y++){
+    let st = -1;
+    for (let x = 0; x <= W0; x++){
+      const on = x < W0 && dark[y*W0 + x];
+      if (on && st < 0) st = x;
+      if (!on && st >= 0){ if (x - st >= minLen) hs.push({ y, x0:st, x1:x - 1 }); st = -1; }
+    }
+  }
+  for (let x = 0; x < W0; x++){
+    let st = -1;
+    for (let y = 0; y <= H0; y++){
+      const on = y < H0 && dark[y*W0 + x];
+      if (on && st < 0) st = y;
+      if (!on && st >= 0){ if (y - st >= minLen) vs.push({ x, y0:st, y1:y - 1 }); st = -1; }
+    }
+  }
+  const near = (a, b) => Math.abs(a - b) <= tol;
+  // aufeinanderfolgende Zeilen derselben Linie zusammenfassen; dicker als 2 mm = Fläche, keine Linie
+  const lines = (segs, pos, a0, a1) => {
+    const out = [];
+    for (const s of segs){
+      const g = out.find(o => o[a0] === s[a0] || (near(o[a0], s[a0]) && near(o[a1], s[a1]) && s[pos] - o.last <= 1));
+      if (g && s[pos] - g.last <= 1 && near(g[a0], s[a0]) && near(g[a1], s[a1])){ g.last = s[pos]; continue; }
+      out.push({ ...s, first:s[pos], last:s[pos] });
+    }
+    return out.filter(o => o.last - o.first <= 2 * ppm).map(o => ({ ...o, [pos]: Math.round((o.first + o.last) / 2) }));
+  };
+  const H = lines(hs, 'y', 'x0', 'x1'), V = lines(vs, 'x', 'y0', 'y1');
+  if (H.length > 400 || V.length > 400) return [];   // zu unruhige Seite (z. B. Foto)
+  hs.length = 0; hs.push(...H); vs.length = 0; vs.push(...V);
+  const boxes = [];
+  for (const t of hs) for (const b of hs){
+    if (b.y < t.y + minLen || !near(t.x0, b.x0) || !near(t.x1, b.x1)) continue;
+    const side = x => vs.some(v => near(v.x, x) && v.y0 <= t.y + tol && v.y1 >= b.y - tol);
+    if (!side(t.x0) || !side(t.x1)) continue;
+    const box = { x:t.x0, y:t.y, w:t.x1 - t.x0 + 1, h:b.y - t.y + 1 };
+    if (!boxes.some(o => near(o.x, box.x) && near(o.y, box.y) && near(o.w, box.w) && near(o.h, box.h))) boxes.push(box);
+  }
+  const inside = (a, o) => a !== o && a.x >= o.x - tol && a.y >= o.y - tol && a.x + a.w <= o.x + o.w + tol && a.y + a.h <= o.y + o.h + tol;
+  return boxes.filter(a => !boxes.some(o => inside(a, o)));
+}
 // Kandidaten bewerten: Barcodes zählen stark, Abschnitte für die eigenen Unterlagen scheiden aus
 const NOT_LABEL = /unterlagen|einlieferungsbeleg|quittung|sendungsinformation|ihr beleg|for your records|receipt/i;
 const IS_LABEL = /^(an|von|empfänger|absender)\s*:?$|sendungsnummer|leitcode|routingcode|identcode|tracking/i;
@@ -2196,13 +2263,16 @@ function chooseRegion(c, regions){
   });
 }
 async function importShipping(file){
-  const { c, ppm, texts } = await pageToCanvas(file);
+  const { c, ppm, texts, images } = await pageToCanvas(file);
   const mmW = c.width / ppm, mmH = c.height / ppm;
   // Seite schon etwa so groß wie ein Label (z. B. 100 × 150, 103 × 199): alles nehmen; sonst (A4) die Marke suchen:
   // erst an Schnittlinien teilen, sonst zusammenhängende Bereiche (mit größerem Abstand, damit Label-Spalten zusammenbleiben)
   const small = Math.min(mmW, mmH) <= 120 && Math.max(mmW, mmH) <= 220;
   let regions = small ? findLabelRegions(c, ppm, 60) : cutBands(c, ppm);
-  if (!small && regions.length < 2) regions = findLabelRegions(c, ppm, 8);
+  // eingebettetes Bild in Label-Größe (mind. 5 × 5 cm, z. B. Amazon-Rücksendung mit Hermes-Label)
+  if (!small && regions.length < 2) regions = images.filter(i => Math.min(i.w, i.h) >= 50 * ppm).map(i => ({ ...i }));
+  if (!small && !regions.length) regions = findFrames(c, ppm);
+  if (!small && !regions.length) regions = findLabelRegions(c, ppm, 8);
   if (!regions.length) throw new Error('Auf der Seite wurde kein Label gefunden');
   if (!small) regions = rateRegions(regions, c, ppm, texts);
   let r = regions[0];
