@@ -1383,7 +1383,7 @@ function addEl(e){
 document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addByType(b.dataset.add)));
 function addByType(t){
   const w = W(), h = H();
-  if (t === 'text') addEl({ type:'text', x:16, y:16, text:'Text', font:'Roboto', size:40, bold:false, italic:false, align:'left', invert:false });
+  if (t === 'text') addEl({ type:'text', x:16, y:16, text:'Text', font:webFontsOn() ? 'Roboto' : 'Arial', size:40, bold:false, italic:false, align:'left', invert:false });
   if (t === 'qr'){ const s = Math.round(Math.min(w, h) * 0.7); addEl({ type:'qr', x:16, y:Math.round((h-s)/2), w:s, h:s, value:'https://example.com', ecc:'M' }); }
   if (t === 'barcode') addEl({ type:'barcode', x:16, y:16, w:Math.round(w*0.8), h:Math.round(h*0.5), value:'123456789', format:'CODE128', showText:true });
   if (t === 'rect') addEl({ type:'rect', x:4, y:4, w:w-8, h:h-8, lw:4, filled:false, radius:12 });
@@ -1635,7 +1635,8 @@ function toFront(e){ const a = design.elements; a.splice(a.indexOf(e), 1); a.pus
 function toBack(e){ const a = design.elements; a.splice(a.indexOf(e), 1); a.unshift(e); changed(); }
 function changed(){ save(); refreshProps(); render(); }
 function removeSel(){
-  const gone = selected();
+  const gone = selected().filter(e => !e.locked);   // gesperrte Elemente bleiben stehen
+  if (!gone.length){ if (selected().length) toast('Gesperrt – erst in den Ebenen entsperren (🔒)'); return; }
   design.elements = design.elements.filter(e => !gone.includes(e));
   sel = null; multi = []; buildProps(); save(); render();
 }
@@ -1737,6 +1738,7 @@ function initLabelControls(){
   ps.addEventListener('change', () => {
     if (ps.value === 'custom') return;
     const [w, h] = ps.value.split('x').map(Number);
+    if (design.autoLen){ delete design.autoLen; toast('Feste Größe gewählt – „Länge automatisch“ ist aus'); }
     setLabelSize(w, h);
   });
   const onSize = () => {
@@ -1808,6 +1810,13 @@ function scaleElements(ow, oh, nw, nh){
     fit(e, nb);
   }
 }
+// „Länge automatisch“ passend zum Drucker: an bei Endlosband (DYMO), aus bei festen Etiketten
+function syncAutoLenToPrinter(){
+  const cont = !!printer().continuous;
+  if (cont === !!design.autoLen) return;
+  if (cont) design.autoLen = true; else delete design.autoLen;
+  syncLabelControls(); save(); flushPending(); render();
+}
 function syncLabelControls(){
   $('lw').value = design.w; $('lh').value = design.h;
   $('autoLen').checked = !!design.autoLen; $('lw').disabled = !!design.autoLen;
@@ -1838,6 +1847,7 @@ async function connect(){
     diag(`Gerät: ${device.name || '(ohne Namen)'}`);
     bt.device = device;
     bt.credits = 0; bt.lastGrant = Date.now(); bt.packetMax = 0;
+    bt.chunk = 128; bt.dymoChunk = 0;   // nach früheren Funk-Aussetzern wieder mit normaler Paketgröße starten
     // bekanntes Modell am Namen erkennen und automatisch einstellen (z. B. Marklife P15)
     const m = modelFromName(device.name);
     if (m){
@@ -2749,6 +2759,7 @@ function makeGalleryDesign(item){
   });
 }
 function thumb(d, maxW = 190, maxH = 110){
+  curNr = parseInt($('startNr').value) || 1; curRow = (serialRows() || [])[0] || null;
   return withDesign(d, () => {
     const k = Math.min(maxW / W(), maxH / H()), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(W() * k)); c.height = Math.max(1, Math.round(H() * k));
@@ -2788,7 +2799,11 @@ async function openGallery(tab){
     b.addEventListener('click', fn);
     body.appendChild(b);
   };
-  const load = d => { if (!d) return; $('gallery').close(); loadDesign(d); toast('Vorlage geladen – Strg+Z holt das vorige Etikett zurück'); };
+  const load = (d, fromGallery) => {
+    if (!d) return;
+    if (fromGallery && printer().continuous) d.autoLen = true;
+    $('gallery').close(); loadDesign(d); toast('Vorlage geladen – Strg+Z holt das vorige Etikett zurück');
+  };
   if (tab === 'hist'){
     const list = lsGet(LS_HIST, []);
     $('galleryHint').textContent = list.length ? 'Antippen lädt das Etikett wieder in den Editor.' : 'Noch nichts gedruckt – hier erscheinen deine letzten 10 Etiketten.';
@@ -2810,11 +2825,11 @@ async function openGallery(tab){
         return { w:design.w, h:design.h, elements:[fitText(T('HDMI', 'Roboto Condensed', { bold:true }), box(0, 0, f, h), 4),
           fitText(T('HDMI', 'Roboto Condensed', { bold:true, rot:180 }), box(w - f, 0, f, h), 4), R(f, 0, 2, 10, { filled:true }), R(w - f, 0, 2, 10, { filled:true })] };
       });
-      card(thumb(demo), item.name, item.hint, () => load(makeCableFlag()));
+      card(thumb(demo), item.name, item.hint, () => load(makeCableFlag(), true));
       continue;
     }
     const d = makeGalleryDesign(item);
-    card(thumb(d), item.name, '', () => load(makeGalleryDesign(item)));
+    card(thumb(d), item.name, '', () => load(makeGalleryDesign(item), true));
   }
 }
 $('tplGallery').addEventListener('click', () => openGallery('tpl'));
@@ -3027,7 +3042,9 @@ $('rollSel').addEventListener('change', () => {
   if (!r) return;
   for (const k of ROLL_KEYS) if (k in r){ const el = $(k); if (el.type === 'checkbox') el.checked = r[k]; else el.value = r[k]; }
   savePrintSettings();
+  if (!printer().continuous) delete design.autoLen;   // feste Etiketten: vor dem Größenwechsel abschalten
   setLabelSize(r.w, r.h);
+  syncAutoLenToPrinter();
   fitCanvas(); render();
   toast(`Rolle „${name}“ eingestellt`);
 });
@@ -3570,10 +3587,7 @@ function adaptLabelToModel(){
   }
 }
 $('model').addEventListener('change', adaptLabelToModel);
-// Endlosband-Drucker (DYMO): Länge automatisch einschalten – auch wenn die Größe über eine Rolle kam
-$('model').addEventListener('change', () => {
-  if (printer().continuous && !design.autoLen){ design.autoLen = true; syncLabelControls(); save(); flushPending(); render(); }
-});
+$('model').addEventListener('change', syncAutoLenToPrinter);
 const view = lsGet(LS_VIEW, {});
 if (view.grid) $('grid').value = view.grid;
 if ('rulers' in view) $('rulers').checked = view.rulers;
