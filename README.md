@@ -39,7 +39,7 @@
 | 📲 **Als App** | Installierbar (PWA) mit eigenem Symbol, funktioniert auch offline – die Browser-Version bleibt gleich |
 | 🌐 **Sprachen** | Deutsch und Englisch, umschaltbar im Menü |
 | 🕘 **Zuletzt gedruckt** | Die letzten 10 gedruckten Etiketten mit einem Klick zurückholen |
-| 💾 **Vorlagen & Sicherung** | Vorlagen speichern; Export/Import überträgt Vorlagen, Rollen, Einstellungen und Fensteranordnung auf andere Geräte |
+| 💾 **Sicherung & Umzug** | Alles als eine Datei sichern – Vorlagen, Rollen, Verlauf, Einstellungen und eigene Schriften – und auf dem neuen Handy oder im neuen Browser wieder laden. Ganz ohne Konto, alles bleibt lokal |
 | 🔗 **Teilen** | Etikett per Link oder QR-Code aufs Handy holen – einfach scannen |
 | 🧻 **Rollen** | Profile je Etikettenrolle: Größe, Papierformat und Versatz mit einem Klick |
 | 🔄 **Druckerwechsel** | Beim Wählen oder Verbinden eines Druckers stellt sich das passende Etikett ein – Text, Rahmen und Bilder skalieren automatisch mit |

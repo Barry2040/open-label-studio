@@ -56,13 +56,19 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help,#share,#request,#setup,#gallery,#fonts,#scan{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share,#request,#setup,#gallery,#fonts,#scan,#backup{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
 #share,#scan{width:min(380px,calc(100vw - 32px))}
 #scanVideo{width:100%;max-height:50vh;border-radius:8px;background:#000;object-fit:cover}
-#request,#setup,#fonts{width:min(520px,calc(100vw - 32px))}
+#request,#setup,#fonts,#backup{width:min(520px,calc(100vw - 32px))}
+.backup-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin:10px 0}
+.backup-stats div{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+.backup-stats b{display:block;font-size:17px;color:var(--text)}
+.backup-big{display:flex;flex-direction:column;gap:8px}
+.backup-big button{padding:10px 12px;font-size:15px;text-align:left}
+.backup-big button small{display:block;font-size:12px;opacity:.8;font-weight:normal}
 #gallery{width:min(860px,calc(100vw - 32px))}
-#help::backdrop,#share::backdrop,#scan::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
+#help::backdrop,#backup::backdrop,#share::backdrop,#scan::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
 .request-body{padding:8px 16px 16px}
 .menu-list hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 .share-body{padding:8px 16px 16px;text-align:center}
@@ -425,11 +431,10 @@ progress{width:100%;height:8px}
       <div class="row" style="margin-top:8px">
         <button id="tplLast" title="Das Etikett laden, an dem du zuletzt gearbeitet hast">Zuletzt bearbeitet</button>
         <button id="tplNew">Neu</button>
-        <button id="tplExport" title="Sicherung als Datei: Vorlagen, Rollen, Einstellungen und Fensteranordnung">Export</button>
-        <button id="tplImport" title="Sicherung einspielen (z. B. auf einem anderen Gerät)">Import</button>
+        <button id="tplBackup" title="Alles als Datei sichern oder eine Sicherung laden – für Handywechsel oder neuen Browser, ohne Konto">💾 Sicherung</button>
         <button id="tplShare" class="primary" title="Aktuelles Etikett per Link oder QR-Code teilen">Teilen</button>
       </div>
-      <input type="file" id="fileTpl" accept=".json,application/json" hidden>
+      
     </div>
   </aside>
 </main>
@@ -496,6 +501,33 @@ progress{width:100%;height:8px}
       <input id="scanValue" aria-label="Gelesener Inhalt">
       <div id="scanActions" class="btn-grid" style="margin-top:8px"></div>
     </div>
+  </div>
+</dialog>
+<dialog id="backup" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Sicherung &amp; Umzug</b>
+    <button id="backupClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="request-body">
+    <p style="margin-top:0">Alles bleibt auf deinem Gerät – <b>ohne Konto, ohne Cloud</b>. Speichere eine Sicherungsdatei und lade sie
+      auf dem neuen Handy oder im neuen Browser wieder.</p>
+    <div class="backup-stats" id="backupStats"></div>
+    <div class="backup-big">
+      <button id="backupSave" class="primary">💾 Sicherung speichern<small>Eine Datei mit allem – z. B. in „Downloads“, auf einem USB-Stick oder per Mail an dich selbst</small></button>
+      <button id="backupShare" hidden>📤 Sicherung teilen …<small>Direkt an Google Drive, eine Mail-App oder ein anderes Gerät schicken</small></button>
+      <button id="backupLoad">📂 Sicherung laden …<small>Eine Sicherungsdatei einspielen (auch ältere Exporte und einzelne Etiketten)</small></button>
+    </div>
+    <label class="check" style="margin-top:10px"><input type="checkbox" id="backupMerge" checked> Vorhandene Vorlagen und Rollen behalten (zusammenführen)</label>
+    <p class="hint" id="backupLast"></p>
+    <details class="subsec">
+      <summary>Was ist in der Sicherung?</summary>
+      <p class="hint">Aktuelles Etikett, alle Vorlagen, Rollen, „Zuletzt gedruckt“, Druckeinstellungen, Seriendruck-Liste,
+        eigene Schriftdateien, Schrift- und Spracheinstellung, Farbschema und Fensteranordnung. Nicht enthalten ist die
+        Bluetooth-Kopplung – den Drucker einfach neu verbinden.</p>
+      <p class="hint"><b>Umzug aufs neue Handy:</b> 1. Hier „Sicherung speichern“ bzw. „teilen“. 2. Datei aufs neue Gerät bringen
+        (Mail, Messenger, Cloud, Kabel). 3. Label Studio dort öffnen, „Sicherung laden“ und die Datei wählen.</p>
+    </details>
+    <input type="file" id="fileBackup" accept=".json,application/json" hidden>
   </div>
 </dialog>
 <dialog id="help">
@@ -803,7 +835,27 @@ const EN = {
   'GitHub ist geöffnet – dort noch auf „Create“ klicken':'GitHub is open – click “Create” there', 'Wird gesendet …':'Sending …',
   'Danke! Dein Druckervorschlag ist angekommen.':'Thanks! Your printer suggestion has arrived.', 'Senden hat nicht geklappt (':'Sending failed (', '). Bitte später nochmal versuchen.':'). Please try again later.',
   'Breite ändern':'Change width', 'Etikett auf':'Label set to',
-  'Sprache: Deutsch':'Language: German', '🌐 English':'🌐 English', '🌐 Deutsch':'🌐 Deutsch'
+  'Sprache: Deutsch':'Language: German',
+  '💾 Sicherung':'💾 Backup', '💾 Sicherung & Umzug …':'💾 Backup & move …', 'Sicherung & Umzug':'Backup & move',
+  'Alles als Datei sichern oder eine Sicherung laden – für Handywechsel oder neuen Browser, ohne Konto':'Save everything as a file or load a backup – for a new phone or browser, no account needed',
+  'Alles bleibt auf deinem Gerät –':'Everything stays on your device –', 'ohne Konto, ohne Cloud':'no account, no cloud',
+  '. Speichere eine Sicherungsdatei und lade sie auf dem neuen Handy oder im neuen Browser wieder.':'. Save a backup file and load it again on your new phone or in a new browser.',
+  '💾 Sicherung speichern':'💾 Save backup', '📤 Sicherung teilen …':'📤 Share backup …', '📂 Sicherung laden …':'📂 Load backup …',
+  'Eine Datei mit allem – z. B. in „Downloads“, auf einem USB-Stick oder per Mail an dich selbst':'One file with everything – e.g. in “Downloads”, on a USB stick or e-mailed to yourself',
+  'Direkt an Google Drive, eine Mail-App oder ein anderes Gerät schicken':'Send it straight to Google Drive, a mail app or another device',
+  'Eine Sicherungsdatei einspielen (auch ältere Exporte und einzelne Etiketten)':'Restore a backup file (older exports and single labels work too)',
+  'Vorhandene Vorlagen und Rollen behalten (zusammenführen)':'Keep existing templates and rolls (merge)',
+  'Was ist in der Sicherung?':'What’s in the backup?',
+  'Aktuelles Etikett, alle Vorlagen, Rollen, „Zuletzt gedruckt“, Druckeinstellungen, Seriendruck-Liste, eigene Schriftdateien, Schrift- und Spracheinstellung, Farbschema und Fensteranordnung. Nicht enthalten ist die Bluetooth-Kopplung – den Drucker einfach neu verbinden.':'Current label, all templates, rolls, recently printed, print settings, batch list, your own font files, font and language settings, colour scheme and panel layout. Not included is the Bluetooth connection – simply reconnect the printer.',
+  'Umzug aufs neue Handy:':'Moving to a new phone:',
+  '1. Hier „Sicherung speichern“ bzw. „teilen“. 2. Datei aufs neue Gerät bringen (Mail, Messenger, Cloud, Kabel). 3. Label Studio dort öffnen, „Sicherung laden“ und die Datei wählen.':'1. “Save backup” or “share” here. 2. Bring the file to the new device (mail, messenger, cloud, cable). 3. Open Label Studio there, choose “Load backup” and pick the file.',
+  'Vorlagen':'Templates', 'Rollen':'Rolls', 'Eigene Schriften':'Your own fonts', 'Noch keine Sicherung gespeichert.':'No backup saved yet.',
+  'Teilen nicht möglich – bitte „Sicherung speichern“ nutzen':'Sharing not possible – please use “Save backup”',
+  'Das ist keine gültige Sicherungsdatei.':'This is not a valid backup file.', 'Speicher des Browsers ist voll':'The browser storage is full',
+  'Sicherung laden? Einstellungen werden übernommen, deine vorhandenen Vorlagen und Rollen bleiben erhalten.':'Load the backup? Settings are taken over, your existing templates and rolls are kept.',
+  'Sicherung laden und alles hier ersetzen? Vorhandene Vorlagen und Rollen gehen dabei verloren.':'Load the backup and replace everything here? Existing templates and rolls will be lost.',
+  'Sicherung geladen – alles ist wieder da':'Backup loaded – everything is back', 'Import erfolgreich':'Import successful',
+  'Tipp: Sichere deine Vorlagen ab und zu – Vorlagen → „💾 Sicherung“':'Tip: back up your templates now and then – Templates → “💾 Backup”', '🌐 English':'🌐 English', '🌐 Deutsch':'🌐 Deutsch'
 };
 // Texte mit eingesetzten Werten (Zahlen, Namen): Muster → Übersetzung
 const EN_RE = [
@@ -828,6 +880,8 @@ const EN_RE = [
   [/^(\d+) installierte Schriften stehen in der Schriftauswahl\.$/, '$1 installed fonts are in the font list.'],
   [/^(\d+) installierte Schriften übernommen$/, '$1 installed fonts added'],
   [/^Drucker-Wunsch: (.*)$/, 'Printer request: $1'],
+  [/^Sicherung gespeichert: (.*)$/, 'Backup saved: $1'], [/^Letzte Sicherung: (.*)$/, 'Last backup: $1'],
+  [/^Sicherung konnte nicht geladen werden: (.*)$/s, (m, e) => 'Could not load the backup: ' + tr(e)],
   [/^Kamera nicht verfügbar \((.*)\)$/, 'Camera not available ($1)'],
   [/^(\d+) × (\d+) mm \(([^)]+)\)$/, (m, a, b, c) => `${a} × ${b} mm (${tr(c)})`],
   [/^DYMO LetraTag \(12-mm-Band\)$/, 'DYMO LetraTag (12 mm tape)'], [/^12-mm-Band \(3,8 mm druckbar\)$/, '12 mm tape (3.8 mm printable)'],
@@ -3044,16 +3098,6 @@ $('tplDel').addEventListener('click', () => {
 $('tplLast').disabled = !(lastDraft && lastDraft.elements && lastDraft.elements.length);
 $('tplLast').addEventListener('click', () => loadDesign(lastDraft));
 $('tplNew').addEventListener('click', () => { if (confirm('Neues leeres Etikett anlegen?')) loadDesign({ w:design.w, h:design.h, elements:[] }); });
-// Export = komplette Sicherung: Etikett, Vorlagen, Rollen, Druckeinstellungen, Fensteranordnung und Ansicht.
-// So lässt sich alles auf ein anderes Gerät oder in einen anderen Browser übertragen.
-$('tplExport').addEventListener('click', () => {
-  flushPending();
-  const backup = { app:'label-studio', version:2, current:design, templates:tplAll(), rolls:rollsAll(), roll:lsGet(LS_ROLL, ''),
-                   print:lsGet(LS_PRINT, {}), layout:lsGet(LS_LAYOUT, null), view:lsGet(LS_VIEW, {}) };
-  const blob = new Blob([JSON.stringify(backup, null, 1)], { type:'application/json' });
-  const a = document.createElement('a'); a.download = 'label-studio-sicherung.json'; a.href = URL.createObjectURL(blob); a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-});
 function applyBackupSettings(data){
   if (data.rolls){ lsSet(LS_ROLLS, { ...rollsAll(), ...data.rolls }); refreshRolls(data.roll || $('rollSel').value); }
   if (data.print){
@@ -3073,19 +3117,119 @@ function applyBackupSettings(data){
   }
   fitCanvas(); render();
 }
-$('tplImport').addEventListener('click', () => $('fileTpl').click());
-$('fileTpl').addEventListener('change', async ev => {
+// ---------- Sicherung & Umzug: alles lokal als Datei, ohne Konto ----------
+// Version 3 enthält alle Einstellungen (localStorage „labelstudio.*“) und die eigenen Schriftdateien (IndexedDB).
+const LS_LASTBACKUP = 'labelstudio.lastBackup', LS_REMIND = 'labelstudio.backupRemind';
+const bufToB64 = buf => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+const b64ToBuf = str => Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
+function storageKeys(){
+  const keys = [];
+  try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k.startsWith('labelstudio.') && k !== LS_REMIND) keys.push(k); } } catch(e){}
+  return keys;
+}
+async function buildBackup(){
+  flushPending();
+  const storage = {};
+  for (const k of storageKeys()) storage[k] = localStorage.getItem(k);
+  let fonts = [];
+  try { fonts = (await fontStore('readonly', st => st.getAll())).map(f => ({ name:f.name, data:bufToB64(f.data) })); } catch(e){}
+  return { app:'label-studio', version:3, created:new Date().toISOString(), storage, fonts,
+           // für ältere Versionen der App lesbar
+           current:design, templates:tplAll(), rolls:rollsAll(), roll:lsGet(LS_ROLL, ''), print:lsGet(LS_PRINT, {}),
+           layout:lsGet(LS_LAYOUT, null), view:lsGet(LS_VIEW, {}) };
+}
+const backupName = () => `label-studio-sicherung-${new Date().toISOString().slice(0, 10)}.json`;
+async function backupFile(){
+  const json = JSON.stringify(await buildBackup());
+  return new File([json], backupName(), { type:'application/json' });
+}
+function markBackedUp(){ lsSet(LS_LASTBACKUP, Date.now()); showBackupInfo(); }
+function showBackupInfo(){
+  const n = o => Object.keys(o || {}).length;
+  const stats = [[n(tplAll()), 'Vorlagen'], [n(rollsAll()), 'Rollen'], [lsGet(LS_HIST, []).length, 'Zuletzt gedruckt'], [USER_FONTS.length, 'Eigene Schriften']];
+  $('backupStats').innerHTML = stats.map(([v, l]) => `<div><b>${v}</b>${l}</div>`).join('');
+  const last = lsGet(LS_LASTBACKUP, 0);
+  $('backupLast').textContent = last
+    ? `Letzte Sicherung: ${new Date(last).toLocaleDateString(uiLocale())}`
+    : 'Noch keine Sicherung gespeichert.';
+}
+async function openBackup(){
+  showBackupInfo();
+  $('backupShare').hidden = !(navigator.canShare && navigator.canShare({ files:[new File(['{}'], 'x.json', { type:'application/json' })] }));
+  $('backup').showModal();
+}
+$('backupSave').addEventListener('click', async () => {
+  const f = await backupFile();
+  const a = document.createElement('a'); a.download = f.name; a.href = URL.createObjectURL(f); a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  markBackedUp();
+  toast(`Sicherung gespeichert: ${f.name}`);
+});
+$('backupShare').addEventListener('click', async () => {
+  const f = await backupFile();
+  try { await navigator.share({ files:[f], title:'Label Studio – Sicherung' }); markBackedUp(); }
+  catch(e){ if (e.name !== 'AbortError') toast('Teilen nicht möglich – bitte „Sicherung speichern“ nutzen'); }
+});
+$('backupLoad').addEventListener('click', () => $('fileBackup').click());
+$('backupClose').addEventListener('click', () => $('backup').close());
+$('backup').addEventListener('click', ev => { if (ev.target === $('backup')) $('backup').close(); });
+$('tplBackup').addEventListener('click', openBackup);
+$('fileBackup').addEventListener('change', async ev => {
   const f = ev.target.files[0]; ev.target.value = '';
   if (!f) return;
+  let data;
+  try { data = JSON.parse(await f.text()); } catch(e){ alert('Das ist keine gültige Sicherungsdatei.'); return; }
+  const merge = $('backupMerge').checked;
   try {
-    const data = JSON.parse(await f.text());
-    if (data.templates){ lsSet(LS_TPL, { ...tplAll(), ...data.templates }); refreshTplList(); }
-    if (data.current) loadDesign(data.current);
-    else if (data.elements) loadDesign(data);
-    applyBackupSettings(data);
-    toast(data.layout || data.rolls ? 'Sicherung eingespielt: Vorlagen, Rollen, Einstellungen und Fenster' : 'Import erfolgreich');
-  } catch(err){ log('Import fehlgeschlagen: ' + err.message); }
+    if (data.version >= 3 && data.storage) await restoreFull(data, merge);
+    else restoreOld(data, merge);
+  } catch(err){ alert('Sicherung konnte nicht geladen werden: ' + err.message); }
 });
+// Vollständige Sicherung: Einstellungen übernehmen, Vorlagen/Rollen/Verlauf auf Wunsch zusammenführen, Schriften
+// einspielen – danach neu laden, damit Fenster, Sprache und Schriften sauber übernommen werden
+async function restoreFull(data, merge){
+  if (!confirm(merge ? 'Sicherung laden? Einstellungen werden übernommen, deine vorhandenen Vorlagen und Rollen bleiben erhalten.'
+                     : 'Sicherung laden und alles hier ersetzen? Vorhandene Vorlagen und Rollen gehen dabei verloren.')) return;
+  const get = (k, d) => { try { return JSON.parse(data.storage[k]); } catch(e){ return d; } };
+  if (!merge) for (const k of storageKeys()) localStorage.removeItem(k);
+  for (const [k, v] of Object.entries(data.storage)){
+    if (merge && k === LS_TPL){ lsSet(k, { ...tplAll(), ...get(k, {}) }); continue; }
+    if (merge && k === LS_ROLLS){ lsSet(k, { ...rollsAll(), ...get(k, {}) }); continue; }
+    if (merge && k === LS_HIST){
+      const all = [...get(k, []), ...lsGet(LS_HIST, [])].filter((h, i, a) => a.findIndex(x => x.t === h.t) === i);
+      lsSet(k, all.sort((a, b) => b.t - a.t).slice(0, 10)); continue;
+    }
+    try { localStorage.setItem(k, v); } catch(e){ throw new Error('Speicher des Browsers ist voll'); }
+  }
+  for (const font of data.fonts || []) await fontStore('readwrite', st => st.put({ name:font.name, data:b64ToBuf(font.data) })).catch(() => {});
+  lsSet(LS_LASTBACKUP, Date.now());
+  sessionStorage.setItem('labelstudio.restored', '1');
+  location.reload();
+}
+// Ältere Exporte (Version 2) und einzelne Etiketten
+function restoreOld(data, merge){
+  if (data.templates){ lsSet(LS_TPL, merge ? { ...tplAll(), ...data.templates } : data.templates); refreshTplList(); }
+  if (data.current) loadDesign(data.current);
+  else if (data.elements) loadDesign(data);
+  if (data.rolls && !merge) lsSet(LS_ROLLS, {});
+  applyBackupSettings(data);
+  $('backup').close();
+  toast(data.layout || data.rolls ? 'Sicherung eingespielt: Vorlagen, Rollen, Einstellungen und Fenster' : 'Import erfolgreich');
+}
+// Erinnerung: wer Vorlagen hat, aber seit 30 Tagen (oder nie) gesichert hat, bekommt höchstens einmal pro Woche einen Hinweis
+function backupReminder(){
+  if (sessionStorage.getItem('labelstudio.restored')){
+    sessionStorage.removeItem('labelstudio.restored');
+    toast('Sicherung geladen – alles ist wieder da'); return;
+  }
+  const day = 864e5, now = Date.now();
+  if (!Object.keys(tplAll()).length) return;
+  if (now - lsGet(LS_LASTBACKUP, 0) < 30 * day || now - lsGet(LS_REMIND, 0) < 7 * day) return;
+  lsSet(LS_REMIND, now);
+  setTimeout(() => toast('Tipp: Sichere deine Vorlagen ab und zu – Vorlagen → „💾 Sicherung“'), 2500);
+}
+// Browser bitten, die Daten nicht von selbst zu löschen (bei installierter App meist ohne Rückfrage)
+if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {});
 
 // ---------- Ebenen: Liste aller Elemente, oben = vorne (letztes im Array) ----------
 const LAYER_ICONS = { text:'T', qr:'▦', barcode:'‖', image:'▨', rect:'▭', shape:'◆' };
@@ -3831,236 +3975,415 @@ $('btnLayoutReset').addEventListener('click', () => { disableFree(); applyLayout
 // ---------- Menü „Label Studio“ mit Anleitung ----------
 const HELP = {
   start: { title: 'Kurzanleitung', html: `
+    <h3>In vier Schritten zum Etikett</h3>
     <ol>
-      <li><b>Etikettengröße wählen</b> – oben im Fenster „Etikett“ (z. B. 40 × 30 mm).</li>
-      <li><b>Inhalt hinzufügen</b> – Text, QR-Code, Barcode, Bild, Rahmen oder Linie. Oder ein
-        <b>fertiges Etikett importieren</b> (PNG, SVG, PDF – z. B. von 3dfilamentprofiles.com, am schärfsten ist SVG).</li>
-      <li><b>Bearbeiten</b> – Element auf dem Etikett antippen. Ziehen verschiebt es, das blaue Eck ändert die Größe.
-        Alle Einstellungen stehen im Fenster „Element“. Pfeiltasten verschieben um 1 Punkt (mit Shift 8), Entf löscht.</li>
-      <li><b>Platzhalter</b> – der Knopf „{ } Platzhalter“ unter dem Textfeld fügt z. B. <code>{datum}</code> (heute),
-        <code>{datum+7}</code> (in 7 Tagen; auch <code>+2w</code> Wochen, <code>+3m</code> Monate, <code>+1j</code> Jahre), <code>{kw}</code>
-        (Kalenderwoche), <code>{wochentag}</code>, <code>{monat}</code>, <code>{jahr}</code>, <code>{zeit}</code> und <code>{nr}</code>
-        (zählt bei mehreren Kopien hoch) ein.</li>
-      <li><b>Scannen</b> – „📷 Scannen“ liest mit der Kamera einen QR-Code oder Barcode und fügt ihn als QR-Code, Barcode oder Text ein.
-        Der QR-Code eines <b>geteilten Etiketts</b> öffnet dieses direkt. (Barcodes liest Chrome am Handy, sonst nur QR-Codes.)</li>
-      <li><b>Einfügen</b> – <b>Strg+V</b> fügt ein Bild oder einen Text aus der Zwischenablage ein; Bilddateien kannst du auch aufs Etikett ziehen.</li>
-      <li><b>Einrasten</b> – beim Verschieben rastet ein Element an Rand und Mitte des Etiketts sowie an Kanten und Mitten anderer
-        Elemente ein (rosa Hilfslinie). Mit gedrückter <b>Alt</b>-Taste frei verschieben.</li>
-      <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ per Bluetooth (im Drucken-Fenster <b>„Bluetooth-Direktdruck“</b> aufklappen).</li>
-      <li><b>Rückgängig / Wiederholen</b> – Pfeile ↶ ↷ über dem Etikett oder <b>Strg+Z</b> / <b>Strg+Y</b>.</li>
-      <li><b>Drehen</b> – Element anklicken und „↻ 90°“ (Text, QR-Code, Barcode, Bild, Rahmen).</li>
-      <li><b>Mehrere Elemente</b> – mit Strg/Umschalt + Klick oder einen Rahmen auf freier Fläche aufziehen; dann ausrichten
-        und verteilen im Fenster „Element“. <b>Rechtsklick</b> (am Handy lange drücken) öffnet ein Menü mit allen Aktionen.</li>
-      <li><b>Formen und Symbole</b> – über „◆ Form“ und „★ Symbol“ oben am Etikett. Text kann auch <b>im Bogen</b> laufen
-        und mit „⤢ Einpassen“ das ganze Etikett füllen.</li>
-      <li><b>Vorlagen-Galerie</b> – fertige Etiketten (Filamentspule, Kabel-Fahne, Gewürzglas …), passend zur Etikettgröße.
-        <b>Zuletzt gedruckt</b> holt die letzten 10 Etiketten zurück.</li>
-      <li><b>Seriendruck</b> – im Drucken-Fenster eine Liste einfügen oder als CSV laden; pro Zeile ein Etikett,
-        im Text <code>{1}</code>, <code>{2}</code> … für die Spalten.</li>
-      <li><b>Ebenen</b> – das Fenster „Ebenen“ listet alle Elemente, oben liegt vorne. Anklicken wählt aus,
-        👁 blendet aus (wird dann nicht gedruckt), 🔒 sperrt gegen Verschieben, am ⠿ ziehen ändert die Reihenfolge,
-        Doppelklick auf den Namen benennt um.</li>
-      <li><b>Raster &amp; Lineal</b> – über dem Etikett ein Raster (1, 2 oder 5 mm) einschalten: Elemente rasten beim
-        Verschieben und Größerziehen darauf ein. Das Lineal zeigt die Maße in mm.</li>
-      <li><b>Vorlagen</b> speichern und laden. <b>„Export“</b> erstellt eine komplette Sicherung als Datei – Vorlagen,
-        Rollen, Druckeinstellungen und Fensteranordnung. Mit <b>„Import“</b> holst du alles auf einem anderen Gerät
-        oder in einem anderen Browser zurück.</li>
-      <li><b>Teilen</b> – im Fenster „Vorlagen“ erzeugt „Teilen“ einen Link und einen QR-Code. Mit dem Handy scannen,
-        und das Etikett ist dort geöffnet. (Etiketten mit großen Bildern passen nur als Link, nicht in den QR-Code.)</li>
-      <li><b>Rollen</b> – oben im Drucken-Fenster eine Rolle wählen: Sie stellt Etikettengröße, Papierformat und
-        Versatz auf einmal ein. „Speichern…“ legt die aktuellen Einstellungen als neue Rolle an.</li>
-      <li><b>Fenster anordnen</b> – an der Titelzeile (⠿) ziehen, sie rasten an Rändern und anderen Fenstern ein.
-        Der Griff unten rechts ändert die Breite. „Layout zurücksetzen“ stellt alles wieder her.</li>
-      <li><b>Bilder</b> – Schwärzung, Kontrast, Rasterverfahren (Floyd-Steinberg, Atkinson, Punktraster), Linien verstärken und Umkehren.</li>
-      <li><b>Als App installieren</b> – Menü „Label Studio“ → „📲 Als App installieren“ (Chrome/Edge). Die App bekommt ein eigenes
-        Symbol und Fenster und funktioniert auch offline. Die Browser-Version bleibt genau gleich.</li>
-      <li><b>Sprache</b> – Menü „Label Studio“ → „🌐 English / Deutsch“.</li>
+      <li><b>Drucker einrichten</b> – Menü „Label Studio“ → „⚙️ Drucker einrichten …“ und dein Modell antippen.
+        Etikettengröße und Druckeinstellungen passen sich dann automatisch an.</li>
+      <li><b>Größe prüfen</b> – oben im Fenster „Etikett“ die Etikettengröße wählen oder Breite und Höhe in mm eintippen.</li>
+      <li><b>Gestalten</b> – über die Leiste Text, QR-Code, Barcode, Bild, Rahmen, Linie, Form oder Symbol hinzufügen.</li>
+      <li><b>Drucken</b> – im Fenster „Drucken“ entweder <b>„Per Bluetooth drucken“</b> (unter „Bluetooth-Direktdruck“)
+        oder <b>„Über Windows-Drucker drucken (USB)“</b>.</li>
     </ol>
-    <p class="hint">Beim Öffnen erscheint immer das Startetikett. Dein zuletzt bearbeitetes Etikett holst du im Fenster
-      „Vorlagen“ mit <b>„Zuletzt bearbeitet“</b> zurück.</p>
-    <p class="hint">Der Browser speichert getrennt nach Adresse: die lokale Datei und barry2040.github.io/open-label-studio
-      haben jeweils eigene Einstellungen. Am besten immer dieselbe Adresse nutzen – mit „Export“/„Import“ ziehst du um.</p>
-    <p class="hint">Alles wird im Browser gespeichert – in einem anderen Browser oder nach dem Löschen der Browserdaten
-      ist es weg. Vorlagen deshalb ab und zu exportieren.</p>` },
-  driver: { title: 'Treiber & Einrichtung', html: `
-    <h3>Windows-Druck per USB (empfohlen am PC)</h3>
-    <ol>
-      <li>Den <b>Windows-Treiber</b> für dein Modell von <b>phomemo.com</b> laden (Support → Download) und installieren.</li>
-      <li>Drucker per <b>USB-Kabel</b> anschließen – er erscheint in Windows z. B. als „M220 Printer“.</li>
-      <li>In der App unter „Papierformat im Windows-Treiber“ das Format wählen, das zu deiner Rolle passt.</li>
-      <li>Im Druckfenster von Chrome: <b>Ziel</b> = dein Drucker, <b>Papierformat</b> = dasselbe wie in der App,
-        <b>Ränder</b> = Keine, <b>Skalierung</b> = 100, Kopf- und Fußzeilen aus.</li>
-    </ol>
-    <p>Der M220-Treiber kennt nur <b>50 × 30</b> und <b>50 × 70 mm</b>. Kleinere Etiketten (z. B. 40 × 30) setzt die App
-      mittig auf diese Seite. Der Nullpunkt ist für den M220 um 2 mm korrigiert, Feinjustierung über „Versatz X“.</p>
-    <h3>Bluetooth (ohne Treiber)</h3>
+
+    <h3>Elemente bearbeiten</h3>
     <ul>
-      <li>Kein Treiber nötig, aber ein Browser mit Web Bluetooth: <b>Chrome</b> oder <b>Edge</b> am PC,
-        <b>Chrome</b> auf Android, auf dem iPhone die App <b>Bluefy</b>.</li>
-      <li>Am Handy muss die App über <b>https</b> laufen – einfach <b>barry2040.github.io/open-label-studio</b> öffnen.</li>
-      <li>Unter Windows kann die Kopplung mit „Verbindungsfehler“ scheitern – dann den USB-Weg nehmen.</li>
+      <li><b>Auswählen und verschieben</b> – Element antippen und ziehen. Das blaue Eck unten rechts ändert die Größe.
+        Alle Einstellungen stehen im Fenster „Element“.</li>
+      <li><b>Mehrere auswählen</b> – Strg/Umschalt + Klick oder auf freier Fläche einen Rahmen aufziehen.
+        Dann im Fenster „Element“ ausrichten und verteilen.</li>
+      <li><b>Rechtsklick</b> (am Handy lange drücken) – Menü mit allen Aktionen: ausrichten, duplizieren, drehen, sperren, löschen.</li>
+      <li><b>Einrasten</b> – beim Verschieben rasten Elemente an Rand und Mitte des Etiketts und an anderen Elementen ein
+        (rosa Hilfslinie). Mit gedrückter <b>Alt</b>-Taste frei verschieben. Zusätzlich gibt es ein Raster (1, 2 oder 5 mm) und ein Lineal.</li>
+      <li><b>Text</b> – Schrift, Größe, fett, kursiv, Zeilen- und Zeichenabstand, Text im Bogen. „⤢ Einpassen“ macht den Text so groß wie möglich.</li>
+      <li><b>Bilder</b> – Schwärzung und Kontrast einstellen, ein Rasterverfahren für Fotos wählen, dünne Linien verstärken oder umkehren.
+        Mit <b>Strg+V</b> fügst du ein Bild aus der Zwischenablage ein, Bilddateien kannst du auch aufs Etikett ziehen.</li>
+      <li><b>Ebenen</b> – listet alle Elemente, oben liegt vorne. 👁 blendet aus (wird nicht gedruckt), 🔒 sperrt,
+        am ⠿ ziehen ändert die Reihenfolge, Doppelklick benennt um.</li>
     </ul>
-    <h3>Sonstiges</h3>
-    <ul><li>Der <b>PDF-Import</b> und der <b>QR-Scanner</b> (außer in Chrome am Handy) laden beim ersten Mal eine kleine Bibliothek aus dem Internet.</li></ul>` },
-  printers: { title: 'Unterstützte Drucker', html: `
-    <h3>Windows-Druck (USB)</h3>
-    <p>Funktioniert grundsätzlich mit <b>jedem Etikettendrucker, der einen Windows-Treiber hat</b>, z. B. andere
-      Phomemo-Modelle, Brother QL, DYMO LabelWriter oder Zebra. Wichtig:</p>
-    <ul>
-      <li>Kann der Treiber eigene Papiergrößen, „Papierformat im Windows-Treiber“ auf <b>„Wie Etikett“</b> stellen.</li>
-      <li>Kennt er nur feste Formate, das nächstgrößere wählen – die App setzt das Etikett mittig darauf.</li>
-      <li>Der 2-mm-Nullpunkt ist auf den M220 abgestimmt. Bei anderen Druckern über „Versatz X“ korrigieren.</li>
-    </ul>
-    <h3>Bluetooth-Direktdruck</h3>
-    <p>Im Drucken-Fenster unter „Bluetooth-Direktdruck“ → „Druckermodell“ auswählbar.
-      Die Spalte „Bluetooth“ zeigt, womit der Druck mit einem echten Gerät ausprobiert wurde – „ungetestet“ heißt:
-      vorbereitet, aber noch nicht geprüft.</p>
+
+    <h3>Platzhalter</h3>
+    <p>Der Knopf <b>„{ } Platzhalter“</b> unter dem Textfeld fügt sie ein. Beim Drucken werden sie ersetzt:</p>
     <table>
-      <tr><th>Modell</th><th>Druckbreite</th><th>Rolle</th><th>Bluetooth</th></tr>
+      <tr><th>Platzhalter</th><th>wird zu</th></tr>
+      <tr><td><code>{datum}</code></td><td>heutiges Datum</td></tr>
+      <tr><td><code>{datum+7}</code> · <code>{datum+2w}</code> · <code>{datum+3m}</code> · <code>{datum+1j}</code></td><td>in 7 Tagen · 2 Wochen · 3 Monaten · 1 Jahr</td></tr>
+      <tr><td><code>{wochentag}</code> · <code>{tag}</code> · <code>{monat}</code> · <code>{monatsname}</code> · <code>{jahr}</code></td><td>Teile des Datums</td></tr>
+      <tr><td><code>{kw}</code> · <code>{zeit}</code></td><td>Kalenderwoche · Uhrzeit</td></tr>
+      <tr><td><code>{nr}</code></td><td>fortlaufende Nummer, zählt pro Kopie hoch (Start im Fenster „Drucken“)</td></tr>
+      <tr><td><code>{1}</code>, <code>{2}</code> … · <code>{zeile}</code></td><td>Spalten bzw. ganze Zeile beim Seriendruck</td></tr>
+    </table>
+
+    <h3>Seriendruck</h3>
+    <p>Im Fenster „Drucken“ → „Seriendruck (Liste)“ eine Liste einfügen oder als CSV laden. Jede Zeile wird ein Etikett;
+      Spalten trennst du mit <code>;</code> oder Tab und setzt sie im Text mit <code>{1}</code>, <code>{2}</code> … ein.</p>
+
+    <h3>Speichern, teilen, wiederfinden</h3>
+    <ul>
+      <li><b>Vorlagen</b> – im Fenster „Vorlagen“ speichern und laden. „Zuletzt bearbeitet“ holt dein letztes Etikett zurück.</li>
+      <li><b>Galerie</b> – fertige Etiketten (Filamentspule, Gewürzglas, Preisschild …), passend zu deiner Etikettengröße.</li>
+      <li><b>Zuletzt gedruckt</b> – die letzten 10 gedruckten Etiketten.</li>
+      <li><b>Teilen</b> – erzeugt Link und QR-Code. Auf einem anderen Gerät mit „📷 Scannen“ oder der Handy-Kamera öffnen.</li>
+      <li><b>Rollen</b> – speichern Etikettengröße, Drucker und Versatz für eine Etikettenrolle; Wechsel mit einem Klick.</li>
+      <li><b>💾 Sicherung</b> – speichert alles in einer Datei: Vorlagen, Rollen, „Zuletzt gedruckt“, Einstellungen und eigene Schriften.
+        Auf dem neuen Handy oder im neuen Browser „Sicherung laden“ – ganz ohne Konto. Auch im Menü unter „💾 Sicherung &amp; Umzug“.</li>
+    </ul>
+
+    <h3>Tastenkürzel</h3>
+    <table>
+      <tr><td><b>Strg+Z</b> / <b>Strg+Y</b></td><td>Rückgängig / Wiederholen</td></tr>
+      <tr><td><b>Strg+A</b> · <b>Strg+D</b></td><td>Alles auswählen · Duplizieren</td></tr>
+      <tr><td><b>Strg+V</b></td><td>Bild oder Text einfügen</td></tr>
+      <tr><td><b>Pfeiltasten</b></td><td>um 1 Punkt verschieben (mit Umschalt 8 Punkte)</td></tr>
+      <tr><td><b>Entf</b> · <b>Esc</b></td><td>Löschen · Auswahl aufheben</td></tr>
+      <tr><td><b>Alt</b> beim Ziehen</td><td>ohne Einrasten verschieben</td></tr>
+    </table>
+
+    <h3>Sonstiges</h3>
+    <ul>
+      <li><b>Als App</b> – Menü „Label Studio“ → „📲 Als App installieren“: eigenes Symbol, eigenes Fenster, funktioniert auch offline.</li>
+      <li><b>Sprache</b> – Menü „Label Studio“ → „🌐 English“. <b>Hell/Dunkel</b> – Knopf ◐ oben rechts.</li>
+      <li><b>Fenster</b> – an der Titelzeile (⠿) frei verschieben, „Layout zurücksetzen“ stellt die Anordnung wieder her.
+        Am Handy schaltest du die Fenster über die Leiste unten um.</li>
+    </ul>
+    <p class="hint">Alles wird nur in diesem Browser gespeichert. Ein anderer Browser, eine andere Adresse oder gelöschte Browserdaten
+      starten leer – speichere deshalb ab und zu eine Sicherung („💾 Sicherung“ im Fenster „Vorlagen“).</p>` },
+
+  driver: { title: 'Treiber & Einrichtung', html: `
+    <h3>Welcher Weg passt?</h3>
+    <table>
+      <tr><th></th><th>Bluetooth-Direktdruck</th><th>Windows-Drucker (USB)</th></tr>
+      <tr><td>Treiber</td><td>nicht nötig</td><td>Windows-Treiber des Herstellers</td></tr>
+      <tr><td>Geräte</td><td>PC, Android, iPhone (Bluefy)</td><td>nur PC</td></tr>
+      <tr><td>Drucker</td><td>die Modelle unter „Unterstützte Drucker“</td><td>jeder Etikettendrucker mit Windows-Treiber</td></tr>
+    </table>
+
+    <h3>Bluetooth einrichten</h3>
+    <ol>
+      <li>Browser mit Web Bluetooth nutzen: <b>Chrome</b> oder <b>Edge</b> am PC, <b>Chrome</b> auf Android, auf dem iPhone die App <b>Bluefy</b>.</li>
+      <li>Die App über <b>barry2040.github.io/open-label-studio</b> öffnen (oder als App installieren). Am Handy klappt Bluetooth nur über diese https-Adresse,
+        nicht als heruntergeladene Datei.</li>
+      <li>Drucker einschalten – <b>nicht</b> vorher in den Bluetooth-Einstellungen des Handys oder PCs koppeln.</li>
+      <li>Oben rechts <b>„Verbinden“</b> tippen und den Drucker in der Liste wählen. Bekannte Modelle werden am Namen erkannt und automatisch eingestellt.</li>
+      <li>Im Fenster „Drucken“ unter „Bluetooth-Direktdruck“ das <b>Druckermodell</b> prüfen und <b>„Per Bluetooth drucken“</b> tippen.</li>
+    </ol>
+    <p class="hint">Verbunden zeigt die Kopfzeile Akku und Papier an, soweit der Drucker sie meldet.</p>
+
+    <h3>USB über den Windows-Treiber</h3>
+    <ol>
+      <li>Den Treiber von der <b>offiziellen Seite des Herstellers</b> laden und installieren, den Drucker per USB anschließen.</li>
+      <li>Im Fenster „Drucken“ unter „Papierformat im Treiber“ das Format wählen, das zu deiner Rolle passt.
+        Kennt der Treiber deine Größe nicht, das nächstgrößere nehmen – die App setzt das Etikett mittig darauf.</li>
+      <li><b>„Über Windows-Drucker drucken (USB)“</b> klicken und im Druckfenster einstellen:</li>
+    </ol>
+    <table>
+      <tr><th>Einstellung</th><th>Wert</th></tr>
+      <tr><td>Ziel</td><td>dein Etikettendrucker</td></tr>
+      <tr><td>Papierformat</td><td>dasselbe wie in der App</td></tr>
+      <tr><td>Ränder</td><td>Keine</td></tr>
+      <tr><td>Skalierung</td><td>100</td></tr>
+      <tr><td>Kopf- und Fußzeilen</td><td>aus</td></tr>
+    </table>
+    <p class="hint">Beispiel Phomemo M220: Der Treiber kennt nur 50 × 30 und 50 × 70 mm. 40 × 30-Etiketten landen mittig auf 50 × 30;
+      der Nullpunkt ist dafür schon um 2 mm korrigiert.</p>
+
+    <h3>Als App installieren</h3>
+    <p>Menü „Label Studio“ → „📲 Als App installieren“ (Chrome/Edge). Die App läuft dann in einem eigenen Fenster und auch ohne Internet;
+      Updates kommen automatisch, sobald wieder Internet da ist. Die Browser-Version bleibt genauso nutzbar.</p>
+
+    <h3>Was aus dem Internet geladen wird</h3>
+    <ul>
+      <li>Web-Schriften von Google Fonts – abschaltbar im Menü unter „🔤 Schriften …“.</li>
+      <li>Bibliotheken für QR-Code und Barcode; der PDF-Leser und der QR-Leser des Scanners nur, wenn du sie brauchst.</li>
+      <li>Deine Etiketten verlassen das Gerät nie – außer du teilst sie selbst als Link.</li>
+    </ul>` },
+
+  printers: { title: 'Unterstützte Drucker', html: `
+    <h3>Bluetooth-Direktdruck</h3>
+    <p>Im Fenster „Drucken“ unter „Bluetooth-Direktdruck“ → „Druckermodell“ wählbar.
+      <span class="badge ok">✓ getestet</span> heißt: mit einem echten Gerät ausprobiert. <span class="badge">ungetestet</span> heißt:
+      nach einem Open-Source-Projekt eingebaut, aber noch nicht selbst geprüft.</p>
+    <table>
+      <tr><th>Modell</th><th>Druckbreite</th><th>Etikett läuft</th><th>Status</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${p.widthText || (p.head / PX_PER_MM + ' mm')}</td>
-        <td>${p.rotate90 ? 'quer' : { right:'rechts', center:'mittig', left:'links' }[p.align] || 'längs'}</td>
+        <td>${p.continuous ? 'Endlosband' : p.rotate90 ? 'quer' : 'längs'}</td>
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">ungetestet</span>'}</td></tr>`).join('')}
     </table>
-    <p class="hint"><b>Phomemo</b> – Befehle nach dem Open-Source-Projekt „phomymo“. Der <b>M220</b> druckt mit Android
-      (Chrome); unter Windows scheitert die Bluetooth-Kopplung mit dem M220, dort den USB-Druck nutzen.
-      <b>D30, D35 und Q30</b> drucken kleine Etiketten quer – gestalte das Etikett im Querformat, die App dreht es selbst.</p>
-    <p class="hint"><b>Marklife</b> (P15, P7, P12, M60 und baugleiche wie LP15, S15, LP90) – umgesetzt nach dem
-      Open-Source-Projekt <b>„thermoprint“</b> von tomLadder (MIT-Lizenz). Der <b>P15</b> druckt per Bluetooth am PC.
-      Marklife-Drucker werden beim Verbinden am Namen erkannt und automatisch eingestellt. Ihre Etiketten
-      (z. B. 40 × 12 mm) laufen quer durch den Druckkopf – die App dreht das Bild dafür selbst, gestalte das Etikett
-      einfach im Querformat. Am Ende fährt der Drucker selbst zur nächsten Etikettenlücke. Passende Rollen:
-      „40 × 12 mm (Marklife P15)“, „40 × 15 mm (Marklife P12)“, „50 × 30 mm (Marklife M60)“.</p>
-    <p class="hint"><b>Niimbot</b> (D110, D101, B1, B21) – umgesetzt nach der Open-Source-Bibliothek <b>„niimbluelib“</b>
-      von MultiMote (MIT-Lizenz), die auch hinter der Web-App „NiimBlue“ steckt; der <b>D101</b> ist per Bluetooth am PC und mit
-      Android getestet. Niimbot-Drucker
-      werden beim Verbinden am Namen erkannt. D110 und D101 drucken quer – gestalte das Etikett im Querformat, die App dreht
-      es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1/B21 48 mm breit. Passende Rollen:
-      „40 × 12 mm (Niimbot D110)“, „40 × 12 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
-    <p class="hint"><b>DYMO LetraTag 200B</b> – umgesetzt nach dem Open-Source-Projekt <b>„dymo-bluetooth“</b> von ysfchn
-      (MIT-Lizenz); druckt per Bluetooth am PC und mit Android. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
-      Mitte. Das Etikett ist darum 4 mm hoch, die Länge frei wählbar (z. B. 40 × 4 mm) – ideal für eine Zeile Text.
-      Den äußersten Rand oben und unten druckt der DYMO nicht, dort also nichts Wichtiges platzieren. Höhere Etiketten
-      verkleinert die App automatisch aufs Band. Passende Rolle: „DYMO LetraTag (12-mm-Band)“.<br>
-      Die Kassette (z. B. „12 mm × 4 m“) ist ein <b>Endlosband</b>: Mit <b>„Länge automatisch“</b> (unter der Etikettengröße,
-      beim LetraTag schon an) ist jedes Etikett genau so lang wie der Text plus 2 mm Rand – Text tippen, „⤢ Einpassen“
-      drücken, drucken. Danach schiebt der Drucker das Band hinaus; mit dem Schneidhebel abschneiden. Mehrere Kopien oder
-      Seriendruck kommen <b>auf einem Streifen</b> heraus, dazwischen eine gestrichelte Schnittmarke (abschaltbar unter
-      „Bluetooth-Direktdruck“). Bei „Länge automatisch“ ist dabei jedes Etikett so lang wie sein eigener Text.</p>
-    <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Brother-Geräte nutzen eigene
-      Protokolle und gehen nur über den Windows-Druck.</p>
-    <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
-  tips: { title: 'Tipps & Fehlerbehebung', html: `
+
+    <h3>Hinweise je Hersteller</h3>
     <ul>
-      <li><b>Druckvorschau ist leer</b> – Seite mit F5 neu laden und erneut versuchen.</li>
-      <li><b>Druck verteilt sich auf zwei Etiketten</b> – im Druckfenster ist das falsche Papierformat gewählt.</li>
-      <li><b>Druck seitlich verschoben</b> – „Versatz X (mm)“ anpassen, z. B. 1 oder -1.</li>
-      <li><b>Druck sitzt zu hoch oder zu tief</b> – „Versatz Y (mm)“ anpassen: positiv schiebt nach unten, negativ nach
-        oben. Beim allerersten Druck nach dem Einschalten sucht der Drucker oft noch die Etikettenlücke.</li>
-      <li><b>Druckerstatus</b> – per Bluetooth verbunden zeigt die Kopfzeile Akku und Papier, rot bei
-        „Kein Papier“ oder „Deckel offen“. Vor dem Drucken kommt dann eine Warnung.</li>
-      <li><b>Dünne Schrift kaum lesbar</b> – Bild anklicken, „Linien verstärken“, die Schwärzung oder den Kontrast erhöhen.
-        Am meisten bringt eine fettere Schrift in der Vorlage.</li>
-      <li><b>Element steht falsch herum</b> – anklicken und „↻ 90°“, bis es passt.</li>
-      <li><b>Etwas versehentlich geändert oder gelöscht</b> – Strg+Z bzw. ↶.</li>
-      <li><b>Regler verstellt</b> – „Zurücksetzen“ beim Bild bzw. „Zurücksetzen“ unten im Drucken-Fenster.</li>
-      <li><b>Bluetooth: Verbindungsfehler</b> – Drucker in den Windows-Bluetooth-Einstellungen entfernen,
-        Drucker neu starten, Handy-Bluetooth aus. Hilft das nicht: USB nehmen.</li>
+      <li><b>Phomemo M-Serie</b> (M220, M221, M200, M110) – „Lage des Etiketts“ an den Rollenhalter anpassen (M220 rechts, M221 mittig).
+        Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken.</li>
+      <li><b>Phomemo D30, D35, Q30</b> – kleine Etiketten laufen quer durch den Drucker. Gestalte sie im Querformat (z. B. 40 × 12 mm), die App dreht das Bild selbst.</li>
+      <li><b>Marklife</b> (P15, P7, P12, M60) – werden beim Verbinden erkannt, Etiketten laufen quer; die App dreht das Bild.
+        Der Drucker fährt am Ende selbst zur nächsten Etikettenlücke.</li>
+      <li><b>Niimbot</b> (D110, D101, B1, B21) – werden beim Verbinden erkannt. D110 und D101 drucken quer, B1 und B21 längs.
+        Druckkopf: D110 12 mm, D101 24 mm, B1/B21 48 mm.</li>
+      <li><b>DYMO LetraTag 200B</b> – vom 12-mm-Band sind nur die mittleren 3,8 mm bedruckbar, das Etikett ist darum 4 mm hoch.
+        „Länge automatisch“ macht jedes Etikett so lang wie den Text. Mehrere Etiketten kommen auf einem Streifen mit Schnittmarken;
+        mit dem Hebel am Drucker abschneiden.</li>
+    </ul>
+
+    <h3>Alle anderen Drucker</h3>
+    <p>Jeder Etikettendrucker mit Windows-Treiber (z. B. Brother QL, DYMO LabelWriter, Zebra) druckt über
+      „Über Windows-Drucker drucken (USB)“ – siehe „Treiber &amp; Einrichtung“. Bei anderen Druckern als dem M220 die Lage über „Versatz X/Y“ feinjustieren.</p>
+
+    <h3>Quellen</h3>
+    <p class="hint">Die Bluetooth-Befehle stammen aus Open-Source-Projekten: „phomymo“ (Phomemo), „thermoprint“ von tomLadder (Marklife, MIT),
+      „niimbluelib“ von MultiMote (Niimbot, MIT) und „dymo-bluetooth“ von ysfchn (DYMO, MIT). Danke!</p>
+    <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
+
+  tips: { title: 'Tipps & Fehlerbehebung', html: `
+    <h3>Verbindung</h3>
+    <ul>
+      <li><b>„Verbinden“ findet den Drucker nicht</b> – Drucker einschalten, nicht in den Bluetooth-Einstellungen koppeln,
+        Bluetooth und (bei Android) Standort am Handy einschalten. Die App muss über die https-Adresse laufen.</li>
+      <li><b>Verbindungsfehler unter Windows</b> – den Drucker in den Windows-Bluetooth-Einstellungen entfernen, Drucker neu starten und erneut verbinden.
+        Hilft das nicht, per USB drucken.</li>
+      <li><b>Verbunden, aber es kommt nichts</b> – im Fenster „Drucken“ das richtige <b>Druckermodell</b> wählen.
+        Sonst „Diagnose kopieren“ und über „Drucker vorschlagen“ schicken.</li>
+      <li><b>„Browser unterstützt kein Web Bluetooth“</b> – Chrome oder Edge nutzen, auf dem iPhone die App Bluefy.</li>
+    </ul>
+
+    <h3>Druckbild</h3>
+    <ul>
+      <li><b>Zu blass oder dünne Schrift kaum lesbar</b> – „Dichte“ erhöhen, eine fettere Schrift wählen. Bei Bildern Schwärzung oder Kontrast erhöhen
+        oder „Linien verstärken“.</li>
+      <li><b>Fotos werden schwarze Flecken</b> – beim Bild ein Rasterverfahren wie „Floyd-Steinberg“ wählen.</li>
+      <li><b>Vorher sehen, wie es gedruckt wird</b> – unter dem Etikett „Druckvorschau (schwarz/weiß)“ einschalten.</li>
+      <li><b>DYMO druckt sehr klein</b> – das ist normal: Der LetraTag kann nur 3,8 mm der Bandhöhe bedrucken.</li>
+    </ul>
+
+    <h3>Position</h3>
+    <ul>
+      <li><b>Druck seitlich verschoben</b> – „Versatz X (mm)“ anpassen, z. B. 1 oder −1. Bei Phomemo auch „Lage des Etiketts“ prüfen.</li>
+      <li><b>Druck zu hoch oder zu tief</b> – „Versatz Y (mm)“: positiv schiebt nach unten, negativ nach oben.
+        Beim ersten Druck nach dem Einschalten sucht der Drucker oft noch die Etikettenlücke.</li>
+      <li><b>Druck verteilt sich auf zwei Etiketten (USB)</b> – im Druckfenster ist ein anderes Papierformat gewählt als in der App.</li>
+      <li><b>Etikett steht falsch herum</b> – im Fenster „Drucken“ „Um 90° drehen“ oder beim Element „↻ 90°“.</li>
+    </ul>
+
+    <h3>Bedienung</h3>
+    <ul>
+      <li><b>Versehentlich etwas geändert oder gelöscht</b> – Strg+Z bzw. ↶.</li>
+      <li><b>Element lässt sich nicht verschieben oder löschen</b> – es ist gesperrt: in den Ebenen das 🔒 antippen.</li>
+      <li><b>Element fehlt im Druck</b> – in den Ebenen ist es ausgeblendet (👁).</li>
+      <li><b>Einstellungen verstellt</b> – „Zurücksetzen“ beim Bild bzw. unten im Fenster „Drucken“.</li>
+      <li><b>Druckvorschau beim USB-Druck leer</b> – Seite mit F5 neu laden und erneut drucken.</li>
+    </ul>
+
+    <h3>Daten</h3>
+    <ul>
+      <li><b>Vorlagen sind weg</b> – sie liegen nur im Browser. Anderer Browser, andere Adresse oder gelöschte Browserdaten starten leer.
+        Im Fenster „Vorlagen“ mit „💾 Sicherung“ regelmäßig eine Sicherungsdatei speichern und mit „Sicherung laden“ zurückholen.</li>
+      <li><b>Handy wechseln oder Browser neu einrichten</b> – vorher „💾 Sicherung speichern“ bzw. „teilen“, die Datei aufs neue Gerät bringen
+        und dort „Sicherung laden“. Danach nur den Drucker neu verbinden.</li>
+      <li><b>App zeigt alte Version</b> – einmal mit Internet öffnen und neu laden; Updates kommen dann automatisch.</li>
     </ul>` }
 };
 // Englische Anleitung (Gegenstück zu HELP)
 const HELP_EN = {
   start: { title: 'Quick guide', html: `
+    <h3>A label in four steps</h3>
     <ol>
-      <li><b>Choose the label size</b> – at the top of the “Label” panel (e.g. 40 × 30 mm).</li>
-      <li><b>Add content</b> – text, QR code, barcode, image, frame or line. Or <b>import a finished label</b>
-        (PNG, SVG, PDF – SVG is the sharpest). <b>Ctrl+V</b> pastes an image or text, and you can drop an image file onto the label.</li>
-      <li><b>Edit</b> – tap an element on the label. Drag to move it, the blue corner changes its size. All settings are in the
-        “Element” panel. Arrow keys move by 1 dot (with Shift 8), Delete removes it.</li>
-      <li><b>Snapping</b> – while moving, an element snaps to the edges and centre of the label and to the edges and centres of
-        other elements (pink guide line). Hold <b>Alt</b> to move freely.</li>
-      <li><b>Placeholders</b> – the “{ } Placeholder” button under the text field inserts e.g. <code>{datum}</code> (today),
-        <code>{datum+7}</code> (in 7 days; also <code>+2w</code>, <code>+3m</code>, <code>+1j</code>), <code>{kw}</code> (calendar week),
-        <code>{wochentag}</code>, <code>{monat}</code>, <code>{jahr}</code>, <code>{zeit}</code> and <code>{nr}</code> (counts up per copy).
-        English names like <code>{date+7}</code>, <code>{week}</code> or <code>{year}</code> work too.</li>
-      <li><b>Scan</b> – “📷 Scan” reads a QR code or barcode with the camera and adds it as a QR code, barcode or text.
-        A QR code of a <b>shared label</b> opens that label directly. (Barcodes need Chrome on a phone; elsewhere only QR codes.)</li>
-      <li><b>Print</b> – on a PC via <b>“Print via Windows printer (USB)”</b>, or via Bluetooth (open <b>“Bluetooth direct print”</b> in the Print panel).</li>
-      <li><b>Undo / redo</b> – arrows ↶ ↷ above the label or <b>Ctrl+Z</b> / <b>Ctrl+Y</b>.</li>
-      <li><b>Rotate</b> – select an element and press “↻ 90°”.</li>
-      <li><b>Several elements</b> – Ctrl/Shift + click, or drag a box on an empty area; then align and distribute them in the
-        “Element” panel. <b>Right-click</b> (long press on a phone) opens a menu with all actions.</li>
-      <li><b>Shapes and symbols</b> – via “◆ Shape” and “★ Symbol”. Text can also run <b>in an arc</b> and fill the whole label with “⤢ Fit”.</li>
-      <li><b>Images</b> – darkness, contrast, dithering method (Floyd–Steinberg, Atkinson, dot pattern), thicker lines and invert.</li>
-      <li><b>Template gallery</b> – ready-made labels that adapt to your label size. <b>Recently printed</b> brings back the last 10 labels.</li>
-      <li><b>Batch print</b> – paste a list or load a CSV in the Print panel; one label per line, use <code>{1}</code>, <code>{2}</code> … for the columns.</li>
-      <li><b>Layers</b> – lists all elements, top is in front. 👁 hides (not printed), 🔒 locks, drag ⠿ to reorder, double-click to rename.</li>
-      <li><b>Grid &amp; ruler</b> – switch on a grid (1, 2 or 5 mm) above the label; elements snap to it. The ruler shows mm.</li>
-      <li><b>Templates</b> – save and load. <b>“Export”</b> makes a full backup file (templates, rolls, print settings, panel layout);
-        <b>“Import”</b> restores it on another device or browser.</li>
-      <li><b>Share</b> – “Share” in the Templates panel creates a link and a QR code. Scan it with a phone and the label opens there.</li>
-      <li><b>Rolls</b> – a roll sets label size, paper size and offsets in one go. “Save…” stores the current settings as a new roll.</li>
-      <li><b>Install as app</b> – menu “Label Studio” → “📲 Install as app” (Chrome/Edge). The app gets its own icon and window and also
-        works offline. The browser version stays exactly the same.</li>
-      <li><b>Language</b> – menu “Label Studio” → “🌐 Deutsch / English”.</li>
+      <li><b>Set up your printer</b> – menu “Label Studio” → “⚙️ Set up printer …” and tap your model.
+        Label size and print settings then adjust automatically.</li>
+      <li><b>Check the size</b> – at the top of the “Label” panel choose a label size or type width and height in mm.</li>
+      <li><b>Design</b> – use the toolbar to add text, QR code, barcode, image, frame, line, shape or symbol.</li>
+      <li><b>Print</b> – in the “Print” panel either <b>“Print via Bluetooth”</b> (under “Bluetooth direct print”)
+        or <b>“Print via Windows printer (USB)”</b>.</li>
     </ol>
-    <p class="hint">Everything is stored in the browser – another browser, or clearing browser data, starts empty. Export your templates now and then.
-      The browser stores separately per address, so always use the same one (or move with Export/Import).</p>` },
-  driver: { title: 'Drivers & setup', html: `
-    <h3>Windows printing via USB (recommended on a PC)</h3>
-    <ol>
-      <li>Download and install the <b>Windows driver</b> for your model from the manufacturer’s website.</li>
-      <li>Connect the printer by <b>USB cable</b> – it appears in Windows, e.g. as “M220 Printer”.</li>
-      <li>In the app choose the “Paper size in the driver” that matches your roll.</li>
-      <li>In Chrome’s print dialog: <b>Destination</b> = your printer, <b>Paper size</b> = the same as in the app,
-        <b>Margins</b> = None, <b>Scale</b> = 100, headers and footers off.</li>
-    </ol>
-    <p>The M220 driver only knows <b>50 × 30</b> and <b>50 × 70 mm</b>. Smaller labels are centred on that page. The zero point is
-      corrected by 2 mm for the M220; fine-tune with “Offset X”.</p>
-    <h3>Bluetooth (no driver)</h3>
+
+    <h3>Editing elements</h3>
     <ul>
-      <li>No driver needed, but a browser with Web Bluetooth: <b>Chrome</b> or <b>Edge</b> on a PC, <b>Chrome</b> on Android,
-        the <b>Bluefy</b> app on iPhone.</li>
-      <li>On a phone the app must run over <b>https</b> – simply open <b>barry2040.github.io/open-label-studio</b> (or install it as an app).</li>
-      <li>On Windows pairing can fail with a “connection error” – then use USB.</li>
+      <li><b>Select and move</b> – tap an element and drag it. The blue corner at the bottom right changes its size.
+        All settings are in the “Element” panel.</li>
+      <li><b>Select several</b> – Ctrl/Shift + click, or drag a box on an empty area. Then align and distribute them in the “Element” panel.</li>
+      <li><b>Right-click</b> (long press on a phone) – a menu with all actions: align, duplicate, rotate, lock, delete.</li>
+      <li><b>Snapping</b> – while moving, elements snap to the edges and centre of the label and to other elements (pink guide line).
+        Hold <b>Alt</b> to move freely. There is also a grid (1, 2 or 5 mm) and a ruler.</li>
+      <li><b>Text</b> – font, size, bold, italic, line and letter spacing, curved text. “⤢ Fit” makes the text as large as possible.</li>
+      <li><b>Images</b> – adjust darkness and contrast, choose a dithering method for photos, thicken thin lines or invert.
+        <b>Ctrl+V</b> pastes an image from the clipboard; you can also drop image files onto the label.</li>
+      <li><b>Layers</b> – lists all elements, top is in front. 👁 hides (not printed), 🔒 locks, drag ⠿ to reorder, double-click to rename.</li>
     </ul>
-    <h3>Other</h3>
-    <ul><li><b>PDF import</b> and the <b>QR scanner</b> (outside Chrome on phones) load a small library from the internet the first time.</li></ul>` },
-  printers: { title: 'Supported printers', html: `
-    <h3>Windows printing (USB)</h3>
-    <p>Works with basically <b>any label printer that has a Windows driver</b>, e.g. other Phomemo models, Brother QL,
-      DYMO LabelWriter or Zebra. If the driver supports custom paper sizes, set the paper size to <b>“Same as label”</b>;
-      otherwise choose the next larger size – the app centres the label on it.</p>
-    <h3>Bluetooth direct print</h3>
-    <p>Choose under “Bluetooth direct print” → “Printer model”. The “Bluetooth” column shows what has been tried with a real device –
-      “untested” means prepared but not yet checked.</p>
+
+    <h3>Placeholders</h3>
+    <p>The <b>“{ } Placeholder”</b> button under the text field inserts them. They are replaced when printing:</p>
     <table>
-      <tr><th>Model</th><th>Print width</th><th>Roll</th><th>Bluetooth</th></tr>
+      <tr><th>Placeholder</th><th>becomes</th></tr>
+      <tr><td><code>{date}</code></td><td>today’s date</td></tr>
+      <tr><td><code>{date+7}</code> · <code>{date+2w}</code> · <code>{date+3m}</code> · <code>{date+1y}</code></td><td>in 7 days · 2 weeks · 3 months · 1 year</td></tr>
+      <tr><td><code>{weekday}</code> · <code>{day}</code> · <code>{month}</code> · <code>{monthname}</code> · <code>{year}</code></td><td>parts of the date</td></tr>
+      <tr><td><code>{week}</code> · <code>{time}</code></td><td>calendar week · time</td></tr>
+      <tr><td><code>{nr}</code></td><td>running number, counts up per copy (start value in the “Print” panel)</td></tr>
+      <tr><td><code>{1}</code>, <code>{2}</code> … · <code>{line}</code></td><td>columns or whole line in a batch print</td></tr>
+    </table>
+    <p class="hint">The German names (<code>{datum}</code>, <code>{kw}</code>, <code>{jahr}</code> …) work as well.</p>
+
+    <h3>Batch print</h3>
+    <p>In the “Print” panel → “Batch print (list)” paste a list or load a CSV. Every line becomes a label;
+      separate columns with <code>;</code> or tab and insert them with <code>{1}</code>, <code>{2}</code> ….</p>
+
+    <h3>Save, share, find again</h3>
+    <ul>
+      <li><b>Templates</b> – save and load in the “Templates” panel. “Last edited” brings back your last label.</li>
+      <li><b>Gallery</b> – ready-made labels (filament spool, spice jar, price tag …) that fit your label size.</li>
+      <li><b>Recently printed</b> – the last 10 labels you printed.</li>
+      <li><b>Share</b> – creates a link and a QR code. Open it on another device with “📷 Scan” or a phone camera.</li>
+      <li><b>Rolls</b> – store label size, printer and offsets for a label roll; switch with one click.</li>
+      <li><b>💾 Backup</b> – saves everything in one file: templates, rolls, recently printed, settings and your own fonts.
+        On the new phone or browser use “Load backup” – no account needed. Also in the menu under “💾 Backup &amp; move”.</li>
+    </ul>
+
+    <h3>Keyboard shortcuts</h3>
+    <table>
+      <tr><td><b>Ctrl+Z</b> / <b>Ctrl+Y</b></td><td>Undo / redo</td></tr>
+      <tr><td><b>Ctrl+A</b> · <b>Ctrl+D</b></td><td>Select all · duplicate</td></tr>
+      <tr><td><b>Ctrl+V</b></td><td>Paste image or text</td></tr>
+      <tr><td><b>Arrow keys</b></td><td>move by 1 dot (with Shift 8 dots)</td></tr>
+      <tr><td><b>Delete</b> · <b>Esc</b></td><td>Delete · deselect</td></tr>
+      <tr><td><b>Alt</b> while dragging</td><td>move without snapping</td></tr>
+    </table>
+
+    <h3>Other</h3>
+    <ul>
+      <li><b>As an app</b> – menu “Label Studio” → “📲 Install as app”: own icon, own window, also works offline.</li>
+      <li><b>Language</b> – menu “Label Studio” → “🌐 Deutsch”. <b>Light/dark</b> – the ◐ button at the top right.</li>
+      <li><b>Panels</b> – drag them by their title bar (⠿); “Reset layout” restores the arrangement. On a phone, switch panels with the bar at the bottom.</li>
+    </ul>
+    <p class="hint">Everything is stored only in this browser. Another browser, another address or cleared browser data start empty –
+      so save a backup now and then (“💾 Backup” in the Templates panel).</p>` },
+
+  driver: { title: 'Drivers & setup', html: `
+    <h3>Which way suits you?</h3>
+    <table>
+      <tr><th></th><th>Bluetooth direct print</th><th>Windows printer (USB)</th></tr>
+      <tr><td>Driver</td><td>not needed</td><td>the manufacturer’s Windows driver</td></tr>
+      <tr><td>Devices</td><td>PC, Android, iPhone (Bluefy)</td><td>PC only</td></tr>
+      <tr><td>Printers</td><td>the models under “Supported printers”</td><td>any label printer with a Windows driver</td></tr>
+    </table>
+
+    <h3>Setting up Bluetooth</h3>
+    <ol>
+      <li>Use a browser with Web Bluetooth: <b>Chrome</b> or <b>Edge</b> on a PC, <b>Chrome</b> on Android, the <b>Bluefy</b> app on iPhone.</li>
+      <li>Open the app at <b>barry2040.github.io/open-label-studio</b> (or install it as an app). On a phone Bluetooth only works via this
+        https address, not as a downloaded file.</li>
+      <li>Switch the printer on – do <b>not</b> pair it in the phone’s or PC’s Bluetooth settings first.</li>
+      <li>Tap <b>“Connect”</b> at the top right and choose the printer in the list. Known models are recognised by name and set up automatically.</li>
+      <li>In the “Print” panel under “Bluetooth direct print” check the <b>printer model</b> and tap <b>“Print via Bluetooth”</b>.</li>
+    </ol>
+    <p class="hint">Once connected, the header shows battery and paper, as far as the printer reports them.</p>
+
+    <h3>USB via the Windows driver</h3>
+    <ol>
+      <li>Download the driver from the <b>manufacturer’s official website</b>, install it and connect the printer by USB.</li>
+      <li>In the “Print” panel under “Paper size in the driver” choose the size that matches your roll.
+        If the driver doesn’t know your size, take the next larger one – the app centres the label on it.</li>
+      <li>Click <b>“Print via Windows printer (USB)”</b> and set in the print dialog:</li>
+    </ol>
+    <table>
+      <tr><th>Setting</th><th>Value</th></tr>
+      <tr><td>Destination</td><td>your label printer</td></tr>
+      <tr><td>Paper size</td><td>the same as in the app</td></tr>
+      <tr><td>Margins</td><td>None</td></tr>
+      <tr><td>Scale</td><td>100</td></tr>
+      <tr><td>Headers and footers</td><td>off</td></tr>
+    </table>
+    <p class="hint">Example Phomemo M220: the driver only knows 50 × 30 and 50 × 70 mm. 40 × 30 labels are centred on 50 × 30;
+      the zero point is already corrected by 2 mm for this.</p>
+
+    <h3>Installing as an app</h3>
+    <p>Menu “Label Studio” → “📲 Install as app” (Chrome/Edge). The app then runs in its own window and also without internet;
+      updates arrive automatically once you are online again. The browser version stays just as usable.</p>
+
+    <h3>What is loaded from the internet</h3>
+    <ul>
+      <li>Web fonts from Google Fonts – can be switched off in the menu under “🔤 Fonts …”.</li>
+      <li>Libraries for QR codes and barcodes; the PDF reader and the scanner’s QR reader only when you need them.</li>
+      <li>Your labels never leave the device – unless you share them as a link yourself.</li>
+    </ul>` },
+
+  printers: { title: 'Supported printers', html: `
+    <h3>Bluetooth direct print</h3>
+    <p>Choose in the “Print” panel under “Bluetooth direct print” → “Printer model”.
+      <span class="badge ok">✓ tested</span> means tried with a real device. <span class="badge">untested</span> means
+      built from an open-source project but not yet checked.</p>
+    <table>
+      <tr><th>Model</th><th>Print width</th><th>Label runs</th><th>Status</th></tr>
       ${Object.values(PRINTERS).map(p => `<tr><td>${p.name}</td><td>${tr(p.widthText) || (p.head / PX_PER_MM + ' mm')}</td>
-        <td>${p.rotate90 ? 'sideways' : { right:'right', center:'centre', left:'left' }[p.align] || 'lengthwise'}</td>
+        <td>${p.continuous ? 'continuous tape' : p.rotate90 ? 'sideways' : 'lengthwise'}</td>
         <td>${p.tested ? `<span class="badge ok">✓ ${p.tested}</span>` : '<span class="badge">untested</span>'}</td></tr>`).join('')}
     </table>
-    <p class="hint"><b>Phomemo</b> – commands from the open-source project “phomymo”. The <b>M220</b> prints with Android (Chrome).
-      The <b>D30/D35/Q30</b> print small labels sideways – design the label in landscape, the app rotates it.</p>
-    <p class="hint"><b>Marklife</b> (P15, P7, P12, M60) – after the open-source project <b>“thermoprint”</b> by tomLadder (MIT).
-      The <b>P15</b> prints via Bluetooth on a PC. Labels run sideways – the app rotates them.</p>
-    <p class="hint"><b>Niimbot</b> (D110, D101, B1, B21) – after the open-source library <b>“niimbluelib”</b> by MultiMote (MIT).
-      The <b>D101</b> is tested via Bluetooth on a PC and with Android. D110 and D101 print sideways – the app rotates the label.</p>
-    <p class="hint"><b>DYMO LetraTag 200B</b> – after the open-source project <b>“dymo-bluetooth”</b> by ysfchn (MIT); tested on a PC and with Android.
-      The tape is 12 mm wide, but only 3.8 mm in the middle is printable, so the label is 4 mm high. With <b>“Automatic length”</b> each label is
-      exactly as long as its text plus 2 mm. Several copies or a batch print come out on <b>one strip</b> with dashed cut marks
-      (can be switched off under “Bluetooth direct print”).</p>
-    <p><b>Your printer is missing?</b> <button class="primary" data-request>Suggest a printer …</button></p>` },
-  tips: { title: 'Tips & troubleshooting', html: `
+
+    <h3>Notes per manufacturer</h3>
     <ul>
-      <li><b>Print preview is empty</b> – reload the page with F5 and try again.</li>
-      <li><b>Print spreads over two labels</b> – the wrong paper size is chosen in the print dialog.</li>
-      <li><b>Print shifted sideways</b> – adjust “Offset X (mm)”, e.g. 1 or -1.</li>
-      <li><b>Print too high or too low</b> – adjust “Offset Y (mm)”: positive moves down, negative up.</li>
-      <li><b>Printer status</b> – when connected via Bluetooth the header shows battery and paper, red for “No paper” or “Lid open”.</li>
-      <li><b>Thin text hard to read</b> – select the image and use “Thicken lines”, more darkness or contrast. A bolder font helps most.</li>
-      <li><b>Something changed or deleted by accident</b> – Ctrl+Z or ↶.</li>
-      <li><b>Bluetooth connection error</b> – remove the printer in the Windows Bluetooth settings, restart the printer, switch off phone Bluetooth.
-        If that doesn’t help: use USB.</li>
+      <li><b>Phomemo M series</b> (M220, M221, M200, M110) – set “Label position” to match the roll holder (M220 right, M221 centre).
+        On Windows, Bluetooth pairing with the M220 fails – print via USB there.</li>
+      <li><b>Phomemo D30, D35, Q30</b> – small labels run sideways through the printer. Design them in landscape (e.g. 40 × 12 mm), the app rotates the image.</li>
+      <li><b>Marklife</b> (P15, P7, P12, M60) – recognised when connecting, labels run sideways; the app rotates the image.
+        At the end the printer moves to the next label gap by itself.</li>
+      <li><b>Niimbot</b> (D110, D101, B1, B21) – recognised when connecting. D110 and D101 print sideways, B1 and B21 lengthwise.
+        Print head: D110 12 mm, D101 24 mm, B1/B21 48 mm.</li>
+      <li><b>DYMO LetraTag 200B</b> – only the middle 3.8 mm of the 12 mm tape are printable, so the label is 4 mm high.
+        “Automatic length” makes every label as long as its text. Several labels come out on one strip with cut marks;
+        cut with the lever on the printer.</li>
+    </ul>
+
+    <h3>All other printers</h3>
+    <p>Any label printer with a Windows driver (e.g. Brother QL, DYMO LabelWriter, Zebra) prints via
+      “Print via Windows printer (USB)” – see “Drivers &amp; setup”. For printers other than the M220, fine-tune the position with “Offset X/Y”.</p>
+
+    <h3>Sources</h3>
+    <p class="hint">The Bluetooth commands come from open-source projects: “phomymo” (Phomemo), “thermoprint” by tomLadder (Marklife, MIT),
+      “niimbluelib” by MultiMote (Niimbot, MIT) and “dymo-bluetooth” by ysfchn (DYMO, MIT). Thank you!</p>
+    <p><b>Your printer is missing?</b> <button class="primary" data-request>Suggest a printer …</button></p>` },
+
+  tips: { title: 'Tips & troubleshooting', html: `
+    <h3>Connection</h3>
+    <ul>
+      <li><b>“Connect” doesn’t find the printer</b> – switch the printer on, don’t pair it in the Bluetooth settings,
+        switch on Bluetooth (and on Android location) on the phone. The app must run from the https address.</li>
+      <li><b>Connection error on Windows</b> – remove the printer in the Windows Bluetooth settings, restart the printer and connect again.
+        If that doesn’t help, print via USB.</li>
+      <li><b>Connected, but nothing comes out</b> – choose the right <b>printer model</b> in the “Print” panel.
+        Otherwise use “Copy diagnostics” and send it via “Suggest a printer”.</li>
+      <li><b>“Browser does not support Web Bluetooth”</b> – use Chrome or Edge, on iPhone the Bluefy app.</li>
+    </ul>
+
+    <h3>Print quality</h3>
+    <ul>
+      <li><b>Too faint or thin text hard to read</b> – increase “Density”, choose a bolder font. For images increase darkness or contrast
+        or use “Thicken lines”.</li>
+      <li><b>Photos turn into black blobs</b> – choose a dithering method such as “Floyd–Steinberg” for the image.</li>
+      <li><b>See beforehand how it will print</b> – switch on “Print preview (black/white)” under the label.</li>
+      <li><b>DYMO prints very small</b> – that’s normal: the LetraTag can only print 3.8 mm of the tape height.</li>
+    </ul>
+
+    <h3>Position</h3>
+    <ul>
+      <li><b>Print shifted sideways</b> – adjust “Offset X (mm)”, e.g. 1 or −1. For Phomemo also check “Label position”.</li>
+      <li><b>Print too high or too low</b> – “Offset Y (mm)”: positive moves down, negative up.
+        On the first print after switching on, the printer often still searches for the label gap.</li>
+      <li><b>Print spreads over two labels (USB)</b> – the print dialog uses a different paper size than the app.</li>
+      <li><b>Label is the wrong way round</b> – “Rotate 90°” in the “Print” panel or “↻ 90°” on the element.</li>
+    </ul>
+
+    <h3>Using the app</h3>
+    <ul>
+      <li><b>Changed or deleted something by accident</b> – Ctrl+Z or ↶.</li>
+      <li><b>Element can’t be moved or deleted</b> – it is locked: tap the 🔒 in the layers.</li>
+      <li><b>Element missing from the print</b> – it is hidden in the layers (👁).</li>
+      <li><b>Settings messed up</b> – “Reset” on the image or at the bottom of the “Print” panel.</li>
+      <li><b>Print preview empty when printing via USB</b> – reload the page with F5 and print again.</li>
+    </ul>
+
+    <h3>Data</h3>
+    <ul>
+      <li><b>Templates are gone</b> – they are only stored in the browser. Another browser, another address or cleared browser data start empty.
+        Save a backup file regularly with “💾 Backup” in the Templates panel and restore it with “Load backup”.</li>
+      <li><b>New phone or fresh browser</b> – first “💾 Save backup” or “share”, bring the file to the new device and use “Load backup” there.
+        Then just reconnect the printer.</li>
+      <li><b>App shows an old version</b> – open it once with internet and reload; updates then arrive automatically.</li>
     </ul>` }
 };
 function openHelp(key){
@@ -4070,7 +4393,7 @@ function openHelp(key){
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
 $('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-gallery>🖼️ Vorlagen-Galerie …</button>'
-  + '<button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>'
+  + '<button data-backup>💾 Sicherung &amp; Umzug …</button><button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>'
   + '<button data-install hidden>📲 Als App installieren …</button>'
   + `<hr><button data-lang>${LANG === 'en' ? '🌐 Deutsch' : '🌐 English'}</button>`;
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
@@ -4084,6 +4407,7 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   if (ev.target.closest('[data-setup]')){ toggleMenu(false); openSetup(); }
   if (ev.target.closest('[data-fonts]')){ toggleMenu(false); openFonts(); }
   if (ev.target.closest('[data-install]')){ toggleMenu(false); installApp(); }
+  if (ev.target.closest('[data-backup]')){ toggleMenu(false); openBackup(); }
   if (ev.target.closest('[data-lang]')){ toggleMenu(false); setLang(LANG === 'en' ? 'de' : 'en'); }
 }));
 
@@ -4226,6 +4550,7 @@ updateSerialInfo();
 // Ersteinrichtung nur beim allerersten Besuch (bestehende Nutzer haben schon Druckeinstellungen)
 if (!lsGet(LS_SETUP, null) && !lsGet(LS_PRINT, null) && !location.hash) openSetup();
 startTranslation();
+backupReminder();
 </script>
 </body>
 </html>
