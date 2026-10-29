@@ -23,11 +23,16 @@
 
 | | |
 |---|---|
-| 🖊️ **Gestalten** | Text, QR-Code, Barcode, Bild, Rahmen und Linie – verschieben, skalieren und um 90° drehen |
+| 🖊️ **Gestalten** | Text, QR-Code, Barcode, Bild, Rahmen, Linie, Formen (Kreis, Pfeil, Stern, Herz …) und Symbole (⚠ ♻ ❄ …) – verschieben, skalieren, um 90° drehen |
+| 🔤 **Schriften** | 20 Web-Schriften mit Vorschau (Google Fonts, abschaltbar), eigene Schriftdateien (TTF/OTF/WOFF) und installierte PC-Schriften; Text im Bogen, Zeilen- und Zeichenabstand, unter-/durchgestrichen, „Einpassen“ füllt das Etikett |
+| 🖼️ **Vorlagen-Galerie** | Fertige Etiketten (Filamentspule, Kabel-Fahne, Gewürzglas, Preisschild …), passend zur Etikettengröße |
+| 🧮 **Seriendruck** | Liste einfügen oder CSV laden – ein Etikett pro Zeile, Spalten als `{1}`, `{2}` … |
+| 🖱️ **Bedienung** | Mehrfachauswahl mit Ausrichten/Verteilen, Rechtsklick-Menü, auf dem Handy Fenster als Tabs, Hell/Dunkel umschaltbar |
 | 🗂️ **Ebenen** | Alle Elemente als Liste wie in Photoshop: auswählen, ausblenden, sperren, umsortieren, umbenennen |
 | 📐 **Präzise** | Lineal in mm, zuschaltbares Raster (1/2/5 mm) mit Einrasten, Rückgängig/Wiederholen (Strg+Z/Y) |
 | 📥 **Importieren** | Fertige Etiketten als PNG, SVG oder PDF, z. B. von [3dfilamentprofiles.com](https://3dfilamentprofiles.com) |
 | 🔢 **Platzhalter** | `{datum}`, `{zeit}` und `{nr}` – die Nummer zählt bei mehreren Kopien hoch |
+| 🕘 **Zuletzt gedruckt** | Die letzten 10 gedruckten Etiketten mit einem Klick zurückholen |
 | 💾 **Vorlagen & Sicherung** | Vorlagen speichern; Export/Import überträgt Vorlagen, Rollen, Einstellungen und Fensteranordnung auf andere Geräte |
 | 🔗 **Teilen** | Etikett per Link oder QR-Code aufs Handy holen – einfach scannen |
 | 🧻 **Rollen** | Profile je Etikettenrolle: Größe, Papierformat und Versatz mit einem Klick |
@@ -106,6 +111,9 @@ In der App im Menü **„Label Studio“ → „Drucker vorschlagen …“** –
 
 Die Datei enthält keine persönlichen Daten. Etiketten, Vorlagen und Einstellungen speichert die App **nur im Browser** des jeweiligen Geräts – sie landen weder in der Datei noch auf GitHub.
 
+Die Web-Schriften kommen von **Google Fonts**, die Bibliotheken für QR-Code, Barcode und PDF von **cdnjs** – dabei sieht der jeweilige Anbieter wie bei jeder Webseite deine IP-Adresse. Etikett-Inhalte werden nicht übertragen.
+Google Fonts lässt sich im Menü unter **„Schriften …“** abschalten; dann wird nichts von Google geladen. Eigene Schriftdateien bleiben nur im Browser gespeichert.
+
 ## 🌐 Online
 
 Die App läuft über **GitHub Pages** unter **[barry2040.github.io/open-label-studio](https://barry2040.github.io/open-label-studio/)**. Jede Änderung auf `main` wird automatisch veröffentlicht (Workflow `.github/workflows/pages.yml`).
@@ -139,5 +147,6 @@ Mitgeladene Bibliotheken:
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR-Codes | MIT |
 | [JsBarcode](https://github.com/lindell/JsBarcode) | Barcodes | MIT |
 | [PDF.js](https://github.com/mozilla/pdf.js) (Mozilla) | PDF-Import | Apache 2.0 |
+| [Google Fonts](https://fonts.google.com) | Web-Schriften und Symbol-Schrift (Noto Sans Symbols) | SIL Open Font License / Apache 2.0 |
 
 Phomemo, Marklife und Niimbot sind Marken ihrer jeweiligen Inhaber. Label Studio ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.

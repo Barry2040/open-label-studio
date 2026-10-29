@@ -7,6 +7,16 @@
 <meta name="theme-color" content="#111827">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script>
+// Web-Schriften von Google Fonts: nur laden, wenn eingeschaltet (Standard: an). Aus = keine Verbindung zu Google.
+const GF_URL = 'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400;1,700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&family=Bebas+Neue&family=Anton&family=Archivo+Black&family=Poppins:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@400;700&family=Roboto+Mono:wght@400;700&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Permanent+Marker&family=Press+Start+2P&family=Orbitron:wght@400;700&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&display=swap';
+function setWebFonts(on){
+  let l = document.getElementById('webFontsCss');
+  if (on && !l){ l = document.createElement('link'); l.id = 'webFontsCss'; l.rel = 'stylesheet'; l.href = GF_URL; document.head.appendChild(l); }
+  else if (!on && l) l.remove();
+}
+try { setWebFonts(JSON.parse(localStorage.getItem('labelstudio.webfonts') ?? 'true')); } catch(e){ setWebFonts(true); }
+</script>
 <style>
 :root{
   --bg:#f3f4f6; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
@@ -43,11 +53,12 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help,#share,#request{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share,#request,#setup,#gallery,#fonts{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
 #share{width:min(380px,calc(100vw - 32px))}
-#request{width:min(520px,calc(100vw - 32px))}
-#help::backdrop,#share::backdrop,#request::backdrop{background:rgba(0,0,0,.5)}
+#request,#setup,#fonts{width:min(520px,calc(100vw - 32px))}
+#gallery{width:min(860px,calc(100vw - 32px))}
+#help::backdrop,#share::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
 .request-body{padding:8px 16px 16px}
 .menu-list hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 .share-body{padding:8px 16px 16px;text-align:center}
@@ -183,6 +194,55 @@ details.subsec:not([open])>summary{margin-bottom:0}
 progress{width:100%;height:8px}
 #log{font-size:12px;color:var(--muted);margin-top:6px;min-height:1em;word-break:break-word}
 .empty{color:var(--muted);font-size:14px}
+/* Werkzeugleiste zum Hinzufügen: Symbol + kurzer Name, auf dem Handy nur Symbol */
+.addtools{gap:6px}
+.addtools > button{display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:6px 10px;min-width:0}
+.addtools .ti{font-size:16px;line-height:1;min-width:16px;text-align:center}
+@media (max-width:560px){
+  .addtools > button span:not(.ti){display:none}
+  .addtools > button{flex:1 1 0;justify-content:center;padding:6px 0}
+}
+/* schmale Handys: Verbindungsstatus nur als Punkt, damit „Verbinden“ in der Kopfzeile bleibt */
+@media (max-width:440px){ #statusText{display:none} header{gap:8px} }
+/* Aufklapp-Liste (Formen, Symbole, Schriften, Rechtsklick-Menü) */
+.pop{position:fixed;z-index:70;min-width:180px;max-width:min(360px,calc(100vw - 16px));max-height:min(60vh,480px);overflow:auto;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.pop button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:none;padding:7px 10px;border-radius:6px}
+.pop button:hover,.pop button:focus-visible{background:var(--bg)}
+.pop button.danger{color:var(--danger)}
+.pop button .ti{width:20px;text-align:center;font-size:16px}
+.pop hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+.pop .pop-head{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 10px 4px}
+.pop.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;min-width:0}
+.pop.grid button{justify-content:center;padding:6px 0;font:22px/1.2 "Noto Sans Symbols 2","Noto Sans Symbols","Segoe UI Symbol",sans-serif}
+.font-pick{width:100%;text-align:left;font-size:17px;padding:5px 8px;background:var(--input);border-radius:6px;display:flex;justify-content:space-between;align-items:center}
+.font-pick::after{content:"▾";font:12px system-ui,sans-serif;color:var(--muted)}
+.checks{display:flex;flex-wrap:wrap;gap:0 14px}
+.btn-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.btn-grid button{padding:6px 4px;font-size:13px}
+/* Galerie und Druck-Verlauf */
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:12px 16px 16px}
+.gal button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;text-align:center;font-size:13px}
+.gal canvas{background:#fff;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.3);max-width:100%;height:auto}
+.gal small{color:var(--muted)}
+.setup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:10px 0}
+.setup-grid button{padding:10px 8px;text-align:left}
+.setup-grid button small{display:block;color:var(--muted);font-size:11px}
+/* Handy: Etikett oben, darunter immer nur ein Werkzeug-Fenster – umschaltbar über die Leiste unten */
+.mtabs{display:none}
+@media (max-width:860px){
+  .mtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-top:1px solid var(--border);
+    padding:4px 8px calc(4px + env(safe-area-inset-bottom));gap:4px}
+  .mtabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:none;background:none;padding:4px 0;font-size:18px;color:var(--muted)}
+  .mtabs button span{font-size:11px}
+  .mtabs button.active{color:var(--accent)}
+  body{padding-bottom:76px}
+  body[data-tab="element"] [data-panel]:not([data-panel="editor"]):not([data-panel="element"]),
+  body[data-tab="layers"] [data-panel]:not([data-panel="editor"]):not([data-panel="layers"]),
+  body[data-tab="print"] [data-panel]:not([data-panel="editor"]):not([data-panel="print"]),
+  body[data-tab="templates"] [data-panel]:not([data-panel="editor"]):not([data-panel="templates"]){display:none}
+  #btnLayoutReset{display:none}
+}
 #printArea{display:none}
 @media print{
   body{background:#fff}
@@ -207,6 +267,7 @@ progress{width:100%;height:8px}
   </div>
   <div id="prnStatus" class="prn-status" hidden></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Nicht verbunden</span></div>
+  <button id="btnTheme" title="Farbschema: automatisch / hell / dunkel" aria-label="Farbschema umschalten">◐</button>
   <button id="btnLayoutReset" title="Fenster wieder an ihre ursprüngliche Position setzen">Layout zurücksetzen</button>
   <button class="primary" id="btnConnect">Verbinden</button>
 </header>
@@ -222,6 +283,16 @@ progress{width:100%;height:8px}
         </div>
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="72" step="1"></div>
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="5" max="300" step="1"></div>
+      </div>
+      <div class="toolbar addtools" id="addTools">
+        <button data-add="text" title="Text hinzufügen"><span class="ti" style="font-weight:700">T</span><span>Text</span></button>
+        <button data-add="qr" title="QR-Code hinzufügen"><span class="ti">▦</span><span>QR</span></button>
+        <button data-add="barcode" title="Barcode hinzufügen"><span class="ti">‖</span><span>Barcode</span></button>
+        <button data-add="image" title="Bild hinzufügen"><span class="ti">▨</span><span>Bild</span></button>
+        <button data-add="rect" title="Rahmen hinzufügen"><span class="ti">▭</span><span>Rahmen</span></button>
+        <button data-add="line" title="Linie hinzufügen"><span class="ti">—</span><span>Linie</span></button>
+        <button id="btnShapes" title="Form hinzufügen: Kreis, Pfeil, Stern …"><span class="ti">◆</span><span>Form ▾</span></button>
+        <button id="btnSymbols" title="Symbol hinzufügen: Warnung, Recycling, Schneeflocke …"><span class="ti">★</span><span>Symbol ▾</span></button>
       </div>
       <div class="toolbar">
         <button id="btnUndo" title="Rückgängig (Strg+Z)" aria-label="Rückgängig">↶</button>
@@ -243,15 +314,7 @@ progress{width:100%;height:8px}
         <label class="check" style="margin:0"><input type="checkbox" id="preview1bit"> Druckvorschau (schwarz/weiß)</label>
         <span class="hint" id="sizeInfo"></span>
       </div>
-      <div class="addbar">
-        <button data-add="text">+ Text</button>
-        <button data-add="qr">+ QR-Code</button>
-        <button data-add="barcode">+ Barcode</button>
-        <button data-add="image">+ Bild</button>
-        <button data-add="rect">+ Rahmen</button>
-        <button data-add="line">+ Linie</button>
-      </div>
-      <button id="btnImport" style="width:100%;margin-top:8px">Fertiges Etikett importieren (PNG, SVG, PDF)</button>
+      <button id="btnImport" style="width:100%;margin-top:10px">Fertiges Etikett importieren (PNG, SVG, PDF)</button>
       <input type="file" id="fileImg" accept="image/*" hidden>
       <input type="file" id="fileLabel" accept=".png,.jpg,.jpeg,.svg,.pdf,image/*,application/pdf" hidden>
     </div>
@@ -288,6 +351,19 @@ progress{width:100%;height:8px}
         <div class="field"><label for="offsetY">Versatz Y (mm)</label><input id="offsetY" type="number" step="0.5" value="0"></div>
       </div>
       <label class="check"><input type="checkbox" id="rotate"> Um 90° drehen</label>
+
+      <details class="subsec" id="serialSection">
+        <summary>Seriendruck (Liste)</summary>
+        <label class="check"><input type="checkbox" id="serialOn"> Ein Etikett pro Zeile drucken</label>
+        <textarea id="serialList" rows="4" placeholder="Schwarz;PLA&#10;Weiß;PETG&#10;Rot;PLA"></textarea>
+        <div class="row" style="margin-top:6px;justify-content:space-between">
+          <button id="serialCsv">CSV/Text laden …</button>
+          <span class="hint" id="serialInfo"></span>
+        </div>
+        <p class="hint">Im Etikett <code>{1}</code>, <code>{2}</code>, <code>{3}</code> … für die Spalten einsetzen
+          (getrennt mit <code>;</code> oder Tab), <code>{zeile}</code> für die ganze Zeile. „Kopien“ gilt pro Zeile.</p>
+        <input type="file" id="fileCsv" accept=".csv,.txt,text/*" hidden>
+      </details>
 
       <div class="subsec">
         <div class="subhead">Windows-Drucker (USB)</div>
@@ -327,6 +403,10 @@ progress{width:100%;height:8px}
 
     <div class="card" data-panel="templates">
       <h2>Vorlagen</h2>
+      <div class="row" style="margin-bottom:10px">
+        <button id="tplGallery" class="primary" style="flex:1" title="Fertige Vorlagen: Filamentspule, Kabel-Fahne, Gewürzglas …">Galerie</button>
+        <button id="tplHistory" style="flex:1" title="Die zuletzt gedruckten Etiketten">Zuletzt gedruckt</button>
+      </div>
       <div class="field"><select id="tplList"></select></div>
       <div class="row">
         <button id="tplLoad">Laden</button>
@@ -344,6 +424,57 @@ progress{width:100%;height:8px}
     </div>
   </aside>
 </main>
+<nav id="mtabs" class="mtabs" aria-label="Bereiche">
+  <button data-tab="element"><b>✎</b><span>Element</span></button>
+  <button data-tab="layers"><b>☰</b><span>Ebenen</span></button>
+  <button data-tab="print"><b>⎙</b><span>Drucken</span></button>
+  <button data-tab="templates"><b>▤</b><span>Vorlagen</span></button>
+</nav>
+<dialog id="setup" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Willkommen bei Label Studio 👋</b>
+    <button id="setupClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="request-body">
+    <p style="margin-top:0">Welchen Etikettendrucker hast du? Dann stelle ich Etikettengröße und Druck gleich passend ein.</p>
+    <div id="setupList"></div>
+    <p class="hint">Später änderbar im Fenster „Drucken“ unter „Bluetooth-Direktdruck“ oder im Menü „Label Studio“.</p>
+  </div>
+</dialog>
+<dialog id="fonts" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Schriften</b>
+    <button id="fontsClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="request-body">
+    <label class="check"><input type="checkbox" id="webFontsOn"> Web-Schriften von Google Fonts laden</label>
+    <p class="hint" style="margin-top:-4px">Aus: Die App verbindet sich nicht mit Google. Etiketten mit Web-Schriften (z. B. Roboto, Oswald)
+      nutzen dann eine Ersatzschrift, Symbole kommen aus der Systemschrift.</p>
+    <div class="subsec">
+      <div class="subhead">Eigene Schriften</div>
+      <ul id="userFontList" class="layers"></ul>
+      <div class="row" style="margin-top:8px">
+        <button id="fontUpload" class="primary">Schriftdatei laden …</button>
+        <button id="fontLocal" title="Schriften, die auf diesem PC installiert sind (Chrome/Edge am PC)">Installierte Schriften …</button>
+      </div>
+      <p class="hint">TTF, OTF, WOFF oder WOFF2. Geladene Schriften bleiben nur in diesem Browser gespeichert und gehen nicht ins
+        Internet. Auf anderen Geräten (oder beim Teilen) erscheint dafür eine Ersatzschrift.</p>
+      <p class="hint" id="localFontInfo"></p>
+      <input type="file" id="fileFont" accept=".ttf,.otf,.woff,.woff2,font/*" multiple hidden>
+    </div>
+  </div>
+</dialog>
+<dialog id="gallery" class="modal">
+  <div class="help-head">
+    <div class="help-tabs" id="galleryTabs">
+      <button data-gal="tpl">Vorlagen-Galerie</button>
+      <button data-gal="hist">Zuletzt gedruckt</button>
+    </div>
+    <button id="galleryClose" aria-label="Schließen">✕</button>
+  </div>
+  <p class="hint" id="galleryHint" style="padding:0 16px;margin:8px 0 0"></p>
+  <div id="galleryBody" class="gal"></div>
+</dialog>
 <dialog id="help">
   <div class="help-head">
     <div id="helpTabs" class="help-tabs"></div>
@@ -449,7 +580,16 @@ const modelFromName = name => {
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
 const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
-const FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
+// Web-Schriften (Google Fonts) sehen auf PC und Handy gleich aus; Systemschriften gibt es oft nur unter Windows
+const WEB_FONTS = ['Roboto','Open Sans','Lato','Poppins','Montserrat','Raleway','Oswald','Roboto Condensed','Bebas Neue','Anton',
+  'Archivo Black','Playfair Display','Merriweather','Roboto Mono','Orbitron','Press Start 2P','Pacifico','Dancing Script','Caveat','Permanent Marker'];
+const SYS_FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','Courier New','Impact','Comic Sans MS'];
+const FONTS = [...WEB_FONTS, ...SYS_FONTS];
+const SYMBOL_FONT = 'Noto Sans Symbols 2';
+// Eigene Schriften: hochgeladene Dateien (IndexedDB) und auf dem PC installierte Schriften (nur die Namen)
+let USER_FONTS = [], LOCAL_FONTS = lsGet('labelstudio.localFonts', []);
+const webFontsOn = () => !!document.getElementById('webFontsCss');
+const allFonts = () => [...(webFontsOn() ? WEB_FONTS : []), ...USER_FONTS, ...SYS_FONTS, ...LOCAL_FONTS];
 const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0xfff0,0xff12,
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
 const LS_DRAFT = 'labelstudio.draft', LS_TPL = 'labelstudio.templates', LS_PRINT = 'labelstudio.print';
@@ -466,7 +606,9 @@ if (typeof qrcode !== 'undefined' && qrcode.stringToBytesFuncs) qrcode.stringToB
 // Beim Start immer das Startetikett zeigen; das zuletzt bearbeitete bleibt über „Zuletzt bearbeitet“ erreichbar
 const lastDraft = lsGet(LS_DRAFT, null);
 let design = defaultDesign();
-let sel = null, drag = null, guides = null, curNr = 1;
+let sel = null, drag = null, guides = null, curNr = 1, curRow = null;
+let multi = [];   // Mehrfachauswahl (ab zwei Elementen); dann ist sel = null
+const selected = () => multi.length ? multi : sel ? [sel] : [];
 
 // Startetikett beim ersten Öffnen: „Label Studio“ mittig in einem Rahmen auf 40 × 30 mm
 function defaultDesign(){
@@ -507,7 +649,7 @@ function restoreState(json){
   const id = sel && sel.id;
   design = JSON.parse(json);
   histSnap = json;
-  sel = design.elements.find(e => e.id === id) || null;
+  sel = design.elements.find(e => e.id === id) || null; multi = [];
   lsSet(LS_DRAFT, design);
   buildProps(); syncLabelControls(); fitCanvas(); render(); updateUndoButtons();
 }
@@ -534,17 +676,57 @@ function fillVars(t){
   return String(t)
     .replace(/\{datum\}/gi, d.toLocaleDateString('de-DE'))
     .replace(/\{zeit\}/gi, d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}))
-    .replace(/\{nr\}/gi, String(curNr));
+    .replace(/\{nr\}/gi, String(curNr))
+    // Seriendruck: {1}, {2} … = Spalten der aktuellen Zeile, {zeile} = ganze Zeile
+    .replace(/\{zeile\}/gi, curRow ? curRow.line : '{zeile}')
+    .replace(/\{(\d{1,2})\}/g, (m, n) => curRow ? (curRow.cols[n - 1] ?? '') : m);
 }
-const fontStr = e => `${e.italic?'italic ':''}${e.bold?'bold ':''}${e.size}px "${e.font}", sans-serif`;
+// Symbol-Schriften als Ersatz: so kommen Zeichen wie ⚠ ♻ ❄ schwarz-weiß statt als bunte Emojis
+const fontStr = e => `${e.italic?'italic ':''}${e.bold?'bold ':''}${e.size}px "${e.font}", "Noto Sans Symbols 2", "Noto Sans Symbols", "Segoe UI Symbol", sans-serif`;
+// Web-Schriften lädt der Browser erst bei Bedarf: einmal anstoßen und danach neu zeichnen
+const fontWait = new Set();
+function ensureFont(f, text){
+  if (!document.fonts || fontWait.has(f + '|' + text)) return;
+  try { if (document.fonts.check(f, text)) return; } catch(err){ return; }
+  fontWait.add(f + '|' + text);
+  document.fonts.load(f, text).then(() => { layerSig = ''; render(); }).catch(() => {});
+}
+const setSpacing = (c, px) => { if ('letterSpacing' in c) c.letterSpacing = (px || 0) + 'px'; };
 
 function textBox(c, e){
   c.font = fontStr(e);
-  const lines = fillVars(e.text || ' ').split('\n');
+  const str = fillVars(e.text || ' ');
+  ensureFont(c.font, str);
+  const pad = e.invert ? Math.round(e.size*0.15) : 0;
+  if (Math.abs(e.arc || 0) >= 1){ setSpacing(c, 0); return arcBox(c, e, str.replace(/\n/g, ' '), pad); }
+  setSpacing(c, e.spacing);
+  const lines = str.split('\n'), lh = e.size * (e.lineH || 1.15);
   let w = 0;
   for (const l of lines) w = Math.max(w, c.measureText(l).width);
-  const pad = e.invert ? Math.round(e.size*0.15) : 0;
-  return { lines, w: Math.max(4, Math.ceil(w)) + pad*2, h: Math.ceil(lines.length * e.size * 1.15) + pad*2, pad };
+  return { lines, lh, w: Math.max(4, Math.ceil(w)) + pad*2, h: Math.ceil((lines.length - 1) * lh + e.size * 1.15) + pad*2, pad };
+}
+// Text im Bogen: Zeichen einzeln auf einem Kreis. arc > 0 wölbt nach oben (Regenbogen), < 0 nach unten (Lächeln).
+// Der Kreisradius ergibt sich aus Textlänge und Bogenwinkel; der Umriss wird aus allen Zeichen-Ecken bestimmt.
+function arcBox(c, e, str, pad){
+  const sp = e.spacing || 0;
+  const chars = [...str].map(ch => ({ ch, w: c.measureText(ch).width }));
+  const total = chars.reduce((s, k) => s + k.w + sp, 0) - sp;
+  const theta = Math.min(360, Math.abs(e.arc)) * Math.PI / 180;
+  const R = Math.max(total / theta, e.size * 0.6), up = e.arc > 0;
+  const asc = e.size * 0.8, desc = e.size * 0.22;
+  const pos = (r, phi) => [r * Math.sin(phi), up ? -r * Math.cos(phi) : r * Math.cos(phi)];
+  let s = -total / 2, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const k of chars){
+    k.phi = (s + k.w / 2) / R; s += k.w + sp;
+    for (const r of up ? [R - desc, R + asc] : [R + desc, R - asc])
+      for (const d of [-k.w / 2, k.w / 2]){
+        const [x, y] = pos(r, k.phi + d / Math.max(r, 1));
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      }
+  }
+  if (!chars.length){ minX = minY = 0; maxX = maxY = e.size; }
+  return { arc:true, chars, R, up, pos, ox: pad - minX, oy: pad - minY, pad,
+           w: Math.max(4, Math.ceil(maxX - minX)) + pad*2, h: Math.ceil(maxY - minY) + pad*2 };
 }
 // Elemente lassen sich um 90/180/270° drehen (e.rot). x/y ist immer die linke obere Ecke des sichtbaren,
 // also gedrehten Rahmens; rawSize ist die Größe des Inhalts vor dem Drehen.
@@ -569,14 +751,42 @@ function drawText(c, e){
   const b = textBox(c, e);
   if (e.invert){ c.fillStyle = '#000'; c.fillRect(e.x, e.y, b.w, b.h); }
   c.fillStyle = e.invert ? '#fff' : '#000';
+  if (b.arc){
+    c.textBaseline = 'alphabetic';
+    for (const k of b.chars){
+      const [x, y] = b.pos(b.R, k.phi);
+      c.save();
+      c.translate(e.x + b.ox + x, e.y + b.oy + y);
+      c.rotate(b.up ? k.phi : -k.phi);
+      c.fillText(k.ch, -k.w / 2, 0);
+      c.restore();
+    }
+    return;
+  }
   c.textBaseline = 'top';
+  const stroke = Math.max(1, Math.round(e.size / 14));   // Stärke für Unter-/Durchstreichen
   b.lines.forEach((l, i) => {
     const lw = c.measureText(l).width, inner = b.w - b.pad*2;
     let lx = e.x + b.pad;
     if (e.align === 'center') lx += (inner - lw) / 2;
     else if (e.align === 'right') lx += inner - lw;
-    c.fillText(l, lx, e.y + b.pad + i * e.size * 1.15 + e.size * 0.05);
+    const ty = e.y + b.pad + i * b.lh + e.size * 0.05;
+    c.fillText(l, lx, ty);
+    if (e.underline) c.fillRect(Math.round(lx), Math.round(ty + e.size * 0.9), Math.round(lw), stroke);
+    if (e.strike) c.fillRect(Math.round(lx), Math.round(ty + e.size * 0.52), Math.round(lw), stroke);
   });
+}
+// Schrift so groß wie möglich, ohne über das Etikett hinauszuragen, dann mittig setzen
+function fitText(e, box = { x:0, y:0, w:W(), h:H() }, margin = 4){
+  const bw = box.w - margin * 2, bh = box.h - margin * 2;
+  for (let i = 0; i < 4; i++){
+    const b = bbox(e);
+    e.size = Math.max(6, Math.floor(e.size * Math.min(bw / b.w, bh / b.h)));
+  }
+  while (e.size > 6 && (bbox(e).w > bw || bbox(e).h > bh)) e.size--;
+  const b = bbox(e);
+  e.x = Math.round(box.x + (box.w - b.w) / 2); e.y = Math.round(box.y + (box.h - b.h) / 2);
+  return e;
 }
 
 function drawQR(c, e){
@@ -610,7 +820,7 @@ function drawBarcode(c, e){
   if (!bars || !bars.length){ errorBox(c, e, 'Ungültiger Barcode'); return; }
   const n = bars.length, k = Math.max(1, Math.floor(e.w / n)), ox = e.x + Math.floor((e.w - k*n) / 2);
   const textH = e.showText ? Math.max(12, Math.round(e.h * 0.22)) : 0, barH = e.h - textH;
-  c.fillStyle = '#000';
+  c.fillStyle = '#000'; setSpacing(c, 0);
   for (let i = 0; i < n; i++) if (bars[i]) c.fillRect(ox + i*k, e.y, k, barH);
   if (e.showText){
     c.font = `${Math.round(textH*0.9)}px Arial, sans-serif`;
@@ -683,20 +893,100 @@ function drawImageEl(c, e){
   if (p) c.drawImage(p, Math.round(e.x), Math.round(e.y), Math.round(e.w), Math.round(e.h));
 }
 
+// Linienart: durchgezogen, gestrichelt, gepunktet, doppelt oder nur die Ecken
 function drawRect(c, e){
   c.fillStyle = c.strokeStyle = '#000';
-  const r = Math.min(e.radius || 0, e.w/2, e.h/2);
-  c.beginPath();
+  const r = Math.min(e.radius || 0, e.w/2, e.h/2), style = e.style || 'solid';
   if (e.filled){
+    if (style === 'dashed' || style === 'dotted'){ drawDashedBar(c, e, style); return; }
+    c.beginPath();
     if (r && c.roundRect) c.roundRect(e.x, e.y, e.w, e.h, r); else c.rect(e.x, e.y, e.w, e.h);
     c.fill();
-  } else {
-    const lw = Math.max(1, e.lw || 1), h2 = lw/2;
-    c.lineWidth = lw;
-    const rr = Math.max(0, r - h2);
-    if (rr && c.roundRect) c.roundRect(e.x+h2, e.y+h2, e.w-lw, e.h-lw, rr); else c.rect(e.x+h2, e.y+h2, e.w-lw, e.h-lw);
-    c.stroke();
+    return;
   }
+  const lw = Math.max(1, e.lw || 1);
+  c.lineWidth = lw;
+  if (style === 'corners'){
+    const L = Math.max(lw * 2, Math.round(Math.min(e.w, e.h) * 0.25)), h2 = lw / 2;
+    const x0 = e.x + h2, y0 = e.y + h2, x1 = e.x + e.w - h2, y1 = e.y + e.h - h2;
+    c.lineCap = 'square'; c.beginPath();
+    c.moveTo(x0, y0 + L); c.lineTo(x0, y0); c.lineTo(x0 + L, y0);
+    c.moveTo(x1 - L, y0); c.lineTo(x1, y0); c.lineTo(x1, y0 + L);
+    c.moveTo(x1, y1 - L); c.lineTo(x1, y1); c.lineTo(x1 - L, y1);
+    c.moveTo(x0 + L, y1); c.lineTo(x0, y1); c.lineTo(x0, y1 - L);
+    c.stroke();
+    return;
+  }
+  c.setLineDash(style === 'dashed' ? [lw * 3, lw * 2] : style === 'dotted' ? [0.01, lw * 2] : []);
+  c.lineCap = style === 'dotted' ? 'round' : 'butt';
+  const box = inset => {
+    const h2 = lw / 2 + inset, rr = Math.max(0, r - h2);
+    c.beginPath();
+    if (rr && c.roundRect) c.roundRect(e.x+h2, e.y+h2, e.w-2*h2, e.h-2*h2, rr); else c.rect(e.x+h2, e.y+h2, e.w-2*h2, e.h-2*h2);
+    c.stroke();
+  };
+  box(0);
+  if (style === 'double' && e.w > lw * 6 && e.h > lw * 6) box(lw * 2);
+  c.setLineDash([]);
+}
+// gestrichelte/gepunktete Linie (gefülltes schmales Rechteck) in Stücken zeichnen
+function drawDashedBar(c, e, style){
+  const horiz = e.w >= e.h, t = horiz ? e.h : e.w, len = horiz ? e.w : e.h;
+  const on = style === 'dotted' ? t : t * 3, step = on + (style === 'dotted' ? t : t * 2);
+  for (let p = 0; p < len; p += step){
+    const l = Math.min(on, len - p);
+    if (style === 'dotted'){
+      c.beginPath();
+      c.arc(horiz ? e.x + p + t/2 : e.x + t/2, horiz ? e.y + t/2 : e.y + p + t/2, t/2, 0, Math.PI * 2);
+      c.fill();
+    } else if (horiz) c.fillRect(e.x + p, e.y, l, t); else c.fillRect(e.x, e.y + p, t, l);
+  }
+}
+
+const SHAPES = [['ellipse','Kreis / Ellipse','●'],['triangle','Dreieck','▲'],['diamond','Raute','◆'],['hexagon','Sechseck','⬢'],
+  ['star','Stern','★'],['heart','Herz','♥'],['arrow','Pfeil','➜'],['bubble','Sprechblase','💬']];
+function shapePath(c, e){
+  const { x, y, w, h } = e, cx = x + w/2, cy = y + h/2;
+  const poly = pts => { c.moveTo(pts[0][0], pts[0][1]); for (const q of pts.slice(1)) c.lineTo(q[0], q[1]); c.closePath(); };
+  c.beginPath();
+  switch (e.shape){
+    case 'triangle': poly([[cx, y], [x + w, y + h], [x, y + h]]); break;
+    case 'diamond': poly([[cx, y], [x + w, cy], [cx, y + h], [x, cy]]); break;
+    case 'hexagon': poly([[x + w*.25, y], [x + w*.75, y], [x + w, cy], [x + w*.75, y + h], [x + w*.25, y + h], [x, cy]]); break;
+    case 'star': {
+      const pts = [];
+      for (let i = 0; i < 10; i++){
+        const a = -Math.PI / 2 + i * Math.PI / 5, k = i % 2 ? 0.42 : 1;
+        pts.push([cx + Math.cos(a) * w/2 * k, y + h * 0.53 + Math.sin(a) * h * 0.53 * k]);
+      }
+      poly(pts); break;
+    }
+    case 'arrow': poly([[x, y + h*.3], [x + w*.6, y + h*.3], [x + w*.6, y], [x + w, cy], [x + w*.6, y + h], [x + w*.6, y + h*.7], [x, y + h*.7]]); break;
+    case 'heart':
+      c.moveTo(cx, y + h*.3);
+      c.bezierCurveTo(cx, y, x, y, x, y + h*.3);
+      c.bezierCurveTo(x, y + h*.62, cx, y + h*.78, cx, y + h);
+      c.bezierCurveTo(cx, y + h*.78, x + w, y + h*.62, x + w, y + h*.3);
+      c.bezierCurveTo(x + w, y, cx, y, cx, y + h*.3);
+      c.closePath(); break;
+    case 'bubble': {
+      const bh = h * 0.78, r = Math.min(w, bh) * 0.22;
+      c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.arcTo(x + w, y, x + w, y + r, r);
+      c.lineTo(x + w, y + bh - r); c.arcTo(x + w, y + bh, x + w - r, y + bh, r);
+      c.lineTo(x + w*.42, y + bh); c.lineTo(x + w*.2, y + h); c.lineTo(x + w*.24, y + bh);
+      c.lineTo(x + r, y + bh); c.arcTo(x, y + bh, x, y + bh - r, r);
+      c.lineTo(x, y + r); c.arcTo(x, y, x + r, y, r); c.closePath(); break;
+    }
+    default: c.ellipse(cx, cy, w/2, h/2, 0, 0, Math.PI * 2);
+  }
+}
+function drawShape(c, e){
+  c.fillStyle = c.strokeStyle = '#000'; c.lineJoin = 'round';
+  if (e.filled){ shapePath(c, e); c.fill(); return; }
+  const lw = Math.max(1, e.lw || 1);
+  c.lineWidth = lw;
+  shapePath(c, { ...e, x:e.x + lw/2, y:e.y + lw/2, w:e.w - lw, h:e.h - lw });
+  c.stroke();
 }
 
 function errorBox(c, e, msg){
@@ -722,6 +1012,7 @@ function drawEl(c, e){
   else if (d.type === 'barcode') drawBarcode(c, d);
   else if (d.type === 'image') drawImageEl(c, d);
   else if (d.type === 'rect') drawRect(c, d);
+  else if (d.type === 'shape') drawShape(c, d);
   c.restore();
 }
 
@@ -760,6 +1051,7 @@ function render(){
   if (cv.width !== w * S || cv.height !== h * S){ cv.width = w * S; cv.height = h * S; }
   cv.style.imageRendering = S > 1 ? 'auto' : 'pixelated';
   curNr = parseInt($('startNr').value) || 1;
+  curRow = (serialRows() || [])[0] || null;
   paintLabel(ctx, S);
   if (S === 1 && $('preview1bit').checked) threshold1bit(ctx, w, h);
   // Auswahl & Hilfslinien (nur im Editor, nicht im Druck)
@@ -779,6 +1071,16 @@ function render(){
     if (guides.v) { ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); }
     if (guides.h) { ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); }
     ctx.stroke(); ctx.restore();
+  }
+  for (const e of multi){
+    const b = bbox(e);
+    ctx.save(); ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5*s; ctx.setLineDash([5*s, 4*s]);
+    ctx.strokeRect(b.x, b.y, b.w, b.h); ctx.restore();
+  }
+  if (drag && drag.mode === 'marquee'){
+    const r = marqueeRect();
+    ctx.save(); ctx.fillStyle = 'rgba(37,99,235,.12)'; ctx.strokeStyle = '#2563eb'; ctx.lineWidth = s;
+    ctx.fillRect(r.x, r.y, r.w, r.h); ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.restore();
   }
   if (sel){
     const b = bbox(sel);
@@ -856,7 +1158,19 @@ function hitTest(p){
   }
   return null;
 }
+// Auswahl setzen: ein Element → sel, mehrere → multi
+function setSel(list){
+  list = [...new Set(list.filter(Boolean))];
+  if (list.length > 1){ multi = list; sel = null; } else { multi = []; sel = list[0] || null; }
+  buildProps(); render();
+  if (sel && narrow()) showTab('element');
+}
+function marqueeRect(){
+  const a = drag.start, b = drag.cur;
+  return { x:Math.min(a.x, b.x), y:Math.min(a.y, b.y), w:Math.abs(a.x - b.x), h:Math.abs(a.y - b.y) };
+}
 cv.addEventListener('pointerdown', ev => {
+  if (ev.button === 2) return;   // Rechtsklick öffnet das Menü (contextmenu)
   const p = pt(ev);
   if (sel && !sel.locked && !sel.hidden){
     const b = bbox(sel), hr = 16*p.s;
@@ -866,13 +1180,34 @@ cv.addEventListener('pointerdown', ev => {
     }
   }
   const hit = hitTest(p);
-  if (hit !== sel){ sel = hit; buildProps(); }
-  if (hit){ drag = { mode:'move', dx:p.x - hit.x, dy:p.y - hit.y }; cv.setPointerCapture(ev.pointerId); }
+  // Strg/Umschalt + Klick: Element zur Auswahl hinzufügen bzw. entfernen
+  if (ev.ctrlKey || ev.metaKey || ev.shiftKey){
+    if (hit){ const cur = selected(); setSel(cur.includes(hit) ? cur.filter(e => e !== hit) : [...cur, hit]); }
+    return;
+  }
+  if (hit && multi.includes(hit)) drag = { mode:'multi', start:p, origs: multi.map(e => [e, e.x, e.y]) };
+  else if (hit){
+    if (hit !== sel || multi.length) setSel([hit]);
+    drag = { mode:'move', dx:p.x - hit.x, dy:p.y - hit.y };
+  } else {
+    if (sel || multi.length){ sel = null; multi = []; buildProps(); }
+    drag = { mode:'marquee', start:p, cur:p };   // auf freier Fläche ziehen = Auswahlrahmen
+  }
+  cv.setPointerCapture(ev.pointerId);
   render();
 });
 cv.addEventListener('pointermove', ev => {
-  if (!drag || !sel) return;
+  if (!drag) return;
   const p = pt(ev);
+  if (drag.mode === 'marquee'){ drag.cur = p; render(); return; }
+  if (drag.mode === 'multi'){
+    const g = gridPx();
+    let dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+    if (g){ dx = Math.round(dx / g) * g; dy = Math.round(dy / g) * g; }
+    for (const [e, x, y] of drag.origs) if (!e.locked){ e.x = Math.round(x + dx); e.y = Math.round(y + dy); }
+    render(); return;
+  }
+  if (!sel) return;
   if (drag.mode === 'move'){
     let nx = p.x - drag.dx, ny = p.y - drag.dy;
     const b = bbox(sel), snap = 8*p.s, g = gridPx();
@@ -902,7 +1237,21 @@ cv.addEventListener('pointermove', ev => {
   }
   render();
 });
-function endDrag(){ if (drag){ drag = null; guides = null; save(); refreshProps(); render(); } }
+function endDrag(){
+  if (!drag) return;
+  if (drag.mode === 'marquee'){
+    const r = marqueeRect(), d = drag;
+    drag = null;
+    if (r.w < 3 * d.start.s && r.h < 3 * d.start.s){ render(); return; }   // nur angetippt
+    setSel(design.elements.filter(e => {
+      if (e.hidden || e.locked) return false;
+      const b = bbox(e);
+      return b.x < r.x + r.w && b.x + b.w > r.x && b.y < r.y + r.h && b.y + b.h > r.y;
+    }));
+    return;
+  }
+  drag = null; guides = null; save(); refreshProps(); render();
+}
 cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 
@@ -913,30 +1262,124 @@ document.addEventListener('keydown', ev => {
     if (k === 'z' && !ev.shiftKey){ undo(); ev.preventDefault(); return; }
     if (k === 'y' || (k === 'z' && ev.shiftKey)){ redo(); ev.preventDefault(); return; }
   }
-  if (!sel || sel.locked || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.querySelector('dialog[open]')) return;
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'a'){ setSel(design.elements.filter(e => !e.hidden && !e.locked)); ev.preventDefault(); return; }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'd'){ duplicateSel(); ev.preventDefault(); return; }
+  if (ev.key === 'Escape'){ closePop(); setSel([]); return; }
+  const list = selected().filter(e => !e.locked);
+  if (!list.length) return;
   const st = ev.shiftKey ? 8 : 1;
   if (ev.key === 'Delete' || ev.key === 'Backspace'){ removeSel(); ev.preventDefault(); return; }
   const mv = { ArrowLeft:[-st,0], ArrowRight:[st,0], ArrowUp:[0,-st], ArrowDown:[0,st] }[ev.key];
-  if (mv){ sel.x += mv[0]; sel.y += mv[1]; ev.preventDefault(); save(); refreshProps(); render(); }
+  if (mv){ for (const e of list){ e.x += mv[0]; e.y += mv[1]; } ev.preventDefault(); save(); refreshProps(); render(); }
+});
+
+// ---------- Aufklapp-Liste: Formen, Symbole, Schriften, Rechtsklick-Menü ----------
+const pop = document.createElement('div');
+pop.className = 'pop'; pop.hidden = true; pop.setAttribute('role', 'menu');
+document.body.appendChild(pop);
+// items: { label, ico?, fn, danger?, font? } | '-' (Trennlinie) | { head } (Überschrift)
+function openPop(x, y, items, grid){
+  pop.className = 'pop' + (grid ? ' grid' : '');
+  pop.textContent = '';
+  for (const it of items){
+    if (it === '-'){ pop.appendChild(document.createElement('hr')); continue; }
+    if (it.head){ const h = document.createElement('div'); h.className = 'pop-head'; h.textContent = it.head; pop.appendChild(h); continue; }
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'menuitem');
+    if (it.ico){ const i = document.createElement('span'); i.className = 'ti'; i.textContent = it.ico; b.appendChild(i); }
+    b.appendChild(document.createTextNode(it.label));
+    if (it.title) b.title = it.title;
+    if (it.danger) b.classList.add('danger');
+    if (it.font) b.style.fontFamily = `"${it.font}", sans-serif`;
+    b.addEventListener('click', () => { closePop(); it.fn(); });
+    pop.appendChild(b);
+  }
+  pop.hidden = false;
+  const r = pop.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+  pop.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+}
+function closePop(){ pop.hidden = true; }
+const popBelow = (btn, items, grid) => { const r = btn.getBoundingClientRect(); openPop(r.left, r.bottom + 4, items, grid); };
+document.addEventListener('pointerdown', ev => { if (!pop.hidden && !pop.contains(ev.target)) closePop(); }, true);
+window.addEventListener('scroll', closePop, true);
+
+// Rechtsklick (am Handy: lange drücken) auf dem Etikett
+cv.addEventListener('contextmenu', ev => {
+  ev.preventDefault();
+  const hit = hitTest(pt(ev));
+  if (hit && !selected().includes(hit)) setSel([hit]);
+  const list = selected();
+  let items;
+  if (!list.length){
+    items = [{ ico:'T', label:'Text hinzufügen', fn:() => addByType('text') },
+             { ico:'▦', label:'QR-Code hinzufügen', fn:() => addByType('qr') },
+             { ico:'★', label:'Symbol …', fn:() => openSymbols(ev.clientX, ev.clientY) },
+             { ico:'◆', label:'Form …', fn:() => openShapes(ev.clientX, ev.clientY) }, '-',
+             { ico:'⬚', label:'Alles auswählen', fn:() => setSel(design.elements.filter(e => !e.hidden && !e.locked)) }];
+  } else if (list.length > 1){
+    items = [{ head:`${list.length} Elemente` },
+             { ico:'⇤', label:'Links ausrichten', fn:() => alignSel('left') }, { ico:'↔', label:'Horizontal mittig', fn:() => alignSel('hcenter') },
+             { ico:'⇥', label:'Rechts ausrichten', fn:() => alignSel('right') }, { ico:'⤒', label:'Oben ausrichten', fn:() => alignSel('top') },
+             { ico:'↕', label:'Vertikal mittig', fn:() => alignSel('vcenter') }, { ico:'⤓', label:'Unten ausrichten', fn:() => alignSel('bottom') },
+             { ico:'⊡', label:'Auf dem Etikett zentrieren', fn:() => alignSel('center') }, '-',
+             { ico:'⧉', label:'Duplizieren (Strg+D)', fn:duplicateSel }, { ico:'✕', label:'Löschen', fn:removeSel, danger:true }];
+  } else {
+    const e = list[0];
+    items = [{ ico:'⧉', label:'Duplizieren (Strg+D)', fn:duplicateSel },
+             { ico:'↔', label:'Horizontal mittig', fn:() => alignSel('hcenter') }, { ico:'↕', label:'Vertikal mittig', fn:() => alignSel('vcenter') },
+             { ico:'↻', label:'Um 90° drehen', fn:() => rotateEl(e) }];
+    if (e.type === 'text') items.push({ ico:'⤢', label:'Auf Etikett einpassen', fn:() => { fitText(e); changed(); } });
+    items.push('-', { ico:'⬆', label:'Ganz nach vorne', fn:() => toFront(e) }, { ico:'⬇', label:'Ganz nach hinten', fn:() => toBack(e) },
+               { ico:e.locked ? '🔓' : '🔒', label:e.locked ? 'Entsperren' : 'Sperren', fn:() => { e.locked = !e.locked; changed(); } },
+               { ico:'👁', label:'Ausblenden', fn:() => { e.hidden = true; setSel([]); changed(); } }, '-',
+               { ico:'✕', label:'Löschen', fn:removeSel, danger:true });
+  }
+  openPop(ev.clientX, ev.clientY, items);
 });
 
 // ---------- Elemente hinzufügen ----------
 function addEl(e){
-  e.id = uid();
+  e.id = uid(); multi = [];
   // Ausgangswerte der Bildregler merken, damit „Zurücksetzen“ dorthin zurückkehren kann
   if (e.type === 'image' && !e.orig) e.orig = { threshold:e.threshold, thicken:e.thicken || '0', dither:e.dither };
   design.elements.push(e); sel = e;
   buildProps(); save(); render();
+  if (narrow()) showTab('element');
 }
-document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
-  const t = b.dataset.add, w = W(), h = H();
-  if (t === 'text') addEl({ type:'text', x:16, y:16, text:'Text', font:'Arial', size:40, bold:false, italic:false, align:'left', invert:false });
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addByType(b.dataset.add)));
+function addByType(t){
+  const w = W(), h = H();
+  if (t === 'text') addEl({ type:'text', x:16, y:16, text:'Text', font:'Roboto', size:40, bold:false, italic:false, align:'left', invert:false });
   if (t === 'qr'){ const s = Math.round(Math.min(w, h) * 0.7); addEl({ type:'qr', x:16, y:Math.round((h-s)/2), w:s, h:s, value:'https://example.com', ecc:'M' }); }
   if (t === 'barcode') addEl({ type:'barcode', x:16, y:16, w:Math.round(w*0.8), h:Math.round(h*0.5), value:'123456789', format:'CODE128', showText:true });
   if (t === 'rect') addEl({ type:'rect', x:4, y:4, w:w-8, h:h-8, lw:4, filled:false, radius:12 });
   if (t === 'line') addEl({ type:'rect', x:16, y:Math.round(h/2), w:w-32, h:3, lw:3, filled:true, radius:0 });
   if (t === 'image') $('fileImg').click();
-}));
+}
+// Formen: mittig, etwas kleiner als das Etikett
+function addShape(shape){
+  const s = Math.round(Math.min(W(), H()) * 0.7), w = shape === 'arrow' || shape === 'bubble' ? Math.round(s * 1.4) : s;
+  addEl({ type:'shape', shape, x:Math.round((W() - w) / 2), y:Math.round((H() - s) / 2), w, h:s, filled:shape !== 'bubble', lw:3 });
+}
+const openShapes = (x, y) => openPop(x, y, SHAPES.map(([k, n, i]) => ({ ico:i, label:n, fn:() => addShape(k) })));
+$('btnShapes').addEventListener('click', ev => { ev.stopPropagation(); popBelow($('btnShapes'), SHAPES.map(([k, n, i]) => ({ ico:i, label:n, fn:() => addShape(k) }))); });
+// Symbole als Text in der Symbol-Schrift; \uFE0E erzwingt die schwarz-weiße Textdarstellung statt Emoji
+const SYMBOLS = [['⚠','Achtung'],['⚡','Strom'],['☢','Radioaktiv'],['☣','Biogefahr'],['♨','Heiß'],['❄','Kalt / gefroren'],['☀','Sonne'],['☂','Trocken lagern'],
+  ['♻','Recycling'],['✂','Schneiden'],['⚙','Technik'],['⚒','Werkzeug'],['⏻','Ein/Aus'],['⚓','Anker'],['✈','Flugzeug'],['⌂','Haus'],
+  ['☎','Telefon'],['✉','Brief'],['☕','Kaffee'],['♫','Musik'],['⚑','Fahne'],['✿','Blume'],['☘','Kleeblatt'],['⚘','Pflanze'],
+  ['★','Stern'],['♥','Herz'],['☺','Smiley'],['✓','Haken'],['✗','Kreuz'],['➜','Pfeil'],['⬆','Hoch'],['⬇','Runter'],
+  ['↻','Drehen'],['∞','Unendlich'],['€','Euro'],['Ø','Durchmesser'],['°','Grad'],['±','Plus/Minus'],['Ω','Ohm'],['µ','Mikro'],
+  ['♀','Weiblich'],['♂','Männlich'],['⚖','Waage'],['⌛','Sanduhr'],['✆','Telefon'],['⚐','Fahne'],['☐','Kästchen'],['☑','Abgehakt']];
+function addSymbol(ch){
+  const e = { type:'text', text:ch + '\uFE0E', font:SYMBOL_FONT, size:Math.round(H() * 0.6), bold:false, italic:false, align:'center', invert:false, x:0, y:0 };
+  fitText(e, { x:0, y:0, w:W(), h:H() }, Math.round(H() * 0.15));
+  addEl(e);
+}
+const symbolItems = () => SYMBOLS.map(([ch, n]) => ({ label:ch, title:n, fn:() => addSymbol(ch) }));
+const openSymbols = (x, y) => openPop(x, y, symbolItems(), true);
+$('btnSymbols').addEventListener('click', ev => { ev.stopPropagation(); popBelow($('btnSymbols'), symbolItems(), true); });
 $('fileImg').addEventListener('change', ev => {
   const f = ev.target.files[0]; ev.target.value = '';
   if (!f) return;
@@ -1036,23 +1479,31 @@ function resetImageEl(e){
 
 // ---------- Eigenschaften ----------
 const FIELDS = {
-  text: [['text','Text','textarea'],['font','Schrift','select',FONTS.map(f=>[f,f])],['size','Schriftgröße (px)','number'],
+  text: [['text','Text','textarea'],['font','Schrift','font'],['size','Schriftgröße (px)','number'],
          ['align','Ausrichtung','select',[['left','Links'],['center','Mitte'],['right','Rechts']]],
-         ['bold','Fett','check'],['italic','Kursiv','check'],['invert','Weiß auf Schwarz','check']],
+         ['bold','Fett','check'],['italic','Kursiv','check'],['underline','Unterstrichen','check'],['strike','Durchgestrichen','check'],
+         ['invert','Weiß auf Schwarz','check'],
+         ['lineH','Zeilenabstand (1 = eng, 1,15 = normal)','number',0.05],['spacing','Zeichenabstand (px)','number',0.5],
+         ['arc','Bogen in Grad (0 = gerade, + nach oben, − nach unten)','range',[-360,360]]],
   qr: [['value','Inhalt (Text, Link …)','textarea'],['w','Größe (px)','number'],['ecc','Fehlerkorrektur','select',[['L','L – niedrig'],['M','M – mittel'],['Q','Q – hoch'],['H','H – sehr hoch']]]],
   barcode: [['value','Inhalt','text'],['format','Typ','select',[['CODE128','Code 128'],['EAN13','EAN-13'],['EAN8','EAN-8'],['UPC','UPC-A'],['CODE39','Code 39'],['ITF14','ITF-14']]],
             ['w','Breite (px)','number'],['h','Höhe (px)','number'],['showText','Text darunter','check']],
   image: [['w','Breite (px)','number'],['h','Höhe (px)','number'],['threshold','Schwärzung, rechts = dunkler','range',[0,255]],
           ['thicken','Linien verstärken','select',[['0','Normal'],['1','Etwas kräftiger'],['2','Kräftig']]],
           ['dither','Dithering (für Fotos)','check']],
-  rect: [['w','Breite (px)','number'],['h','Höhe (px)','number'],['filled','Gefüllt','check'],['lw','Linienstärke (px)','number'],['radius','Eckenradius (px)','number']]
+  rect: [['w','Breite (px)','number'],['h','Höhe (px)','number'],
+         ['style','Linienart','select',[['solid','Durchgezogen'],['dashed','Gestrichelt'],['dotted','Gepunktet'],['double','Doppelt'],['corners','Nur Ecken']]],
+         ['filled','Gefüllt','check'],['lw','Linienstärke (px)','number'],['radius','Eckenradius (px)','number']],
+  shape: [['shape','Form','select',SHAPES.map(([k, n]) => [k, n])],['w','Breite (px)','number'],['h','Höhe (px)','number'],
+          ['filled','Gefüllt','check'],['lw','Linienstärke (px)','number']]
 };
-const TYPE_NAMES = { text:'Text', qr:'QR-Code', barcode:'Barcode', image:'Bild', rect:'Rahmen / Linie' };
+const TYPE_NAMES = { text:'Text', qr:'QR-Code', barcode:'Barcode', image:'Bild', rect:'Rahmen / Linie', shape:'Form' };
 
 function buildProps(){
   const box = $('props');
   box.innerHTML = '';
-  if (!sel){ box.innerHTML = '<p class="empty">Tippe ein Element auf dem Etikett an, um es zu bearbeiten.</p>'; return; }
+  if (multi.length){ buildMultiProps(box); return; }
+  if (!sel){ box.innerHTML = '<p class="empty">Tippe ein Element auf dem Etikett an, um es zu bearbeiten. Mehrere wählst du mit Strg+Klick oder indem du auf freier Fläche einen Rahmen aufziehst.</p>'; return; }
   const title = document.createElement('div');
   title.style.cssText = 'font-weight:600;margin-bottom:8px';
   title.textContent = TYPE_NAMES[sel.type];
@@ -1060,8 +1511,14 @@ function buildProps(){
   const defs = [...FIELDS[sel.type]];
   const pos = document.createElement('div'); pos.className = 'grid2';
   for (const [k, l] of [['x','X (px)'],['y','Y (px)']]) pos.appendChild(makeField(k, l, 'number'));
+  let checks = null;   // Häkchen nebeneinander statt untereinander
   for (const d of defs){
     const f = makeField(...d);
+    if (d[2] === 'check'){
+      if (!checks){ checks = document.createElement('div'); checks.className = 'checks'; box.appendChild(checks); }
+      checks.appendChild(f); continue;
+    }
+    checks = null;
     box.appendChild(f);
     if (d[0] === 'text' && sel.type === 'text'){
       const h = document.createElement('p'); h.className = 'hint';
@@ -1075,17 +1532,80 @@ function buildProps(){
   mk('↔ Mitte', () => { const b = bbox(sel); sel.x = Math.round((W()-b.w)/2); changed(); });
   mk('↕ Mitte', () => { const b = bbox(sel); sel.y = Math.round((H()-b.h)/2); changed(); });
   mk('↻ 90°', () => rotateEl(sel));
+  if (sel.type === 'text') mk('⤢ Einpassen', () => { fitText(sel); changed(); });
   if (sel.type === 'image') mk('Zurücksetzen', () => resetImageEl(sel));
-  mk('Duplizieren', () => { const c = JSON.parse(JSON.stringify(sel)); c.x += 12; c.y += 12; addEl(c); });
-  mk('Nach vorne', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.push(sel); changed(); });
-  mk('Nach hinten', () => { const a = design.elements, i = a.indexOf(sel); a.splice(i,1); a.unshift(sel); changed(); });
+  mk('Duplizieren', duplicateSel);
+  mk('Nach vorne', () => toFront(sel));
+  mk('Nach hinten', () => toBack(sel));
   mk('Löschen', removeSel, 'danger');
   box.appendChild(acts);
 }
+// Mehrere Elemente: ausrichten, verteilen, duplizieren, löschen
+function buildMultiProps(box){
+  const title = document.createElement('div');
+  title.style.cssText = 'font-weight:600;margin-bottom:8px';
+  title.textContent = `${multi.length} Elemente ausgewählt`;
+  box.appendChild(title);
+  const grid = document.createElement('div'); grid.className = 'btn-grid';
+  for (const [txt, mode, tip] of [['⇤ Links','left'],['↔ Mitte','hcenter'],['⇥ Rechts','right'],['⤒ Oben','top'],['↕ Mitte','vcenter'],['⤓ Unten','bottom'],
+      ['⇹ Verteilen','distH','Gleiche Abstände nebeneinander'],['⇳ Verteilen','distV','Gleiche Abstände untereinander'],['⊡ Zentrieren','center','Gruppe mittig aufs Etikett']]){
+    const b = document.createElement('button'); b.textContent = txt; if (tip) b.title = tip;
+    b.onclick = () => alignSel(mode); grid.appendChild(b);
+  }
+  box.appendChild(grid);
+  const acts = document.createElement('div'); acts.className = 'row';
+  const mk = (txt, fn, cls) => { const b = document.createElement('button'); b.textContent = txt; if (cls) b.className = cls; b.onclick = fn; acts.appendChild(b); };
+  mk('Duplizieren', duplicateSel);
+  mk('Auswahl aufheben', () => setSel([]));
+  mk('Löschen', removeSel, 'danger');
+  box.appendChild(acts);
+  const h = document.createElement('p'); h.className = 'hint';
+  h.textContent = 'Ziehen verschiebt alle zusammen, Pfeiltasten auch. Strg/Umschalt + Klick nimmt Elemente dazu oder heraus.';
+  box.appendChild(h);
+}
+function alignSel(mode){
+  const list = selected().filter(e => !e.locked);
+  if (!list.length) return;
+  const bs = list.map(e => [e, bbox(e)]);
+  // Bezug: bei einem Element das Etikett, sonst der gemeinsame Umriss
+  const u = list.length === 1 ? { x:0, y:0, w:W(), h:H() } : (() => {
+    const x0 = Math.min(...bs.map(([, b]) => b.x)), y0 = Math.min(...bs.map(([, b]) => b.y));
+    const x1 = Math.max(...bs.map(([, b]) => b.x + b.w)), y1 = Math.max(...bs.map(([, b]) => b.y + b.h));
+    return { x:x0, y:y0, w:x1 - x0, h:y1 - y0 };
+  })();
+  if (mode === 'center'){
+    const dx = Math.round((W() - u.w) / 2 - u.x), dy = Math.round((H() - u.h) / 2 - u.y);
+    for (const e of list){ e.x += dx; e.y += dy; }
+  } else if (mode === 'distH' || mode === 'distV'){
+    const hz = mode === 'distH', sorted = bs.sort((a, b) => hz ? a[1].x - b[1].x : a[1].y - b[1].y);
+    const used = sorted.reduce((s, [, b]) => s + (hz ? b.w : b.h), 0);
+    const gap = ((hz ? u.w : u.h) - used) / Math.max(1, sorted.length - 1);
+    let p = hz ? u.x : u.y;
+    for (const [e, b] of sorted){ if (hz) e.x = Math.round(p); else e.y = Math.round(p); p += (hz ? b.w : b.h) + gap; }
+  } else for (const [e, b] of bs){
+    if (mode === 'left') e.x = u.x;
+    if (mode === 'hcenter') e.x = Math.round(u.x + (u.w - b.w) / 2);
+    if (mode === 'right') e.x = u.x + u.w - b.w;
+    if (mode === 'top') e.y = u.y;
+    if (mode === 'vcenter') e.y = Math.round(u.y + (u.h - b.h) / 2);
+    if (mode === 'bottom') e.y = u.y + u.h - b.h;
+  }
+  changed();
+}
+function duplicateSel(){
+  const list = selected();
+  if (!list.length) return;
+  const copies = list.map(e => { const c = JSON.parse(JSON.stringify(e)); c.id = uid(); c.x += 12; c.y += 12; delete c.locked; return c; });
+  design.elements.push(...copies);
+  save(); setSel(copies);
+}
+function toFront(e){ const a = design.elements; a.splice(a.indexOf(e), 1); a.push(e); changed(); }
+function toBack(e){ const a = design.elements; a.splice(a.indexOf(e), 1); a.unshift(e); changed(); }
 function changed(){ save(); refreshProps(); render(); }
 function removeSel(){
-  design.elements = design.elements.filter(e => e !== sel);
-  sel = null; buildProps(); save(); render();
+  const gone = selected();
+  design.elements = design.elements.filter(e => !gone.includes(e));
+  sel = null; multi = []; buildProps(); save(); render();
 }
 
 function makeField(key, label, type, opts){
@@ -1093,17 +1613,21 @@ function makeField(key, label, type, opts){
   wrap.className = type === 'check' ? 'check' : 'field';
   let inp;
   if (type === 'textarea') inp = document.createElement('textarea');
-  else if (type === 'select'){
+  else if (type === 'font' || type === 'select'){
     inp = document.createElement('select');
+    if (type === 'font') opts = allFonts().map(f => [f, f]);
     for (const [v, t] of opts){ const o = document.createElement('option'); o.value = v; o.textContent = t; inp.appendChild(o); }
+    // Schrift aus älteren Etiketten, die nicht (mehr) in der Liste steht, trotzdem anbieten
+    if (type === 'font' && sel[key] && !allFonts().includes(sel[key])){ const o = document.createElement('option'); o.value = o.textContent = sel[key]; inp.appendChild(o); }
   } else {
     inp = document.createElement('input');
     inp.type = type === 'check' ? 'checkbox' : type;
     if (type === 'range'){ inp.min = opts[0]; inp.max = opts[1]; }
+    if (type === 'number' && opts) inp.step = opts;
   }
   inp.dataset.key = key;
   setInputValue(inp, sel[key]);
-  const ev = (type === 'select' || type === 'check') ? 'change' : 'input';
+  const ev = (type === 'select' || type === 'font' || type === 'check') ? 'change' : 'input';
   inp.addEventListener(ev, () => {
     let v;
     if (type === 'check') v = inp.checked;
@@ -1117,6 +1641,25 @@ function makeField(key, label, type, opts){
   });
   if (type === 'check'){ wrap.appendChild(inp); wrap.appendChild(document.createTextNode(label)); }
   else { const l = document.createElement('label'); l.textContent = label; wrap.appendChild(l); wrap.appendChild(inp); }
+  // Schriftauswahl: Knopf zeigt die Schrift in ihrem eigenen Aussehen, die Liste ebenso
+  if (type === 'font'){
+    inp.hidden = true;
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'font-pick';
+    inp._out = v => { btn.textContent = v; btn.style.fontFamily = `"${v}", sans-serif`; };
+    inp._out(inp.value);
+    const pick = f => () => { inp.value = f; inp.dispatchEvent(new Event('change')); inp._out(f); };
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const group = (head, list) => list.length ? [{ head }, ...list.map(f => ({ label:f, font:f, fn:pick(f) }))] : [];
+      popBelow(btn, [...group('Eigene Schriften', USER_FONTS),
+                     ...(webFontsOn() ? group('Überall gleich (Google Fonts)', WEB_FONTS) : []),
+                     ...group('Systemschriften (je nach Gerät)', SYS_FONTS),
+                     ...group('Installiert auf diesem PC', LOCAL_FONTS), '-',
+                     { ico:'⚙', label:'Schriften verwalten …', fn:openFonts }]);
+    });
+    wrap.appendChild(btn);
+  }
   // Schieberegler bekommen daneben ein Zahlenfeld zum direkten Eintippen; beide bleiben synchron
   if (type === 'range'){
     if (sel.orig && sel.orig[key] !== undefined) wrap.firstChild.textContent += ` (Start ${sel.orig[key]})`;
@@ -1699,18 +2242,64 @@ function buildSteps(c){
   ];
 }
 
+// Seriendruck: Liste in Zeilen und Spalten zerlegen (Trenner Tab, sonst Semikolon)
+function serialRows(){
+  if (!$('serialOn').checked) return null;
+  const lines = $('serialList').value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const sep = lines.some(l => l.includes('\t')) ? '\t' : ';';
+  return lines.map(line => ({ line, cols: line.split(sep).map(c => c.trim()) }));
+}
+// Alle zu druckenden Etiketten: je Zeile (oder einmal) so oft wie „Kopien“; {nr} zählt durchgehend hoch
+function printJobs(){
+  const copies = Math.max(1, parseInt($('copies').value) || 1), start = parseInt($('startNr').value) || 1;
+  const rows = serialRows() || [null], jobs = [];
+  for (const row of rows) for (let k = 0; k < copies; k++) jobs.push({ nr: start + jobs.length, row });
+  return jobs;
+}
+function updateSerialInfo(){
+  const rows = serialRows();
+  $('serialInfo').textContent = rows ? `${rows.length} Zeile${rows.length === 1 ? '' : 'n'} → ${rows.length * Math.max(1, parseInt($('copies').value) || 1)} Etiketten` : '';
+  render();
+}
+const LS_SERIAL = 'labelstudio.serial';
+{ const sv = lsGet(LS_SERIAL, {}); $('serialOn').checked = !!sv.on; $('serialList').value = sv.list || ''; if (sv.on) $('serialSection').open = true; }
+const saveSerial = () => { lsSet(LS_SERIAL, { on:$('serialOn').checked, list:$('serialList').value }); updateSerialInfo(); };
+$('serialOn').addEventListener('change', saveSerial);
+$('serialList').addEventListener('input', saveSerial);
+$('copies').addEventListener('input', updateSerialInfo);
+$('serialCsv').addEventListener('click', () => $('fileCsv').click());
+$('fileCsv').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  let t = await f.text();
+  // Komma-CSV (ohne Semikolon/Tab) in Semikolon umwandeln, einfache Anführungszeichen entfernen
+  if (!/[;\t]/.test(t)) t = t.split(/\r?\n/).map(l => l.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1')).join(';')).join('\n');
+  $('serialList').value = t.trim(); $('serialOn').checked = true; saveSerial();
+  toast(`Liste geladen: ${serialRows().length} Zeilen`);
+});
+
+// Druck-Verlauf: die letzten 10 gedruckten Etiketten (ohne sehr große Bilder, damit der Speicher reicht)
+const LS_HIST = 'labelstudio.history';
+function recordPrint(){
+  const json = JSON.stringify(design);
+  if (json.length > 400000) return;
+  const list = lsGet(LS_HIST, []).filter(h => JSON.stringify(h.d) !== json);
+  list.unshift({ t: Date.now(), d: JSON.parse(json) });
+  lsSet(LS_HIST, list.slice(0, 10));
+}
+
 $('btnPrint').addEventListener('click', async () => {
   if (!bt.char){ await connect(); if (!bt.char) return; }
   // vor dem Druck warnen, wenn der Drucker Papier leer oder Deckel offen meldet
   const warn = [printerInfo.paper === 'out' && 'kein Papier', printerInfo.cover === 'open' && 'Deckel offen'].filter(Boolean);
   if (warn.length && !confirm(`Der Drucker meldet: ${warn.join(', ')}.\nTrotzdem drucken?`)) return;
-  const copies = Math.max(1, parseInt($('copies').value) || 1);
-  const start = parseInt($('startNr').value) || 1;
+  const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
+  if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
   const btn = $('btnPrint'), prog = $('prog');
   btn.disabled = true; prog.hidden = false; bt.busy = true;
   try {
     for (let n = 0; n < copies; n++){
-      curNr = start + n;
+      curNr = jobs[n].nr; curRow = jobs[n].row;
       log(`Drucke ${n+1} von ${copies} …`);
       if (isMarklife()){
         await printMarklife(printCanvas(), f => prog.value = (n + f) / copies);
@@ -1730,6 +2319,7 @@ $('btnPrint').addEventListener('click', async () => {
       }
     }
     log(copies > 1 ? `${copies} Etiketten gesendet.` : 'Etikett gesendet.');
+    recordPrint();
     if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
   } catch(err){
     log('Druckfehler: ' + err.message);
@@ -1741,7 +2331,7 @@ $('btnPrint').addEventListener('click', async () => {
 });
 
 $('btnPng').addEventListener('click', () => {
-  curNr = parseInt($('startNr').value) || 1;
+  curNr = parseInt($('startNr').value) || 1; curRow = (serialRows() || [])[0] || null;
   const a = document.createElement('a');
   a.download = 'etikett.png';
   a.href = printCanvas().toDataURL('image/png');
@@ -1753,8 +2343,8 @@ const SYS_ZERO_X_MM = 2;
 
 // Druck über den Systemdrucker (z. B. Phomemo-Treiber per USB): eine Seite pro Kopie in Etikettengröße
 $('btnSysPrint').addEventListener('click', async () => {
-  const copies = Math.max(1, parseInt($('copies').value) || 1);
-  const start = parseInt($('startNr').value) || 1;
+  const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
+  if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
   const rot = $('rotate').checked;
   const lw = rot ? design.h : design.w, lh = rot ? design.w : design.h;
   // Der Treiber kennt nur feste Formate: Etikett horizontal mittig auf die Seite setzen
@@ -1765,7 +2355,7 @@ $('btnSysPrint').addEventListener('click', async () => {
   const area = $('printArea');
   area.innerHTML = '';
   for (let n = 0; n < copies; n++){
-    curNr = start + n;
+    curNr = jobs[n].nr; curRow = jobs[n].row;
     const pg = document.createElement('div');
     pg.className = 'pg';
     pg.style.width = pw + 'mm'; pg.style.height = ph + 'mm';
@@ -1779,6 +2369,7 @@ $('btnSysPrint').addEventListener('click', async () => {
   // Bilder müssen fertig dekodiert sein, sonst bleibt die Druckvorschau leer
   await Promise.all([...area.querySelectorAll('img')].map(i => i.decode().catch(() => {})));
   window.print();
+  recordPrint();
   if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
   savePrintSettings(); render();
 });
@@ -1821,7 +2412,7 @@ function refreshTplList(selName){
 function loadDesign(d){
   design = JSON.parse(JSON.stringify(d));
   design.elements.forEach(e => e.id = e.id || uid());
-  sel = null; buildProps(); syncLabelControls(); save(); render();
+  sel = null; multi = []; scaleRef = null; buildProps(); syncLabelControls(); save(); render();
 }
 $('tplSave').addEventListener('click', () => {
   const name = prompt('Name der Vorlage:', $('tplList').value || '');
@@ -1880,13 +2471,14 @@ $('fileTpl').addEventListener('change', async ev => {
 });
 
 // ---------- Ebenen: Liste aller Elemente, oben = vorne (letztes im Array) ----------
-const LAYER_ICONS = { text:'T', qr:'▦', barcode:'‖', image:'▨', rect:'▭' };
+const LAYER_ICONS = { text:'T', qr:'▦', barcode:'‖', image:'▨', rect:'▭', shape:'◆' };
 function layerName(e){
   if (e.name) return e.name;
   if (e.type === 'text') return (e.text || '').split('\n')[0].trim() || 'Text';
   if (e.type === 'qr') return 'QR: ' + (e.value || '');
   if (e.type === 'barcode') return 'Barcode: ' + (e.value || '');
   if (e.type === 'image') return 'Bild';
+  if (e.type === 'shape') return (SHAPES.find(x => x[0] === e.shape) || SHAPES[0])[1];
   return e.filled && Math.min(e.w, e.h) <= 8 ? 'Linie' : 'Rahmen';
 }
 let layerDrag = null, layerSig = '';
@@ -1894,14 +2486,14 @@ function renderLayers(){
   if (layerDrag) return;   // während des Umsortierens nicht neu aufbauen
   const els = [...design.elements].reverse();
   // nur neu aufbauen, wenn sich etwas Sichtbares geändert hat (sonst gehen Doppelklicks verloren)
-  const sig = JSON.stringify(els.map(e => [e.id, layerName(e), !!e.hidden, !!e.locked, e === sel]));
+  const sig = JSON.stringify(els.map(e => [e.id, layerName(e), !!e.hidden, !!e.locked, e === sel || multi.includes(e)]));
   if (sig === layerSig) return;
   layerSig = sig;
   const ul = $('layers');
   ul.textContent = '';
   for (const e of els){
     const li = document.createElement('li');
-    li.className = 'layer' + (e === sel ? ' sel' : '') + (e.hidden ? ' off' : '');
+    li.className = 'layer' + (e === sel || multi.includes(e) ? ' sel' : '') + (e.hidden ? ' off' : '');
     li.dataset.id = e.id;
     // Namen stammen aus dem Inhalt (evtl. aus geteilten Links) – darum nur als Text einsetzen
     const part = (tag, cls, txt, title, act) => {
@@ -1932,7 +2524,8 @@ $('layers').addEventListener('click', ev => {
   const act = ev.target.dataset.act;
   if (act === 'vis'){ e.hidden = !e.hidden; changed(); return; }
   if (act === 'lock'){ e.locked = !e.locked; changed(); return; }
-  sel = e; buildProps(); render();
+  if (ev.ctrlKey || ev.metaKey || ev.shiftKey){ const cur = selected(); setSel(cur.includes(e) ? cur.filter(x => x !== e) : [...cur, e]); return; }
+  setSel([e]);
 });
 $('layers').addEventListener('dblclick', ev => {
   const li = ev.target.closest('.layer'), e = li && layerOf(li);
@@ -1970,6 +2563,289 @@ function endLayerDrag(){
 }
 document.addEventListener('pointerup', endLayerDrag);
 document.addEventListener('pointercancel', endLayerDrag);
+
+// ---------- Vorlagen-Galerie: fertige Etiketten, passend zur aktuellen Etikettengröße erzeugt ----------
+const T = (text, font, o = {}) => ({ id:uid(), type:'text', text, font, size:40, bold:false, italic:false, align:'center', invert:false, x:0, y:0, ...o });
+const R = (x, y, w, h, o = {}) => ({ id:uid(), type:'rect', x:Math.round(x), y:Math.round(y), w:Math.round(w), h:Math.round(h), lw:3, filled:false, radius:0, ...o });
+const box = (x, y, w, h) => ({ x, y, w, h });
+// Jede Vorlage bekommt Breite/Höhe in Druckpunkten und liefert die Elemente
+const GALLERY = [
+  { name:'Filamentspule', make:(w, h, m) => {
+    const lw = w * 0.42;
+    return [R(2, 2, w - 4, h - 4, { radius:Math.round(h * 0.08) }), R(lw, m, 2, h - 2*m, { filled:true }),
+      fitText(T('PLA', 'Bebas Neue'), box(m, m, lw - m, h - 2*m), 2),
+      fitText(T('Schwarz', 'Roboto', { bold:true }), box(lw + m, m, w - lw - 2*m, (h - 2*m) * 0.45), 2),
+      fitText(T('Bambu Lab · 1,75 mm', 'Roboto Condensed'), box(lw + m, m + (h - 2*m) * 0.45, w - lw - 2*m, (h - 2*m) * 0.3), 2),
+      fitText(T('{datum}', 'Roboto Mono'), box(lw + m, m + (h - 2*m) * 0.75, w - lw - 2*m, (h - 2*m) * 0.25), 2)];
+  } },
+  { name:'Kabel-Fahne', hint:'fragt Text und Kabeldurchmesser ab', make:null },
+  { name:'Gewürzglas', make:(w, h, m) => [R(2, 2, w - 4, h - 4, { style:'double', lw:2, radius:Math.round(h * 0.15) }),
+      fitText(T('Paprika', 'Dancing Script', { bold:true }), box(m*2, m, w - 4*m, (h - 2*m) * 0.68), 2),
+      fitText(T('edelsüß', 'Raleway', { spacing:2 }), box(m*2, m + (h - 2*m) * 0.66, w - 4*m, (h - 2*m) * 0.3), 2)] },
+  { name:'Preisschild', make:(w, h, m) => [fitText(T('ANGEBOT', 'Oswald', { bold:true, invert:true }), box(0, 0, w, h * 0.32), 2),
+      fitText(T('9,99 €', 'Anton'), box(m, h * 0.34, w - 2*m, h * 0.64), 2)] },
+  { name:'Inventar mit QR', make:(w, h, m) => {
+    const q = Math.min(h - 2*m, w * 0.45);
+    return [{ id:uid(), type:'qr', x:m, y:Math.round((h - q) / 2), w:Math.round(q), h:Math.round(q), value:'Kiste 12 – Werkstatt', ecc:'M' },
+      fitText(T('Kiste 12', 'Montserrat', { bold:true }), box(q + 2*m, m, w - q - 3*m, (h - 2*m) * 0.6), 2),
+      fitText(T('Werkstatt · {datum}', 'Roboto'), box(q + 2*m, m + (h - 2*m) * 0.6, w - q - 3*m, (h - 2*m) * 0.4), 2)];
+  } },
+  // Symbol links höchstens gut ein Drittel der Breite, Rest für den Text
+  { name:'Achtung heiß', make:(w, h, m) => { const q = Math.min(h - 2*m, w * 0.36); return [R(2, 2, w - 4, h - 4, { lw:4 }),
+      fitText(T('⚠︎', SYMBOL_FONT), box(m, m, q, h - 2*m), 2),
+      fitText(T('VORSICHT\nHEISS', 'Archivo Black', { lineH:1 }), box(m + q, m, w - q - 2*m, h - 2*m), 2)]; } },
+  { name:'Eingefroren', make:(w, h, m) => { const q = Math.min(h - 2*m, w * 0.36); return [fitText(T('❄︎', SYMBOL_FONT), box(m, m, q, h - 2*m), 2),
+      fitText(T('Eingefroren', 'Poppins', { bold:true }), box(m + q, m, w - q - 2*m, (h - 2*m) * 0.55), 2),
+      fitText(T('am {datum}', 'Poppins'), box(m + q, m + (h - 2*m) * 0.55, w - q - 2*m, (h - 2*m) * 0.45), 2)]; } },
+  { name:'Seriennummer', make:(w, h, m) => [
+      { id:uid(), type:'barcode', x:m, y:m, w:w - 2*m, h:Math.round((h - 2*m) * 0.72), value:'LS-{nr}', format:'CODE128', showText:false },
+      fitText(T('Nr. {nr}', 'Roboto Mono', { bold:true }), box(m, m + (h - 2*m) * 0.72, w - 2*m, (h - 2*m) * 0.28), 1)] },
+  { name:'Adresse', make:(w, h, m) => [fitText(T('Max Mustermann\nMusterstraße 1\n12345 Musterstadt', 'Roboto', { align:'left', lineH:1.05 }), box(m, m, w - 2*m, h - 2*m), 2)] },
+  { name:'Namensschild', make:(w, h, m) => [fitText(T('HALLO, ICH BIN', 'Oswald', { invert:true, spacing:2 }), box(0, 0, w, h * 0.3), 2),
+      fitText(T('Alex', 'Pacifico'), box(m, h * 0.3, w - 2*m, h * 0.7 - m), 2)] },
+  { name:'Ordner / Kiste', make:(w, h, m) => [R(2, 2, w - 4, h - 4, { style:'corners', lw:4 }),
+      fitText(T('Steuern', 'Bebas Neue'), box(m*2, m, w - 4*m, (h - 2*m) * 0.68), 2),
+      fitText(T('2026', 'Roboto', { bold:true, spacing:3 }), box(m*2, m + (h - 2*m) * 0.66, w - 4*m, (h - 2*m) * 0.32), 2)] },
+  { name:'Text im Bogen', make:(w, h, m) => [fitText(T('LABEL STUDIO', 'Montserrat', { bold:true, arc:120 }), box(m, m, w - 2*m, h * 0.62), 2),
+      fitText(T('★\uFE0E', SYMBOL_FONT), box(m, h * 0.55, w - 2*m, h * 0.4), 2)] }
+];
+const GALLERY_FONTS = ['Bebas Neue','Roboto','Roboto Condensed','Roboto Mono','Dancing Script','Raleway','Oswald','Anton','Montserrat','Archivo Black','Poppins','Pacifico'];
+// Für Vorschaubilder und Vorlagen kurz auf ein anderes Etikett umschalten
+function withDesign(d, fn){ const saved = design; design = d; try { return fn(); } finally { design = saved; } }
+function makeGalleryDesign(item){
+  return withDesign({ w:design.w, h:design.h, elements:[] }, () => {
+    const w = W(), h = H(), m = Math.max(4, Math.round(Math.min(w, h) * 0.06));
+    return { w:design.w, h:design.h, elements:item.make(w, h, m) };
+  });
+}
+function thumb(d, maxW = 190, maxH = 110){
+  return withDesign(d, () => {
+    const k = Math.min(maxW / W(), maxH / H()), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(W() * k)); c.height = Math.max(1, Math.round(H() * k));
+    const cc = c.getContext('2d'); cc.imageSmoothingEnabled = true;
+    paintLabel(cc, k);
+    return c;
+  });
+}
+// Kabel-Fahne: Text zweimal, dazwischen der Teil, der ums Kabel gewickelt wird. Die zweite Seite steht auf dem Kopf,
+// damit beide Seiten nach dem Zusammenkleben gleich herum lesbar sind.
+function makeCableFlag(){
+  const text = prompt('Text auf der Kabel-Fahne:', 'HDMI – TV');
+  if (text === null) return null;
+  const d = parseFloat(String(prompt('Kabeldurchmesser in mm:', '6')).replace(',', '.'));
+  if (!(d > 0)) return null;
+  return withDesign({ w:design.w, h:design.h, elements:[] }, () => {
+    const w = W(), h = H(), wrap = Math.round(Math.PI * d * PX_PER_MM), flag = Math.floor((w - wrap) / 2);
+    if (flag < 6 * PX_PER_MM){ alert(`Das Etikett ist für ${d} mm Kabel zu kurz: Es bleiben weniger als 6 mm pro Fahnenseite.`); return null; }
+    const m = Math.round(PX_PER_MM), els = [];
+    els.push(fitText(T(text, 'Roboto Condensed', { bold:true }), box(0, 0, flag, h), m));
+    els.push(fitText(T(text, 'Roboto Condensed', { bold:true, rot:180 }), box(flag + wrap, 0, w - flag - wrap, h), m));
+    // kurze Knickmarken oben und unten an beiden Faltkanten
+    for (const x of [flag, flag + wrap]) for (const y of [0, h - m * 1.5]) els.push(R(x - 1, y, 2, m * 1.5, { filled:true }));
+    return { w:design.w, h:design.h, elements:els };
+  });
+}
+async function openGallery(tab){
+  $('galleryTabs').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.gal === tab));
+  const body = $('galleryBody');
+  body.textContent = '';
+  if (!$('gallery').open) $('gallery').showModal();
+  const card = (canvas, title, sub, fn) => {
+    const b = document.createElement('button');
+    b.appendChild(canvas);
+    const t = document.createElement('b'); t.textContent = title; b.appendChild(t);
+    if (sub){ const s = document.createElement('small'); s.textContent = sub; b.appendChild(s); }
+    b.addEventListener('click', fn);
+    body.appendChild(b);
+  };
+  const load = d => { if (!d) return; $('gallery').close(); loadDesign(d); toast('Vorlage geladen – Strg+Z holt das vorige Etikett zurück'); };
+  if (tab === 'hist'){
+    const list = lsGet(LS_HIST, []);
+    $('galleryHint').textContent = list.length ? 'Antippen lädt das Etikett wieder in den Editor.' : 'Noch nichts gedruckt – hier erscheinen deine letzten 10 Etiketten.';
+    for (const h of list){
+      const dt = new Date(h.t);
+      card(thumb(h.d), `${h.d.w} × ${h.d.h} mm`, dt.toLocaleDateString('de-DE') + ', ' + dt.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }), () => load(h.d));
+    }
+    return;
+  }
+  $('galleryHint').textContent = `Alle Vorlagen passen sich an dein Etikett an (${design.w} × ${design.h} mm). Antippen lädt sie in den Editor.`;
+  // Schriften vorher laden, sonst stimmen die Größen der Texte nicht
+  if (document.fonts) await Promise.all(GALLERY_FONTS.map(f => document.fonts.load(`bold 40px "${f}"`).catch(() => {})))
+    .then(() => document.fonts.load(`40px "${SYMBOL_FONT}"`, '⚠❄★').catch(() => {}));
+  if (!$('gallery').open) return;
+  for (const item of GALLERY){
+    if (!item.make){
+      const demo = withDesign({ w:design.w, h:design.h, elements:[] }, () => {
+        const w = W(), h = H(), f = Math.floor(w * 0.33);
+        return { w:design.w, h:design.h, elements:[fitText(T('HDMI', 'Roboto Condensed', { bold:true }), box(0, 0, f, h), 4),
+          fitText(T('HDMI', 'Roboto Condensed', { bold:true, rot:180 }), box(w - f, 0, f, h), 4), R(f, 0, 2, 10, { filled:true }), R(w - f, 0, 2, 10, { filled:true })] };
+      });
+      card(thumb(demo), item.name, item.hint, () => load(makeCableFlag()));
+      continue;
+    }
+    const d = makeGalleryDesign(item);
+    card(thumb(d), item.name, '', () => load(makeGalleryDesign(item)));
+  }
+}
+$('tplGallery').addEventListener('click', () => openGallery('tpl'));
+$('tplHistory').addEventListener('click', () => openGallery('hist'));
+$('galleryTabs').addEventListener('click', ev => { const b = ev.target.closest('[data-gal]'); if (b) openGallery(b.dataset.gal); });
+$('galleryClose').addEventListener('click', () => $('gallery').close());
+$('gallery').addEventListener('click', ev => { if (ev.target === $('gallery')) $('gallery').close(); });
+
+// ---------- Schriften verwalten: Google Fonts an/aus, eigene Schriftdateien, installierte Schriften ----------
+// Schriftdateien liegen in IndexedDB (für localStorage zu groß) und werden beim Start als FontFace angemeldet
+function fontDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('labelstudio', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath:'name' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function fontStore(mode, fn){
+  const db = await fontDB();
+  return new Promise((res, rej) => {
+    const q = fn(db.transaction('fonts', mode).objectStore('fonts'));
+    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+  });
+}
+const userFaces = new Map();
+async function registerFont(name, data){
+  const face = new FontFace(name, data);
+  await face.load();
+  if (userFaces.has(name)) document.fonts.delete(userFaces.get(name));
+  document.fonts.add(face); userFaces.set(name, face);
+  if (!USER_FONTS.includes(name)) USER_FONTS.push(name);
+  USER_FONTS.sort((a, b) => a.localeCompare(b));
+}
+async function loadUserFonts(){
+  try {
+    for (const r of await fontStore('readonly', st => st.getAll())) await registerFont(r.name, r.data).catch(() => {});
+    fontWait.clear(); layerSig = ''; render();
+  } catch(err){ /* privates Fenster o. Ä.: ohne eigene Schriften weiter */ }
+}
+function renderFontList(){
+  const ul = $('userFontList');
+  ul.textContent = '';
+  for (const name of USER_FONTS){
+    const li = document.createElement('li'); li.className = 'layer';
+    const n = document.createElement('span'); n.className = 'lname'; n.textContent = name; n.style.fontFamily = `"${name}", sans-serif`; n.style.fontSize = '17px';
+    const del = document.createElement('button'); del.className = 'lbtn'; del.textContent = '✕'; del.title = 'Schrift entfernen'; del.setAttribute('aria-label', `${name} entfernen`);
+    del.addEventListener('click', async () => {
+      if (!confirm(`Schrift „${name}“ entfernen?`)) return;
+      await fontStore('readwrite', st => st.delete(name)).catch(() => {});
+      if (userFaces.has(name)){ document.fonts.delete(userFaces.get(name)); userFaces.delete(name); }
+      USER_FONTS = USER_FONTS.filter(f => f !== name);
+      renderFontList(); buildProps(); render();
+    });
+    li.append(n, del); ul.appendChild(li);
+  }
+  if (!USER_FONTS.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Noch keine eigenen Schriften geladen.'; ul.appendChild(li); }
+  $('fontLocal').hidden = !('queryLocalFonts' in window);
+  $('localFontInfo').textContent = LOCAL_FONTS.length ? `${LOCAL_FONTS.length} installierte Schriften stehen in der Schriftauswahl.` : '';
+}
+function openFonts(){
+  $('webFontsOn').checked = webFontsOn();
+  renderFontList();
+  if (!$('fonts').open) $('fonts').showModal();
+}
+$('webFontsOn').addEventListener('change', () => {
+  const on = $('webFontsOn').checked;
+  setWebFonts(on); lsSet('labelstudio.webfonts', on);
+  fontWait.clear(); layerSig = '';
+  buildProps(); render();
+  if (document.fonts) document.fonts.ready.then(render);
+  toast(on ? 'Web-Schriften werden von Google Fonts geladen' : 'Google Fonts aus – es wird nichts mehr von Google geladen');
+});
+$('fontUpload').addEventListener('click', () => $('fileFont').click());
+$('fileFont').addEventListener('change', async ev => {
+  const files = [...ev.target.files]; ev.target.value = '';
+  let ok = 0;
+  for (const f of files){
+    // Name aus dem Dateinamen: „OpenSans-Bold.ttf“ → „OpenSans Bold“
+    const name = f.name.replace(/\.(ttf|otf|woff2?)$/i, '').replace(/[-_]+/g, ' ').trim() || 'Eigene Schrift';
+    try {
+      const data = await f.arrayBuffer();
+      await registerFont(name, data);
+      await fontStore('readwrite', st => st.put({ name, data })).catch(() => {});
+      ok++;
+    } catch(err){ alert(`„${f.name}“ konnte nicht als Schrift gelesen werden.`); }
+  }
+  if (ok){ renderFontList(); buildProps(); render(); toast(ok === 1 ? 'Schrift geladen – sie steht oben in der Schriftauswahl' : `${ok} Schriften geladen`); }
+});
+// Installierte Schriften (Chrome/Edge am PC): der Browser fragt einmal um Erlaubnis, gespeichert werden nur die Namen
+$('fontLocal').addEventListener('click', async () => {
+  try {
+    const fonts = await window.queryLocalFonts();
+    const known = new Set([...SYS_FONTS, ...WEB_FONTS]);
+    LOCAL_FONTS = [...new Set(fonts.map(f => f.family))].filter(f => !known.has(f)).sort((a, b) => a.localeCompare(b));
+    lsSet('labelstudio.localFonts', LOCAL_FONTS);
+    renderFontList(); buildProps();
+    toast(`${LOCAL_FONTS.length} installierte Schriften übernommen`);
+  } catch(err){ alert('Der Zugriff auf die installierten Schriften wurde nicht erlaubt oder wird von diesem Browser nicht unterstützt.'); }
+});
+$('fontsClose').addEventListener('click', () => $('fonts').close());
+$('fonts').addEventListener('click', ev => { if (ev.target === $('fonts')) $('fonts').close(); });
+loadUserFonts();
+
+// ---------- Ersteinrichtung: beim allerersten Start den Drucker abfragen ----------
+const LS_SETUP = 'labelstudio.setup';
+function openSetup(){
+  const brands = {};
+  for (const [k, p] of Object.entries(PRINTERS)) (brands[p.name.split(' ')[0]] ||= []).push([k, p]);
+  const list = $('setupList');
+  list.textContent = '';
+  for (const [brand, items] of Object.entries(brands)){
+    const h = document.createElement('div'); h.className = 'hint'; h.style.fontWeight = '600'; h.textContent = brand; list.appendChild(h);
+    const g = document.createElement('div'); g.className = 'setup-grid';
+    for (const [k, p] of items){
+      const b = document.createElement('button');
+      b.textContent = p.name.replace(brand + ' ', '');
+      const sm = document.createElement('small'); sm.textContent = `${p.size[0]} × ${p.size[1]} mm${p.tested ? ' · ✓ getestet' : ''}`; b.appendChild(sm);
+      b.addEventListener('click', () => {
+        $('model').value = k; $('model').dispatchEvent(new Event('change')); savePrintSettings();
+        $('btSection').open = true; lsSet('labelstudio.btOpen', true);
+        lsSet(LS_SETUP, k); $('setup').close();
+      });
+      g.appendChild(b);
+    }
+    list.appendChild(g);
+  }
+  const other = document.createElement('button');
+  other.style.width = '100%'; other.textContent = 'Anderer Drucker – ich drucke über den Windows-Treiber (USB)';
+  other.addEventListener('click', () => { lsSet(LS_SETUP, 'usb'); $('setup').close(); });
+  list.appendChild(other);
+  if (!$('setup').open) $('setup').showModal();
+}
+$('setupClose').addEventListener('click', () => { lsSet(LS_SETUP, 'skip'); $('setup').close(); });
+
+// ---------- Farbschema: automatisch → hell → dunkel ----------
+const THEMES = [['', '◐', 'automatisch'], ['light', '☀', 'hell'], ['dark', '☾', 'dunkel']];
+function applyTheme(t){
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const th = THEMES.find(x => x[0] === (t || '')) || THEMES[0];
+  $('btnTheme').textContent = th[1]; $('btnTheme').title = `Farbschema: ${th[2]} (klicken zum Wechseln)`;
+}
+$('btnTheme').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme || '';
+  const next = THEMES[(THEMES.findIndex(x => x[0] === cur) + 1) % THEMES.length][0];
+  applyTheme(next); lsSet('labelstudio.theme', next); drawRulers();
+});
+applyTheme(lsGet('labelstudio.theme', ''));
+
+// ---------- Handy: Leiste unten schaltet das Werkzeug-Fenster unter dem Etikett um ----------
+function showTab(t){
+  document.body.dataset.tab = t;
+  document.querySelectorAll('#mtabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+}
+$('mtabs').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-tab]');
+  if (!b) return;
+  showTab(b.dataset.tab);
+  const p = document.querySelector(`[data-panel="${b.dataset.tab}"]`);
+  if (p) p.scrollIntoView({ behavior:'smooth', block:'start' });
+});
+showTab('element');
 
 // ---------- Kurze Meldung unten am Bildschirm ----------
 let toastT;
@@ -2340,6 +3216,14 @@ const HELP = {
       <li><b>Drucken</b> – am PC über <b>„Über Windows-Drucker drucken (USB)“</b>, alternativ per Bluetooth (im Drucken-Fenster <b>„Bluetooth-Direktdruck“</b> aufklappen).</li>
       <li><b>Rückgängig / Wiederholen</b> – Pfeile ↶ ↷ über dem Etikett oder <b>Strg+Z</b> / <b>Strg+Y</b>.</li>
       <li><b>Drehen</b> – Element anklicken und „↻ 90°“ (Text, QR-Code, Barcode, Bild, Rahmen).</li>
+      <li><b>Mehrere Elemente</b> – mit Strg/Umschalt + Klick oder einen Rahmen auf freier Fläche aufziehen; dann ausrichten
+        und verteilen im Fenster „Element“. <b>Rechtsklick</b> (am Handy lange drücken) öffnet ein Menü mit allen Aktionen.</li>
+      <li><b>Formen und Symbole</b> – über „◆ Form“ und „★ Symbol“ oben am Etikett. Text kann auch <b>im Bogen</b> laufen
+        und mit „⤢ Einpassen“ das ganze Etikett füllen.</li>
+      <li><b>Vorlagen-Galerie</b> – fertige Etiketten (Filamentspule, Kabel-Fahne, Gewürzglas …), passend zur Etikettgröße.
+        <b>Zuletzt gedruckt</b> holt die letzten 10 Etiketten zurück.</li>
+      <li><b>Seriendruck</b> – im Drucken-Fenster eine Liste einfügen oder als CSV laden; pro Zeile ein Etikett,
+        im Text <code>{1}</code>, <code>{2}</code> … für die Spalten.</li>
       <li><b>Ebenen</b> – das Fenster „Ebenen“ listet alle Elemente, oben liegt vorne. Anklicken wählt aus,
         👁 blendet aus (wird dann nicht gedruckt), 🔒 sperrt gegen Verschieben, am ⠿ ziehen ändert die Reihenfolge,
         Doppelklick auf den Namen benennt um.</li>
@@ -2440,7 +3324,8 @@ function openHelp(key){
   if (!$('help').open) $('help').showModal();
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
-$('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-request>🖨️ Drucker vorschlagen …</button>';
+$('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-gallery>🖼️ Vorlagen-Galerie …</button>'
+  + '<button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>';
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
 $('btnMenu').addEventListener('click', ev => { ev.stopPropagation(); toggleMenu($('menuList').hidden); });
 document.addEventListener('click', () => toggleMenu(false));
@@ -2448,6 +3333,9 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   const b = ev.target.closest('[data-help]');
   if (b){ toggleMenu(false); openHelp(b.dataset.help); }
   if (ev.target.closest('[data-request]')){ toggleMenu(false); if ($('help').open) $('help').close(); openRequest(); }
+  if (ev.target.closest('[data-gallery]')){ toggleMenu(false); openGallery('tpl'); }
+  if (ev.target.closest('[data-setup]')){ toggleMenu(false); openSetup(); }
+  if (ev.target.closest('[data-fonts]')){ toggleMenu(false); openFonts(); }
 }));
 
 // ---------- Drucker vorschlagen (GitHub-Issue, auf Netlify über Netlify Forms) ----------
@@ -2565,6 +3453,9 @@ $('preview1bit').addEventListener('change', render);
 $('startNr').addEventListener('input', render);
 requestAnimationFrame(() => { fitCanvas(); render(); });
 if (document.fonts) document.fonts.ready.then(render);
+updateSerialInfo();
+// Ersteinrichtung nur beim allerersten Besuch (bestehende Nutzer haben schon Druckeinstellungen)
+if (!lsGet(LS_SETUP, null) && !lsGet(LS_PRINT, null) && !location.hash) openSetup();
 </script>
 </body>
 </html>
