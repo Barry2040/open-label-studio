@@ -638,15 +638,24 @@ function save(){ clearTimeout(saveT); saveT = setTimeout(flushSave, 300); update
 function flushSave(){ saveT = null; if (autoLength()) render(); lsSet(LS_DRAFT, design); commitHistory(); }
 // Endlosband: Etikett so lang wie der Inhalt + 2 mm Rand je Seite (mindestens 10 mm); der Inhalt rückt dafür an den
 // linken Rand. Läuft kurz nach jeder Änderung, nicht während des Ziehens.
+// Rahmen und Linien über (fast) die ganze Länge wachsen mit und behalten ihren Abstand zum Rand.
 function autoLength(){
   if (!design.autoLen || drag) return false;
-  const bs = design.elements.filter(e => !e.hidden).map(bbox);
-  if (!bs.length) return false;
-  const margin = 2 * PX_PER_MM;
+  const vis = design.elements.filter(e => !e.hidden), oldW = W();
+  const isSpan = e => e.type === 'rect' && !quarterTurn(e) && e.w >= oldW * 0.8;
+  const spans = vis.filter(isSpan), content = vis.filter(e => !isSpan(e));
+  if (!content.length) return false;
+  // Inhalt braucht 2 mm Rand – bei einem Rahmen zusätzlich dessen Abstand, Linienstärke und 1 mm Luft
+  const frames = spans.filter(e => !e.filled);
+  const margin = Math.max(2 * PX_PER_MM, ...frames.map(e => e.x + (e.lw || 1) + PX_PER_MM));
+  const bs = content.map(bbox);
   const x0 = Math.min(...bs.map(b => b.x)), x1 = Math.max(...bs.map(b => b.x + b.w));
   const w = Math.max(10, Math.ceil((x1 - x0 + 2 * margin) / PX_PER_MM)), dx = Math.round(margin - x0);
-  if (!dx && w === design.w) return false;
-  for (const e of design.elements) e.x += dx;
+  const newW = Math.round(w * PX_PER_MM);
+  const spanFix = spans.map(e => [e, e.x, oldW - e.x - e.w]);   // Abstand links/rechts merken
+  if (!dx && w === design.w && spanFix.every(([e, l, r]) => e.w === newW - l - r)) return false;
+  for (const e of content) e.x += dx;
+  for (const [e, l, r] of spanFix){ e.x = l; e.w = Math.max(2, newW - l - r); }
   design.w = w;
   scaleRef = null;
   syncLabelControls(); fitCanvas(); refreshProps();
