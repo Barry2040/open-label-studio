@@ -1463,7 +1463,8 @@ let shownSize = '';
 function previewScale(){
   if ($('preview1bit').checked) return 1;
   const cssW = parseFloat(cv.style.width) || W();
-  return Math.max(1, Math.min(4, Math.ceil(cssW / W() * (window.devicePixelRatio || 1))));
+  // mindestens doppelt so fein wie die Druckpunkte, damit kleine Schrift und Bilder nicht treppig wirken
+  return Math.max(2, Math.min(4, Math.ceil(cssW / W() * (window.devicePixelRatio || 1))));
 }
 function render(){
   const w = W(), h = H();
@@ -2042,7 +2043,16 @@ async function pageToCanvas(file){
         }
       }
     } catch(e){}
-    return { c, ppm, texts, images };
+    // Ausschnitt (in Bildpunkten dieser Seite) noch einmal scharf zeichnen – für eine saubere Vorschau
+    const hiRes = async (r, hi) => {
+      const f = hi / ppm, out = document.createElement('canvas');
+      out.width = Math.round(r.w * f); out.height = Math.round(r.h * f);
+      const oc = out.getContext('2d'); oc.fillStyle = '#fff'; oc.fillRect(0, 0, out.width, out.height);
+      const v = page.getViewport({ scale: hi * mm, offsetX: -r.x * f, offsetY: -r.y * f });
+      await page.render({ canvasContext: oc, viewport: v, intent: 'print' }).promise;
+      return out;
+    };
+    return { c, ppm, texts, images, hiRes };
   }
   const im = await fileToImage(file);
   const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
@@ -2263,7 +2273,7 @@ function chooseRegion(c, regions){
   });
 }
 async function importShipping(file){
-  const { c, ppm, texts, images } = await pageToCanvas(file);
+  const { c, ppm, texts, images, hiRes } = await pageToCanvas(file);
   const mmW = c.width / ppm, mmH = c.height / ppm;
   // Seite schon etwa so groß wie ein Label (z. B. 100 × 150, 103 × 199): alles nehmen; sonst (A4) die Marke suchen:
   // erst an Schnittlinien teilen, sonst zusammenhängende Bereiche (mit größerem Abstand, damit Label-Spalten zusammenbleiben)
@@ -2282,14 +2292,21 @@ async function importShipping(file){
   // 1,5 mm Rand dazu, damit Rahmenlinien nicht abgeschnitten werden
   const m = Math.round(1.5 * ppm), x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
   const cw = Math.min(c.width - x, r.w + 2*m), ch = Math.min(c.height - y, r.h + 2*m);
-  const crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
+  let crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
   crop.getContext('2d').drawImage(c, x, y, cw, ch, 0, 0, cw, ch);
+  // PDF: den Ausschnitt mit 24 Punkten/mm neu zeichnen (höchstens ca. 16 Mio. Bildpunkte)
+  if (hiRes){
+    const hi = Math.min(24, ppm * Math.sqrt(16e6 / (cw * ch)));
+    if (hi > ppm * 1.2) crop = await hiRes({ x, y, w:cw, h:ch }, hi).catch(() => crop);
+  }
   // Ziel: Versandetikett (mindestens 90 mm breit) behalten, sonst 100 × 150 mm
   const [lw, lh] = Math.min(design.w, design.h) >= 90 ? [design.w, design.h] : [100, 150];
   loadDesign({ w:lw, h:lh, elements:[] });
   const rot = cw !== ch && (cw > ch) !== (W() > H());
   const iw = rot ? ch : cw, ih = rot ? cw : ch, k = Math.min(W() / iw, H() / ih);
-  const w = Math.round(iw * k), h = Math.round(ih * k), q = Math.min(2, Math.max(1, Math.max(iw, ih) / Math.max(w, h)));
+  // gespeichert wird bis zur dreifachen Druckauflösung – gedruckt wird ohnehin mit 8 Punkten/mm
+  const sw = rot ? crop.height : crop.width;
+  const w = Math.round(iw * k), h = Math.round(ih * k), q = Math.min(3, Math.max(1, sw / w));
   addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio:h/w,
           src:rasterTo(crop, Math.round(w*q), Math.round(h*q), rot), threshold:160, thicken:'0', dither:'' });
   return true;
