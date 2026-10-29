@@ -56,7 +56,7 @@ header .brand{font-size:17px;font-weight:700}
 .menu-list button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 10px}
 .menu-list button:hover{background:var(--bg)}
 /* Anleitung */
-#help,#share,#request,#setup,#gallery,#fonts,#scan,#backup{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
+#help,#share,#request,#setup,#gallery,#fonts,#scan,#backup,#shipPick{width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 64px);padding:0;border:1px solid var(--border);
   border-radius:14px;background:var(--panel);color:var(--text)}
 #share,#scan{width:min(380px,calc(100vw - 32px))}
 #scanVideo{width:100%;max-height:50vh;border-radius:8px;background:#000;object-fit:cover}
@@ -68,7 +68,7 @@ header .brand{font-size:17px;font-weight:700}
 .backup-big button{padding:10px 12px;font-size:15px;text-align:left}
 .backup-big button small{display:block;font-size:12px;opacity:.8;font-weight:normal}
 #gallery{width:min(860px,calc(100vw - 32px))}
-#help::backdrop,#backup::backdrop,#share::backdrop,#scan::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
+#help::backdrop,#backup::backdrop,#shipPick::backdrop,#share::backdrop,#scan::backdrop,#request::backdrop,#setup::backdrop,#gallery::backdrop,#fonts::backdrop{background:rgba(0,0,0,.5)}
 .request-body{padding:8px 16px 16px}
 .menu-list hr{border:none;border-top:1px solid var(--border);margin:4px 0}
 .share-body{padding:8px 16px 16px;text-align:center}
@@ -291,7 +291,7 @@ progress{width:100%;height:8px}
           <label for="preset">Etikett</label>
           <select id="preset"></select>
         </div>
-        <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="72" step="1"></div>
+        <div class="field" style="flex:1 1 70px;margin:0"><label for="lw">Breite (mm)</label><input id="lw" type="number" min="10" max="110" step="1"></div>
         <div class="field" style="flex:1 1 70px;margin:0"><label for="lh">Höhe (mm)</label><input id="lh" type="number" min="3" max="300" step="1"></div>
       </div>
       <label class="check" style="margin:-4px 0 10px" title="Für Endlosband (z. B. DYMO LetraTag): das Etikett ist genau so lang wie der Inhalt plus 2 mm Rand an jeder Seite">
@@ -328,6 +328,8 @@ progress{width:100%;height:8px}
         <span class="hint" id="sizeInfo"></span>
       </div>
       <button id="btnImport" style="width:100%;margin-top:10px">Fertiges Etikett importieren (PNG, SVG, PDF)</button>
+      <button id="btnShip" style="width:100%;margin-top:8px" title="Paketmarke als PDF laden: die App findet das Label auf der Seite, schneidet es aus und passt es auf 100 × 150 mm ein">📦 Versandlabel einlesen (DHL, Hermes, DPD …)</button>
+      <input type="file" id="fileShip" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/*" hidden>
       <input type="file" id="fileImg" accept="image/*" hidden>
       <input type="file" id="fileLabel" accept=".png,.jpg,.jpeg,.svg,.pdf,image/*,application/pdf" hidden>
     </div>
@@ -404,6 +406,10 @@ progress{width:100%;height:8px}
         <label class="check" title="Bei mehreren Etiketten (Kopien oder Seriendruck): alle hintereinander auf ein Stück Band, dazwischen eine gestrichelte Schnittmarke – spart den Vorlauf vor jedem Druck">
           <input type="checkbox" id="strip" checked> Alle auf einen Streifen (mit Schnittmarken)</label>
         <button class="primary" id="btnPrint" style="width:100%">Per Bluetooth drucken</button>
+        <button id="btnUsbPrint" hidden style="width:100%;margin-top:6px">Per USB-Kabel drucken (ohne Treiber)</button>
+        <p class="hint" id="usbHint" hidden><b>Bluetooth:</b> den PM-241 zuerst in den Bluetooth-Einstellungen von Handy bzw. PC
+          koppeln (PIN meist 0000), dann hier drucken – in Chrome (Android oder PC). <b>USB:</b> Kabel anstecken, ohne Treiber
+          (Chrome/Edge). Klappt beides nicht, den Phomemo-Treiber installieren und „Über Windows-Drucker drucken (USB)“ nutzen.</p>
         <pre id="btDiag" class="diag" hidden></pre>
         <button id="btDiagCopy" hidden style="width:100%;margin-top:6px">Diagnose kopieren</button>
       </details>
@@ -530,6 +536,14 @@ progress{width:100%;height:8px}
     <input type="file" id="fileBackup" hidden>
   </div>
 </dialog>
+<dialog id="shipPick" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Welches ist das Versandlabel?</b>
+    <button id="shipPickClose" aria-label="Schließen">✕</button>
+  </div>
+  <p class="hint" style="padding:0 16px;margin:8px 0 0">Auf der Seite gibt es mehrere Bereiche. Tippe auf den, der aufs Paket soll.</p>
+  <div id="shipPickBody" class="gal"></div>
+</dialog>
 <dialog id="help">
   <div class="help-head">
     <div id="helpTabs" class="help-tabs"></div>
@@ -612,6 +626,8 @@ const PRINTERS = {
   // gesendet wie das Etikett hoch ist (head 0 = Breite aus dem Bild)
   d30:   { name:'Phomemo D30 / D35', size:[40,12],  proto:'dseries', head:0, rotate90:true, widthText:'12 mm', prefixes:['D30', 'D35'] },
   q30:   { name:'Phomemo Q30 / Q30S', size:[40,14], proto:'dseries', head:0, rotate90:true, widthText:'12–15 mm', prefixes:['Q30'] },
+  // Versanddrucker 4 × 6 Zoll (Daten aus phomymo): Befehlssatz TSPL, per USB oder „klassischem“ Bluetooth (Web Serial)
+  pm241: { name:'Phomemo PM-241-BT', size:[100,150], proto:'tspl', head:816, widthText:'102 mm' },
   // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
   // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
   p15:   { name:'Marklife P15 / P7', size:[40,12],   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
@@ -646,7 +662,7 @@ const modelFromName = name => {
   return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
-const PRESETS = [[30,4],[40,4],[60,4],[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
+const PRESETS = [[30,4],[40,4],[60,4],[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50],[100,150],[103,199]];
 // Web-Schriften (Google Fonts) sehen auf PC und Handy gleich aus; Systemschriften gibt es oft nur unter Windows
 const WEB_FONTS = ['Roboto','Open Sans','Lato','Poppins','Montserrat','Raleway','Oswald','Roboto Condensed','Bebas Neue','Anton',
   'Archivo Black','Playfair Display','Merriweather','Roboto Mono','Orbitron','Press Start 2P','Pacifico','Dancing Script','Caveat','Permanent Marker'];
@@ -837,6 +853,20 @@ const EN = {
   'Danke! Dein Druckervorschlag ist angekommen.':'Thanks! Your printer suggestion has arrived.', 'Senden hat nicht geklappt (':'Sending failed (', '). Bitte später nochmal versuchen.':'). Please try again later.',
   'Breite ändern':'Change width', 'Etikett auf':'Label set to',
   'Sprache: Deutsch':'Language: German',
+  '📦 Versandlabel einlesen (DHL, Hermes, DPD …)':'📦 Read shipping label (DHL, Hermes, DPD …)',
+  'Paketmarke als PDF laden: die App findet das Label auf der Seite, schneidet es aus und passt es auf 100 × 150 mm ein':'Load a shipping label PDF: the app finds the label on the page, crops it and fits it to 100 × 150 mm',
+  'Welches ist das Versandlabel?':'Which one is the shipping label?', 'Auf der Seite gibt es mehrere Bereiche. Tippe auf den, der aufs Paket soll.':'The page has several areas. Tap the one that goes on the parcel.',
+  'mit Barcode':'with barcode', 'ohne Barcode':'without barcode', 'Lese Versandlabel …':'Reading shipping label …',
+  'Auf der Seite wurde kein Label gefunden':'No label found on the page', 'Per USB drucken (ohne Treiber)':'Print via USB (no driver)', 'Per USB-Kabel drucken (ohne Treiber)':'Print via USB cable (no driver)',
+  'Bluetooth:':'Bluetooth:', 'USB:':'USB:',
+  'den PM-241 zuerst in den Bluetooth-Einstellungen von Handy bzw. PC koppeln (PIN meist 0000), dann hier drucken – in Chrome (Android oder PC).':'pair the PM-241 in the Bluetooth settings of your phone or PC first (PIN usually 0000), then print here – in Chrome (Android or PC).',
+  'Kabel anstecken, ohne Treiber (Chrome/Edge). Klappt beides nicht, den Phomemo-Treiber installieren und „Über Windows-Drucker drucken (USB)“ nutzen.':'plug in the cable, no driver needed (Chrome/Edge). If neither works, install the Phomemo driver and use “Print via Windows printer (USB)”.',
+  'Dieser Browser kann kein „klassisches“ Bluetooth – Chrome (Android oder PC) nutzen':'This browser cannot use “classic” Bluetooth – use Chrome (Android or PC)',
+  'Der PM-241 druckt hier per':'Here the PM-241 prints via', 'USB-Kabel ohne Treiber':'USB cable without a driver',
+  '(Chrome/Edge, auch Android mit USB-OTG-Adapter). Bluetooth geht bei ihm nur mit der Phomemo-App. Klappt USB unter Windows nicht, den Phomemo-Treiber installieren und „Über Windows-Drucker drucken (USB)“ nutzen.':'(Chrome/Edge, also Android with a USB-OTG adapter). Its Bluetooth only works with the Phomemo app. If USB doesn’t work on Windows, install the Phomemo driver and use “Print via Windows printer (USB)”.',
+  'Dieser Browser kann nicht direkt per USB drucken – Chrome oder Edge nutzen':'This browser cannot print directly via USB – use Chrome or Edge',
+  'Kein Druck-Anschluss am Gerät gefunden':'No print interface found on the device',
+  'Windows gibt den Drucker nicht frei. Bitte den Phomemo-Treiber nutzen: „Über Windows-Drucker drucken (USB)“':'Windows does not release the printer. Please use the Phomemo driver: “Print via Windows printer (USB)”',
   '💾 Sicherung':'💾 Backup', '💾 Sicherung & Umzug …':'💾 Backup & move …', 'Sicherung & Umzug':'Backup & move',
   'Alles als Datei sichern oder eine Sicherung laden – für Handywechsel oder neuen Browser, ohne Konto':'Save everything as a file or load a backup – for a new phone or browser, no account needed',
   'Alles bleibt auf deinem Gerät –':'Everything stays on your device –', 'ohne Konto, ohne Cloud':'no account, no cloud',
@@ -881,7 +911,8 @@ const EN_RE = [
   [/^(\d+) installierte Schriften stehen in der Schriftauswahl\.$/, '$1 installed fonts are in the font list.'],
   [/^(\d+) installierte Schriften übernommen$/, '$1 installed fonts added'],
   [/^Drucker-Wunsch: (.*)$/, 'Printer request: $1'],
-  [/^Sicherung gespeichert: (.*)$/, 'Backup saved: $1'], [/^Letzte Sicherung: (.*)$/, 'Last backup: $1'],
+  [/^Sicherung gespeichert: (.*)$/, 'Backup saved: $1'],
+  [/^Versandlabel auf (.+) mm eingepasst$/, 'Shipping label fitted to $1 mm'], [/^Versandlabel eingepasst: (.*)$/, 'Shipping label fitted: $1'], [/^Letzte Sicherung: (.*)$/, 'Last backup: $1'],
   [/^Sicherung konnte nicht geladen werden: (.*)$/s, (m, e) => 'Could not load the backup: ' + tr(e)],
   [/^Kamera nicht verfügbar \((.*)\)$/, 'Camera not available ($1)'],
   [/^(\d+) × (\d+) mm \(([^)]+)\)$/, (m, a, b, c) => `${a} × ${b} mm (${tr(c)})`],
@@ -1967,6 +1998,168 @@ $('fileLabel').addEventListener('change', async ev => {
   catch(err){ log('Import fehlgeschlagen: ' + err.message); }
 });
 
+$('btnUsbPrint').addEventListener('click', () => printTspl('usb'));
+
+// ---------- Versandlabel: Paketmarke (meist A4-PDF) automatisch finden, ausschneiden und auf 100 × 150 mm einpassen ----------
+// Seite in hoher Auflösung zeichnen; ppm = Bildpunkte pro mm
+async function pageToCanvas(file){
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (isPdf){
+    if (!window.pdfjsLib){
+      await loadScript(PDFJS + 'pdf.min.js');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+    }
+    const page = await (await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise).getPage(1);
+    const v1 = page.getViewport({ scale:1 }), mm = 25.4 / 72;
+    const ppm = Math.min(16, 4000 / (Math.max(v1.width, v1.height) * mm));
+    const vp = page.getViewport({ scale: ppm * mm });
+    const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: cc, viewport: vp, intent: 'print' }).promise;
+    return { c, ppm };
+  }
+  const im = await fileToImage(file);
+  const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const cc = c.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, c.width, c.height); cc.drawImage(im, 0, 0);
+  // Bilder: Größe unbekannt – Annahme A4, wenn hochkant und groß genug, sonst wie ein Etikett
+  return { c, ppm: Math.max(c.width, c.height) / 297 };
+}
+// Bereiche auf der Seite finden: Tinte in 1-mm-Zellen, Lücken bis `gap` mm schließen, zusammenhängende Flächen bilden.
+// Paketmarken haben Barcodes: Zellen mit senkrechten (oder waagrechten) Strichen zählen stark für einen Bereich.
+function findLabelRegions(c, ppm, gap = 3){
+  const W0 = c.width, H0 = c.height, d = c.getContext('2d', { willReadFrequently:true }).getImageData(0, 0, W0, H0).data;
+  const cs = Math.max(2, Math.round(ppm)), gw = Math.ceil(W0 / cs), gh = Math.ceil(H0 / cs);
+  const dark = new Uint8Array(W0 * H0);
+  for (let i = 0; i < W0 * H0; i++) dark[i] = (d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114) < 150 ? 1 : 0;
+  // Lauflängen: wie viele gleiche Punkte senkrecht bzw. waagrecht bis hierher
+  const vrun = new Uint16Array(W0 * H0), hrun = new Uint16Array(W0 * H0);
+  for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++){
+    const i = y*W0 + x;
+    vrun[i] = y && dark[i] === dark[i - W0] ? Math.min(65535, vrun[i - W0] + 1) : 1;
+    hrun[i] = x && dark[i] === dark[i - 1] ? Math.min(65535, hrun[i - 1] + 1) : 1;
+  }
+  const ink = new Uint8Array(gw * gh), bar = new Uint8Array(gw * gh);
+  const L = 4 * cs, S = 3 * cs;   // Strich mind. 4 mm durchgehend, auf 3 mm mind. 4 Wechsel
+  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++){
+    const x0 = gx * cs, y0 = gy * cs, x1 = Math.min(W0, x0 + cs), y1 = Math.min(H0, y0 + cs);
+    let n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) n += dark[y*W0 + x];
+    if (!n) continue;
+    ink[gy*gw + gx] = 1;
+    // Strichcode senkrecht: im Fenster 3 × 4 mm ist jede Spalte durchgehend gleich, mit mind. 4 Wechseln
+    const barsV = () => {
+      if (x0 + S > W0 || y0 + L > H0) return false;
+      const row = (y0 + L - 1) * W0;
+      let ch = 0;
+      for (let a = 0; a < S; a++){
+        if (vrun[row + x0 + a] < L) return false;
+        if (a && dark[row + x0 + a] !== dark[row + x0 + a - 1]) ch++;
+      }
+      return ch >= 4;
+    };
+    const barsH = () => {
+      if (x0 + L > W0 || y0 + S > H0) return false;
+      let ch = 0;
+      for (let a = 0; a < S; a++){
+        const i = (y0 + a) * W0 + x0 + L - 1;
+        if (hrun[i] < L) return false;
+        if (a && dark[i] !== dark[i - W0]) ch++;
+      }
+      return ch >= 4;
+    };
+    if (barsV() || barsH()) bar[gy*gw + gx] = 1;
+  }
+  // Tinte um `gap` Zellen ausdehnen (erst waagrecht, dann senkrecht)
+  const dil1 = new Uint8Array(gw * gh), dil = new Uint8Array(gw * gh);
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (ink[y*gw + x])
+    for (let k = Math.max(0, x - gap); k <= Math.min(gw - 1, x + gap); k++) dil1[y*gw + k] = 1;
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (dil1[y*gw + x])
+    for (let k = Math.max(0, y - gap); k <= Math.min(gh - 1, y + gap); k++) dil[k*gw + x] = 1;
+  const seen = new Int32Array(gw * gh), regions = [];
+  for (let i = 0; i < gw * gh; i++){
+    if (!dil[i] || seen[i]) continue;
+    const r = { x0:1e9, y0:1e9, x1:-1, y1:-1, ink:0, bars:0 }, stack = [i];
+    seen[i] = 1;
+    while (stack.length){
+      const j = stack.pop(), x = j % gw, y = (j - x) / gw;
+      if (ink[j]){ r.ink++; r.bars += bar[j]; r.x0 = Math.min(r.x0, x); r.y0 = Math.min(r.y0, y); r.x1 = Math.max(r.x1, x); r.y1 = Math.max(r.y1, y); }
+      for (const k of [j - 1, j + 1, j - gw, j + gw]){
+        if (k < 0 || k >= gw * gh || seen[k] || !dil[k]) continue;
+        if ((k === j - 1 && x === 0) || (k === j + 1 && x === gw - 1)) continue;
+        seen[k] = 1; stack.push(k);
+      }
+    }
+    if (r.x1 < 0) continue;
+    const w = (r.x1 - r.x0 + 1) * cs / ppm, h = (r.y1 - r.y0 + 1) * cs / ppm;   // in mm
+    if (w < 25 || h < 25) continue;   // Kleinkram (Seitenzahl, Logo-Reste)
+    regions.push({ x:r.x0 * cs, y:r.y0 * cs, w:Math.min(W0, (r.x1 + 1) * cs) - r.x0 * cs, h:Math.min(H0, (r.y1 + 1) * cs) - r.y0 * cs,
+                   bars:r.bars, score: w * h + r.bars * 300 });
+  }
+  // Bereiche, die ganz in einem anderen liegen (z. B. Barcode innerhalb des Label-Rahmens), dem äußeren zuschlagen
+  regions.sort((a, b) => b.w * b.h - a.w * a.h);
+  const out = [];
+  for (const r of regions){
+    const host = out.find(o => r.x >= o.x && r.y >= o.y && r.x + r.w <= o.x + o.w && r.y + r.h <= o.y + o.h);
+    if (host){ host.bars += r.bars; host.score += r.bars * 300; } else out.push(r);
+  }
+  return out.sort((a, b) => b.score - a.score);
+}
+// Auswahl, wenn mehrere Bereiche ähnlich gut passen (z. B. Paketmarke und Einlieferungsbeleg)
+function chooseRegion(c, regions){
+  return new Promise(res => {
+    const body = $('shipPickBody'); body.textContent = '';
+    let done = false;
+    const finish = r => { if (done) return; done = true; $('shipPick').close(); res(r); };
+    for (const r of regions){
+      const k = Math.min(180 / r.w, 220 / r.h), t = document.createElement('canvas');
+      t.width = Math.max(1, Math.round(r.w * k)); t.height = Math.max(1, Math.round(r.h * k));
+      t.getContext('2d').drawImage(c, r.x, r.y, r.w, r.h, 0, 0, t.width, t.height);
+      const b = document.createElement('button'); b.appendChild(t);
+      const sm = document.createElement('small'); sm.textContent = r.bars ? tr('mit Barcode') : tr('ohne Barcode'); b.appendChild(sm);
+      b.addEventListener('click', () => finish(r));
+      body.appendChild(b);
+    }
+    $('shipPick').onclose = () => finish(null);
+    $('shipPick').showModal();
+  });
+}
+async function importShipping(file){
+  const { c, ppm } = await pageToCanvas(file);
+  const mmW = c.width / ppm, mmH = c.height / ppm;
+  // Seite schon etwa so groß wie ein Label (z. B. 100 × 150, 103 × 199): alles nehmen; sonst (A4) die Marke suchen
+  const small = Math.min(mmW, mmH) <= 120 && Math.max(mmW, mmH) <= 220;
+  const regions = findLabelRegions(c, ppm, small ? 60 : 3);
+  if (!regions.length) throw new Error('Auf der Seite wurde kein Label gefunden');
+  let r = regions[0];
+  if (!small && regions[1] && regions[1].score >= 0.6 * r.score) r = await chooseRegion(c, regions.slice(0, 4));
+  if (!r) return false;
+  // 1,5 mm Rand dazu, damit Rahmenlinien nicht abgeschnitten werden
+  const m = Math.round(1.5 * ppm), x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
+  const cw = Math.min(c.width - x, r.w + 2*m), ch = Math.min(c.height - y, r.h + 2*m);
+  const crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
+  crop.getContext('2d').drawImage(c, x, y, cw, ch, 0, 0, cw, ch);
+  // Ziel: Versandetikett (mindestens 90 mm breit) behalten, sonst 100 × 150 mm
+  const [lw, lh] = Math.min(design.w, design.h) >= 90 ? [design.w, design.h] : [100, 150];
+  loadDesign({ w:lw, h:lh, elements:[] });
+  const rot = cw !== ch && (cw > ch) !== (W() > H());
+  const iw = rot ? ch : cw, ih = rot ? cw : ch, k = Math.min(W() / iw, H() / ih);
+  const w = Math.round(iw * k), h = Math.round(ih * k), q = Math.min(2, Math.max(1, Math.max(iw, ih) / Math.max(w, h)));
+  addEl({ type:'image', x:Math.round((W()-w)/2), y:Math.round((H()-h)/2), w, h, ratio:h/w,
+          src:rasterTo(crop, Math.round(w*q), Math.round(h*q), rot), threshold:160, thicken:'0', dither:'' });
+  return true;
+}
+$('btnShip').addEventListener('click', () => $('fileShip').click());
+$('fileShip').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  try {
+    log('Lese Versandlabel …');
+    if (await importShipping(f)){ log('Versandlabel eingepasst: ' + f.name); toast(`Versandlabel auf ${design.w} × ${design.h} mm eingepasst`); }
+    else log('');
+  } catch(err){ log('Import fehlgeschlagen: ' + err.message); }
+});
+$('shipPickClose').addEventListener('click', () => $('shipPick').close());
+
 // Regler auf Ausgangswerte, Bild wieder eingepasst und mittig aufs Etikett
 function resetImageEl(e){
   Object.assign(e, { contrast:0, invertImg:false }, e.orig || { threshold:128, thicken:'0', dither:'' });
@@ -2240,7 +2433,7 @@ function initLabelControls(){
     setLabelSize(w, h);
   });
   const onSize = () => {
-    const w = Math.min(72, Math.max(10, parseFloat($('lw').value) || design.w));
+    const w = Math.min(110, Math.max(10, parseFloat($('lw').value) || design.w));
     const h = Math.min(300, Math.max(3, parseFloat($('lh').value) || design.h));
     setLabelSize(w, h, true);
   };
@@ -2797,7 +2990,7 @@ function rotateCW(src){
 function rasterize(c){
   const head = printer().head || Math.ceil(c.width / 8) * 8;
   const w = c.width, h = c.height, bpr = head / 8;
-  const align = printer().head ? $('align').value : 'left';
+  const align = !printer().head ? 'left' : printer().proto === 'tspl' ? 'center' : $('align').value;
   let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
   startX += Math.round((parseFloat($('offset').value) || 0) * PX_PER_MM);
   // Versatz Y: positiv = leere Zeilen davor (Druck rutscht nach unten), negativ = oben abschneiden
@@ -2956,7 +3149,85 @@ function recordPrint(){
   lsSet(LS_HIST, list.slice(0, 10));
 }
 
+// ---------- USB-Direktdruck (TSPL, z. B. Phomemo PM-241) – nach phomymo ----------
+const usbPrn = { dev:null, ep:0 };
+async function usbConnect(){
+  if (!navigator.usb) throw new Error('Dieser Browser kann nicht direkt per USB drucken – Chrome oder Edge nutzen');
+  if (usbPrn.dev && usbPrn.dev.opened) return;
+  let dev = (await navigator.usb.getDevices())[0];
+  if (!dev) dev = await navigator.usb.requestDevice({ filters:[] });
+  try {
+    await dev.open();
+    if (!dev.configuration) await dev.selectConfiguration(1);
+    const iface = dev.configuration.interfaces.find(i => i.alternates.some(a => a.interfaceClass === 7)) || dev.configuration.interfaces[0];
+    await dev.claimInterface(iface.interfaceNumber);
+    const ep = iface.alternates[0].endpoints.find(e => e.direction === 'out');
+    if (!ep) throw new Error('Kein Druck-Anschluss am Gerät gefunden');
+    usbPrn.dev = dev; usbPrn.ep = ep.endpointNumber;
+  } catch(e){
+    if (/access|denied|SecurityError|NetworkError|Unable to claim/i.test(e.name + ' ' + e.message))
+      throw new Error('Windows gibt den Drucker nicht frei. Bitte den Phomemo-Treiber nutzen: „Über Windows-Drucker drucken (USB)“');
+    throw e;
+  }
+}
+// Bluetooth „klassisch“ (Serial Port Profile): Chrome spricht es über Web Serial an – am PC ab Chrome 117, auf Android
+// seit 2025. Der Drucker muss vorher in den Bluetooth-Einstellungen des Geräts gekoppelt sein.
+const SPP_UUID = '00001101-0000-1000-8000-00805f9b34fb';
+const serPrn = { port:null, writer:null };
+async function serialConnect(){
+  if (!navigator.serial) throw new Error('Dieser Browser kann kein „klassisches“ Bluetooth – Chrome (Android oder PC) nutzen');
+  if (serPrn.writer) return;
+  let port = (await navigator.serial.getPorts()).find(p => p.getInfo().bluetoothServiceClassId);
+  if (!port) port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds:[SPP_UUID], filters:[{ bluetoothServiceClassId:SPP_UUID }] });
+  await port.open({ baudRate:115200 });
+  serPrn.port = port; serPrn.writer = port.writable.getWriter();
+}
+async function serialClose(){
+  try { serPrn.writer && serPrn.writer.releaseLock(); } catch(e){}
+  try { serPrn.port && await serPrn.port.close(); } catch(e){}
+  serPrn.port = serPrn.writer = null;
+}
+// TSPL: Größe, Lücke, Dichte, dann das Bild als BITMAP (0 = schwarz) und PRINT
+function tsplJob(c){
+  const { bits, bpr, h } = rasterize(c);
+  const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
+  const enc = t => new TextEncoder().encode(t);
+  const inv = bits.map(b => b ^ 0xff);
+  return concatBytes(enc(`SIZE ${design.w} mm, ${design.h} mm\r\nGAP 3 mm, 0 mm\r\nOFFSET -3 mm\r\nDENSITY ${Math.round(d8 / 8 * 15)}\r\n`
+    + `SPEED 4\r\nDIRECTION 0\r\nCLS\r\nBITMAP 0,0,${bpr},${h},0,`), inv, enc('\r\nPRINT 1\r\nEND\r\n'));
+}
+async function printTspl(via){
+  const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
+  if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
+  const btn = via === 'usb' ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
+  try { await (via === 'usb' ? usbConnect() : serialConnect()); }
+  catch(err){ if (err.name !== 'NotFoundError') log('Druckfehler: ' + err.message); return; }
+  const chunk = via === 'usb' ? 4096 : 512;
+  const send = via === 'usb' ? b => usbPrn.dev.transferOut(usbPrn.ep, b) : async b => { await serPrn.writer.write(b); await sleep(15); };
+  btn.disabled = true; prog.hidden = false;
+  try {
+    for (let n = 0; n < copies; n++){
+      log(`Drucke ${n+1} von ${copies} …`);
+      const data = tsplJob(jobCanvas(jobs[n]));
+      for (let i = 0; i < data.length; i += chunk){
+        await send(data.slice(i, i + chunk));
+        prog.value = (n + Math.min(1, (i + chunk) / data.length)) / copies;
+      }
+      await sleep(400);
+    }
+    log(copies > 1 ? `${copies} Etiketten gesendet.` : 'Etikett gesendet.');
+    recordPrint();
+    if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
+  } catch(err){
+    log('Druckfehler: ' + err.message);
+    if (via === 'usb'){ try { await usbPrn.dev.close(); } catch(e){} usbPrn.dev = null; }
+    else await serialClose();
+  } finally {
+    btn.disabled = false; prog.hidden = true; prog.value = 0; savePrintSettings(); render();
+  }
+}
 $('btnPrint').addEventListener('click', async () => {
+  if (printer().proto === 'tspl'){ await printTspl('bt'); return; }
   if (!bt.char){ await connect(); if (!bt.char) return; }
   // vor dem Druck warnen, wenn der Drucker Papier leer oder Deckel offen meldet
   const warn = [printerInfo.paper === 'out' && 'kein Papier', printerInfo.cover === 'open' && 'Deckel offen'].filter(Boolean);
@@ -4023,6 +4294,12 @@ const HELP = {
       <tr><td><code>{1}</code>, <code>{2}</code> … · <code>{zeile}</code></td><td>Spalten bzw. ganze Zeile beim Seriendruck</td></tr>
     </table>
 
+    <h3>Versandlabel (DHL, Hermes, DPD …)</h3>
+    <p><b>„📦 Versandlabel einlesen“</b> unter dem Etikett und die PDF-Paketmarke wählen. Die App findet das Label auf der Seite
+      (auch auf A4 mit Hinweistext), schneidet es aus, dreht es passend und füllt damit ein Etikett mit <b>100 × 150 mm</b>.
+      Ist das Etikett schon ein Versandformat (z. B. 103 × 199 mm), bleibt diese Größe. Gibt es mehrere ähnliche Bereiche
+      (z. B. Label und Einlieferungsbeleg), tippst du kurz den richtigen an.</p>
+
     <h3>Seriendruck</h3>
     <p>Im Fenster „Drucken“ → „Seriendruck (Liste)“ eine Liste einfügen oder als CSV laden. Jede Zeile wird ein Etikett;
       Spalten trennst du mit <code>;</code> oder Tab und setzt sie im Text mit <code>{1}</code>, <code>{2}</code> … ein.</p>
@@ -4123,6 +4400,9 @@ const HELP = {
     <ul>
       <li><b>Phomemo M-Serie</b> (M220, M221, M200, M110) – „Lage des Etiketts“ an den Rollenhalter anpassen (M220 rechts, M221 mittig).
         Unter Windows scheitert die Bluetooth-Kopplung mit dem M220 – dort per USB drucken.</li>
+      <li><b>Phomemo PM-241-BT</b> (Versandlabel 100 × 150 mm) – nutzt „klassisches“ Bluetooth: Drucker <b>zuerst in den
+        Bluetooth-Einstellungen</b> von Handy oder PC koppeln (PIN meist 0000), dann „Per Bluetooth drucken“ in Chrome. Alternativ per
+        USB-Kabel ohne Treiber oder über den Phomemo-Windows-Treiber.</li>
       <li><b>Phomemo D30, D35, Q30</b> – kleine Etiketten laufen quer durch den Drucker. Gestalte sie im Querformat (z. B. 40 × 12 mm), die App dreht das Bild selbst.</li>
       <li><b>Marklife</b> (P15, P7, P12, M60) – werden beim Verbinden erkannt, Etiketten laufen quer; die App dreht das Bild.
         Der Drucker fährt am Ende selbst zur nächsten Etikettenlücke.</li>
@@ -4230,6 +4510,11 @@ const HELP_EN = {
     </table>
     <p class="hint">The German names (<code>{datum}</code>, <code>{kw}</code>, <code>{jahr}</code> …) work as well.</p>
 
+    <h3>Shipping labels (DHL, Hermes, DPD …)</h3>
+    <p><b>“📦 Read shipping label”</b> below the label, then pick the PDF. The app finds the label on the page (also on A4 with
+      instructions), crops it, rotates it and fills a <b>100 × 150 mm</b> label. If your label is already a shipping size
+      (e.g. 103 × 199 mm), that size is kept. If there are several similar areas (e.g. label and receipt), just tap the right one.</p>
+
     <h3>Batch print</h3>
     <p>In the “Print” panel → “Batch print (list)” paste a list or load a CSV. Every line becomes a label;
       separate columns with <code>;</code> or tab and insert them with <code>{1}</code>, <code>{2}</code> ….</p>
@@ -4329,6 +4614,9 @@ const HELP_EN = {
     <ul>
       <li><b>Phomemo M series</b> (M220, M221, M200, M110) – set “Label position” to match the roll holder (M220 right, M221 centre).
         On Windows, Bluetooth pairing with the M220 fails – print via USB there.</li>
+      <li><b>Phomemo PM-241-BT</b> (100 × 150 mm shipping labels) – uses “classic” Bluetooth: <b>pair it in the Bluetooth settings</b>
+        of your phone or PC first (PIN usually 0000), then “Print via Bluetooth” in Chrome. Alternatively via USB cable without a driver
+        or via the Phomemo Windows driver.</li>
       <li><b>Phomemo D30, D35, Q30</b> – small labels run sideways through the printer. Design them in landscape (e.g. 40 × 12 mm), the app rotates the image.</li>
       <li><b>Marklife</b> (P15, P7, P12, M60) – recognised when connecting, labels run sideways; the app rotates the image.
         At the end the printer moves to the next label gap by itself.</li>
@@ -4505,6 +4793,9 @@ function showModelTested(){
   $('feed').closest('.field').hidden = proto !== 'mseries';
   $('density').closest('.field').hidden = proto === 'dymo';   // DYMO: Druckstärke lässt sich nicht einstellen
   $('strip').closest('.check').hidden = !printer().continuous;
+  const usb = proto === 'tspl';
+  $('usbHint').hidden = !usb;
+  $('btnUsbPrint').hidden = !usb;
 }
 $('model').addEventListener('change', showModelTested);
 // Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
@@ -4523,6 +4814,7 @@ function adaptLabelToModel(){
   // keine passende Rolle: Auswahl leeren, damit keine Rolle eines anderen Druckers angezeigt wird
   $('rollSel').value = ''; $('rollDel').disabled = true; lsSet(LS_ROLL, '');
   if (p.align) $('align').value = p.align;
+  if (p.proto === 'tspl') $('sysPaper').value = 'label';   // Versanddrucker: Windows-Seite = Etikett (100 × 150)
   savePrintSettings();
   if (p.size && (design.w !== p.size[0] || design.h !== p.size[1])){
     setLabelSize(p.size[0], p.size[1]);

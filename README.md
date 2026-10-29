@@ -30,6 +30,7 @@
 | 🖱️ **Bedienung** | Mehrfachauswahl mit Ausrichten/Verteilen, Rechtsklick-Menü, auf dem Handy Fenster als Tabs, Hell/Dunkel umschaltbar |
 | 🗂️ **Ebenen** | Alle Elemente als Liste wie in Photoshop: auswählen, ausblenden, sperren, umsortieren, umbenennen |
 | 📐 **Präzise** | Lineal in mm, zuschaltbares Raster (1/2/5 mm) mit Einrasten, Rückgängig/Wiederholen (Strg+Z/Y) |
+| 📦 **Versandlabel** | DHL-, Hermes- oder DPD-PDF einlesen: Das Label wird auf der Seite automatisch gefunden, ausgeschnitten, gedreht und auf 100 × 150 mm eingepasst – kein Zuschneiden von Hand |
 | 📥 **Importieren** | Fertige Etiketten als PNG, SVG oder PDF, z. B. von [3dfilamentprofiles.com](https://3dfilamentprofiles.com) |
 | 🔢 **Platzhalter** | `{datum}`, `{datum+7}` (auch Wochen/Monate/Jahre), `{kw}`, `{wochentag}`, `{monat}`, `{jahr}`, `{zeit}` und `{nr}` – per Knopf „{ } Platzhalter“ einfügen |
 | 📷 **Scannen & Einfügen** | QR-Code/Barcode mit der Kamera einlesen oder ein geteiltes Etikett direkt öffnen; Bilder und Text mit Strg+V einfügen oder aufs Etikett ziehen |
@@ -53,6 +54,7 @@
 | Hersteller | Modelle | Verbindung |
 |---|---|---|
 | **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S, D30 / D35, Q30 / Q30S | Bluetooth, USB (Windows-Treiber) |
+| **Phomemo** (Versand) | PM-241-BT (100 × 150 mm) | Bluetooth (vorher koppeln), USB direkt oder Windows-Treiber |
 | **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
 | **Niimbot** | D101 ✅, D110, B1, B21 | Bluetooth |
 | **DYMO** | LetraTag 200B ✅ | Bluetooth |
@@ -101,6 +103,7 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M110S | 48 mm | 40 × 30 mm | rechts | ungetestet |
 | Phomemo D30 / D35 | 12 mm | 40 × 12 mm | quer | ungetestet |
 | Phomemo Q30 / Q30S | 12–15 mm | 40 × 14 mm | quer | ungetestet |
+| Phomemo PM-241-BT | 102 mm | 100 × 150 mm | mittig | ungetestet (Bluetooth „klassisch“: vorher koppeln) |
 | Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | 40 × 12 mm | quer | ✅ getestet (PC) |
 | Marklife P12 (auch LP90, P11) | 12–15 mm | 40 × 15 mm | quer | ungetestet |
 | Marklife M60 (auch X2) | bis 50 mm | 50 × 30 mm | quer | ungetestet |
@@ -150,7 +153,7 @@ Die Bluetooth-Befehle der Drucker stammen aus diesen Open-Source-Projekten:
 
 | Projekt | Autor | Verwendet für | Lizenz |
 |---|---|---|---|
-| [phomymo](https://github.com/transcriptionstream/phomymo) | transcriptionstream | Phomemo M-Serie (M220, M221, M200, M110 …) und D-Serie (D30, Q30) | keine angegeben |
+| [phomymo](https://github.com/transcriptionstream/phomymo) | transcriptionstream | Phomemo M-Serie (M220, M221, M200, M110 …), D-Serie (D30, Q30) und PM-241 (TSPL) | keine angegeben |
 | [thermoprint](https://github.com/tomLadder/thermoprint) | tomLadder | Marklife P15 / P7, P12, M60 | MIT |
 | [niimbluelib](https://github.com/MultiMote/niimbluelib) | MultiMote | Niimbot D110, D101, B1, B21 (Grundlage von [NiimBlue](https://github.com/MultiMote/niimblue)) | MIT |
 | [dymo-bluetooth](https://github.com/ysfchn/dymo-bluetooth) | ysfchn | DYMO LetraTag 200B | MIT |
