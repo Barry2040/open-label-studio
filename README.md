@@ -33,7 +33,7 @@
 | 🧻 **Rollen** | Profile je Etikettenrolle: Größe, Papierformat und Versatz mit einem Klick |
 | 🔄 **Druckerwechsel** | Beim Wählen oder Verbinden eines Druckers stellt sich das passende Etikett ein – Text, Rahmen und Bilder skalieren automatisch mit |
 | 🖨️ **Drucken** | Über den Windows-Treiber per USB oder direkt per Bluetooth, Versatz in X und Y einstellbar |
-| 🔋 **Druckerstatus** | Akku, Papier und Deckel werden per Bluetooth angezeigt, mit Warnung vor dem Druck |
+| 🔋 **Druckerstatus** | Akku, Papier und Deckel per Bluetooth (Phomemo, Niimbot; Marklife meldet nur Probleme), mit Warnung vor dem Druck |
 | 🧩 **Arbeitsfläche** | Fenster frei anordnen und in der Breite ziehen, mit Einrasten an Kanten |
 | ❓ **Hilfe** | Anleitung, Treiber-Infos und Fehlerbehebung im Menü **„Label Studio“** oben links |
 

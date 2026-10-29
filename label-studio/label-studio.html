@@ -1311,7 +1311,7 @@ async function connect(){
     if (!bt.char) throw new Error('Kein beschreibbarer Kanal gefunden. Ist das der richtige Drucker?');
     if (isNiimbot()){
       step = 'Anmelden am Drucker';
-      bt.nbBuf = null; bt.nbWaiters = [];
+      bt.nbBuf = null; bt.nbWaiters = []; bt.nbModelId = undefined;
       const r = await niimbotSend(NB.CONNECT, [1]);
       diag(`Niimbot angemeldet (Antwort ${r[0]})`);
     }
@@ -1371,12 +1371,39 @@ async function writeRaw(bytes){
 }
 // Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
 async function queryStatus(){
-  if (isMarklife() || isNiimbot()) return;   // haben eigene Statusmeldungen
+  if (isNiimbot()) return niimbotStatus();
+  if (isMarklife()) return;   // meldet Papier/Deckel/Akku nur von sich aus bei Problemen
   for (const q of [0x08, 0x11, 0x12, 0x07]){
     if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
     try { await writeRaw(new Uint8Array([0x1f, 0x11, q])); } catch(e){}
     await sleep(120);
   }
+}
+// Niimbot: Modellnummer (einmal), Akkustand und „Herzschlag“ mit Deckel/Papier abfragen (nach niimbluelib)
+async function niimbotStatus(){
+  if (!bt.char || bt.busy) return;
+  const info = type => niimbotSend(NB.PRINTER_INFO, [type], 1000, 0x40 + type);
+  try {
+    if (bt.nbModelId === undefined){
+      const d = await info(8);
+      bt.nbModelId = d.length === 1 ? d[0] << 8 : (d[0] << 8) | d[1];
+    }
+    const b = await info(10);
+    if (b.length === 1) printerInfo.battery = b[0] <= 4 ? b[0] * 25 : b[0];
+    const h = await niimbotSend(NB.HEARTBEAT, [1], 1000);
+    // Lage von Deckel/Papier hängt von der Antwortlänge ab
+    const at = { 10:[8, null], 13:[9, 11], 19:[15, 17], 20:[null, 18] }[h.length];
+    if (at){
+      if (at[0] !== null){
+        let closed = h[at[0]] === 0;
+        // bei manchen Modellen (u. a. D101, D110) ist die Deckel-Meldung umgekehrt
+        if ([512, 514, 513, 2304, 1792, 3584, 5120, 2560, 3840, 4352, 272, 273, 274].includes(bt.nbModelId)) closed = !closed;
+        printerInfo.cover = closed ? 'closed' : 'open';
+      }
+      if (at[1] !== null) printerInfo.paper = h[at[1]] === 0 ? 'ok' : 'out';
+    }
+    showPrinterInfo();
+  } catch(e){ console.log('Niimbot-Status:', e.message); }
 }
 function showPrinterInfo(){
   const box = $('prnStatus'), i = printerInfo, chips = [];
@@ -1456,10 +1483,10 @@ async function printMarklife(c, onProgress){
 // Fast jeder Befehl wird mit einem Antwortpaket bestätigt; Bildzeilen gehen ohne Antwort raus.
 const NB = { CONNECT:0xc1, DENSITY:0x21, LABEL_TYPE:0x23, PRINT_START:0x01, PRINT_CLEAR:0x20, PAGE_START:0x03,
              PAGE_SIZE:0x13, QUANTITY:0x15, ROW:0x85, ROW_INDEXED:0x83, EMPTY_ROW:0x84, PAGE_END:0xe3,
-             STATUS:0xa3, PRINT_END:0xf3 };
+             STATUS:0xa3, PRINT_END:0xf3, PRINTER_INFO:0x40, HEARTBEAT:0xdc };
 // Antwort auf Befehl X ist meist X + 0x10 (Ausnahmen in der Tabelle der Bibliothek)
 const NB_REPLY = { 0xc1:0xc2, 0x21:0x31, 0x23:0x33, 0x01:0x02, 0x20:0x30, 0x03:0x04, 0x13:0x14, 0x15:0x16,
-                   0xe3:0xe4, 0xa3:0xb3, 0xf3:0xf4 };
+                   0xe3:0xe4, 0xa3:0xb3, 0xf3:0xf4, 0xdc:[0xdd, 0xde, 0xdf, 0xd9] };
 const isNiimbot = () => printer().proto === 'niimbot';
 const u16 = n => [(n >> 8) & 255, n & 255];
 
@@ -1484,12 +1511,11 @@ function onNotifyNiimbot(d){
   }
 }
 // Paket senden und auf die passende Antwort warten (Fehlerpakete DB = Druckfehler, 00 = nicht unterstützt)
-async function niimbotSend(cmd, data, timeout = 1000){
-  const want = NB_REPLY[cmd];
+async function niimbotSend(cmd, data, timeout = 1000, want = NB_REPLY[cmd]){
   const reply = want === undefined ? null : new Promise((resolve, reject) => {
     const done = (fn, v) => { clearTimeout(t); bt.nbWaiters = bt.nbWaiters.filter(w => w !== waiter); fn(v); };
     const waiter = (c, d) => {
-      if (c === want) done(resolve, d);
+      if ([].concat(want).includes(c)) done(resolve, d);
       else if (c === 0xdb) done(reject, new Error(`Druckerfehler ${d[0]}`));
       else if (c === 0x00) done(reject, new Error('Befehl wird vom Drucker nicht unterstützt'));
     };
