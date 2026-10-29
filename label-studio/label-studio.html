@@ -569,7 +569,11 @@ const PRINTERS = {
   d101:  { name:'Niimbot D101', size:[40,12],        proto:'niimbot', task:'B1',   head:192, rotate90:true, densMax:3,
            tested:'PC + Android', widthText:'24 mm', prefixes:['D101'] },
   b1:    { name:'Niimbot B1', size:[50,30],          proto:'niimbot', task:'B1',   head:384, rotate90:false, densMax:5,
-           widthText:'48 mm', prefixes:['B1-', 'B1_'] }
+           widthText:'48 mm', prefixes:['B1-', 'B1_'] },
+  // DYMO (Daten aus github.com/ysfchn/dymo-bluetooth, MIT-Lizenz): 12-mm-Band, aber nur 30 Punkte (3,8 mm) druckbar.
+  // Das Etikett ist darum 4 mm hoch (32 Punkte); die Länge ist frei, das Band wird nach dem Druck abgeschnitten.
+  lt200b:{ name:'DYMO LetraTag 200B', size:[40,4],    proto:'dymo', head:32, widthText:'12-mm-Band (3,8 mm druckbar)',
+           prefixes:['Letratag', 'LetraTag', 'DYMO LT', 'LT-200B'] }
 };
 // Druckermodell anhand des Bluetooth-Namens erkennen. Phomemo-Namen wie „M110“ oder „M220“ nicht als
 // Marklife („M1…“) deuten.
@@ -579,7 +583,7 @@ const modelFromName = name => {
   return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
-const PRESETS = [[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
+const PRESETS = [[30,4],[40,4],[60,4],[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50]];
 // Web-Schriften (Google Fonts) sehen auf PC und Handy gleich aus; Systemschriften gibt es oft nur unter Windows
 const WEB_FONTS = ['Roboto','Open Sans','Lato','Poppins','Montserrat','Raleway','Oswald','Roboto Condensed','Bebas Neue','Anton',
   'Archivo Black','Playfair Display','Merriweather','Roboto Mono','Orbitron','Press Start 2P','Pacifico','Dancing Script','Caveat','Permanent Marker'];
@@ -591,7 +595,7 @@ let USER_FONTS = [], LOCAL_FONTS = lsGet('labelstudio.localFonts', []);
 const webFontsOn = () => !!document.getElementById('webFontsCss');
 const allFonts = () => [...(webFontsOn() ? WEB_FONTS : []), ...USER_FONTS, ...SYS_FONTS, ...LOCAL_FONTS];
 const BLE_SERVICES = [0xff00,0xff80,0xae30,0xae00,0xfee7,0x18f0,0xffe0,0xffe5,0xfff0,0xff12,
-  'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455','be3dd650-2b3d-42f1-99c1-f0f749dd0678'];
 const LS_DRAFT = 'labelstudio.draft', LS_TPL = 'labelstudio.templates', LS_PRINT = 'labelstudio.print';
 
 const $ = id => document.getElementById(id);
@@ -1709,7 +1713,7 @@ function initLabelControls(){
   });
   const onSize = () => {
     const w = Math.min(72, Math.max(10, parseFloat($('lw').value) || design.w));
-    const h = Math.min(300, Math.max(5, parseFloat($('lh').value) || design.h));
+    const h = Math.min(300, Math.max(3, parseFloat($('lh').value) || design.h));
     setLabelSize(w, h, true);
   };
   $('lw').addEventListener('change', onSize);
@@ -1844,6 +1848,8 @@ async function connect(){
         }
         if (p.write || p.writeWithoutResponse){
           if (!found && c.uuid.includes('ff02')) found = c;
+          // DYMO: Druckdaten gehen an „print request“ (…651), Antworten kommen über …652
+          if (c.uuid.startsWith('be3dd651')) found = c;
           // Niimbot: ein Kanal für beides – Benachrichtigung und Schreiben ohne Antwort
           if (!found && isNiimbot() && p.notify && p.writeWithoutResponse) found = c;
           if (!fallback) fallback = c;
@@ -1881,6 +1887,7 @@ function onNotify(ev){
   console.log('Drucker:', [...d].map(x => x.toString(16).padStart(2,'0')).join(' '));
   if (isMarklife()){ onNotifyL11(d); return; }
   if (isNiimbot()){ onNotifyNiimbot(d); return; }
+  if (isDymo()){ if (d[0] === 0x1b && d[1] === 0x52 && d.length >= 3) (bt.dymoReplies ||= []).push(d[2]); return; }
   if (d.length < 3 || d[0] !== 0x1a) return;
   const v = d[2];
   if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
@@ -1915,6 +1922,7 @@ async function writeRaw(bytes){
 // Akku, Papier, Deckel und Firmware abfragen; die Antworten kommen über onNotify
 async function queryStatus(){
   if (isNiimbot()) return niimbotStatus();
+  if (isDymo()) return;   // meldet Akku/Kassette nur als Ergebnis eines Druckauftrags
   if (isMarklife()) return;   // meldet Papier/Deckel/Akku nur von sich aus bei Problemen
   for (const q of [0x08, 0x11, 0x12, 0x07]){
     if (!bt.char || bt.busy) return;   // nie zwischen Druckdaten funken
@@ -2011,6 +2019,7 @@ async function sendCredited(data, onProgress){
 }
 const waitFor = async (cond, ms) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(20); return cond(); };
 const isMarklife = () => ['l11', 'x2'].includes(printer().proto);
+const isDymo = () => printer().proto === 'dymo';
 async function printMarklife(c, onProgress){
   const { pre, bulk } = await buildMarklifeJob(c);
   await sendCredited(pre);
@@ -2112,6 +2121,89 @@ async function niimbotWaitPrinted(pages){
   }
   throw new Error('Drucker meldet kein Druckende');
 }
+// ---- DYMO LetraTag 200B (nach ysfchn/dymo-bluetooth, MIT-Lizenz) ----
+// Auftrag: ESC s (Start) · ESC D (Bild) · ESC E (Vorschub/Schnitt) · ESC A (Ergebnis melden) · ESC Q (Ende).
+// Davor ein 9-Byte-Kopf FF F0 12 34 + Länge (LE) + Prüfsumme; danach die Daten in Stücken mit laufender Nummer
+// (die Nummer 27 = ESC wird übersprungen), am letzten Stück hängt nochmal 12 34.
+// Bild: spaltenweise, je Spalte 32 Punkte in 4 Bytes; Byte 3 enthält die Zeilen 0–7, das höchste Bit ist die
+// obere Zeile. Die Punkte sind doppelt so hoch wie breit – darum wird jede Spalte zweimal gesendet.
+function dymoImage(c){
+  let src = c;
+  if (c.height > 32){   // höheres Etikett: aufs 4-mm-Band verkleinern
+    const k = 32 / c.height;
+    src = document.createElement('canvas'); src.width = Math.max(1, Math.round(c.width * k)); src.height = 32;
+    const sc = src.getContext('2d'); sc.fillStyle = '#fff'; sc.fillRect(0, 0, src.width, 32); sc.drawImage(c, 0, 0, src.width, 32);
+    threshold1bit(sc, src.width, 32);
+  }
+  const w = src.width, h = Math.min(32, src.height), top = Math.floor((32 - h) / 2);
+  const px = src.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = new Uint8Array(w * 2 * 4);
+  for (let x = 0; x < w; x++){
+    const col = new Uint8Array(4);
+    for (let y = 0; y < h; y++){
+      if (px[(y * w + x) * 4] >= 128) continue;
+      const r = y + top;
+      col[3 - (r >> 3)] |= 0x80 >> (r & 7);
+    }
+    out.set(col, x * 8); out.set(col, x * 8 + 4);
+  }
+  return { data: out, cols: w * 2 };
+}
+function dymoJob(c){
+  const { data, cols } = dymoImage(c);
+  const le4 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const body = concatBytes(new Uint8Array([0x1b, 0x73, 0x9a, 0x02, 0x00, 0x00, 0x1b, 0x44, 0x01, 0x02, ...le4(cols), 0x20, 0, 0, 0]),
+                           data, new Uint8Array([0x1b, 0x45, 0x1b, 0x41, 0x1b, 0x51]));
+  const head = [0xff, 0xf0, 0x12, 0x34, ...le4(body.length)];
+  head.push(head.reduce((a, b) => a + b, 0) & 255);
+  return { head: new Uint8Array(head), body, cols };
+}
+const DYMO_RESULT = { 2:'Druck fehlgeschlagen', 4:'Druck abgebrochen', 5:'Druck fehlgeschlagen', 6:'Akku zu schwach zum Drucken', 7:'Keine Kassette eingelegt' };
+async function printDymo(c, onProgress){
+  const { head, body, cols } = dymoJob(c);
+  const write = bytes => bt.char.properties.write ? bt.char.writeValueWithResponse(bytes) : bt.char.writeValueWithoutResponse(bytes);
+  const send = async size => {
+    await write(head);
+    const n = Math.ceil(body.length / size);
+    for (let i = 0; i < n; i++){
+      const part = body.subarray(i * size, (i + 1) * size);
+      const chunk = new Uint8Array(1 + part.length + (i === n - 1 ? 2 : 0));
+      chunk[0] = (i >= 27 ? i + 1 : i) & 255;
+      chunk.set(part, 1);
+      if (i === n - 1) chunk.set([0x12, 0x34], 1 + part.length);
+      await write(chunk);
+      onProgress((i + 1) / n * 0.8);
+      await sleep(20);
+    }
+  };
+  bt.dymoReplies = [];
+  // Stücke wie die DYMO-App mit 500 Bytes; klappt das Schreiben so nicht (kleine Paketgröße), mit 180 Bytes neu
+  try { await send(bt.dymoChunk || 500); }
+  catch(err){
+    if (bt.dymoChunk === 180) throw err;
+    bt.dymoChunk = 180; bt.dymoReplies = [];
+    await sleep(300);
+    await send(180);
+  }
+  // Ergebnis abwarten: erst „druckt“ (0/1), dann das eigentliche Ergebnis. Kommt nur die erste Meldung, gilt der
+  // Druck nach der Druckzeit (ca. 7 mm/s) als fertig.
+  const printMs = cols / 2 / PX_PER_MM / 7 * 1000 + 4000;
+  const t0 = Date.now();
+  while (Date.now() - t0 < printMs + 10000){
+    const r = bt.dymoReplies;
+    if (r.length && ![0, 1].includes(r[0])) break;
+    if (r.length >= 2) break;
+    if (r.length === 1 && Date.now() - t0 > printMs) break;
+    onProgress(0.8 + Math.min(0.2, (Date.now() - t0) / printMs * 0.2));
+    await sleep(150);
+  }
+  const code = bt.dymoReplies.length ? bt.dymoReplies[bt.dymoReplies.length - 1] : null;
+  if (code === null) throw new Error('Keine Antwort vom DYMO – ist er eingeschaltet und die Kassette eingelegt?');
+  if (code === 3) printerInfo.lowBattery = true, showPrinterInfo();
+  if (DYMO_RESULT[code]) throw new Error(DYMO_RESULT[code]);
+  onProgress(1);
+}
+
 async function printNiimbot(c, onProgress){
   const p = printer();
   const img = niimbotImagePackets(p.rotate90 ? rotateCW(c) : c, p.head);
@@ -2307,6 +2399,10 @@ $('btnPrint').addEventListener('click', async () => {
       }
       if (isNiimbot()){
         await printNiimbot(printCanvas(), f => prog.value = (n + f) / copies);
+        continue;
+      }
+      if (isDymo()){
+        await printDymo(printCanvas(), f => prog.value = (n + f) / copies);
         continue;
       }
       const steps = buildSteps(printCanvas());
@@ -2878,7 +2974,8 @@ function rollsAll(){
     '50 × 30 mm (Marklife M60)': { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'m60', align:'left', density:'6', feed:'4' },
     '40 × 12 mm (Niimbot D110)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d110', align:'left', density:'6', feed:'4' },
     '40 × 12 mm (Niimbot D101)': { w:40, h:12, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'d101', align:'left', density:'6', feed:'4' },
-    '50 × 30 mm (Niimbot B1)':   { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'b1',   align:'left', density:'6', feed:'4' }
+    '50 × 30 mm (Niimbot B1)':   { w:50, h:30, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'b1',   align:'left', density:'6', feed:'4' },
+    '40 × 4 mm (DYMO LetraTag)': { w:40, h:4, offset:'0', offsetY:'0', rotate:false, sysPaper:'label', model:'lt200b', align:'left', density:'6', feed:'4' }
   };
 }
 function refreshRolls(selName){
@@ -3297,6 +3394,11 @@ const HELP = {
       werden beim Verbinden am Namen erkannt. D110 und D101 drucken quer – gestalte das Etikett im Querformat, die App dreht
       es selbst. Der Druckkopf ist beim D110 12 mm, beim D101 24 mm und beim B1 48 mm breit. Passende Rollen:
       „40 × 12 mm (Niimbot D110)“, „40 × 12 mm (Niimbot D101)“, „50 × 30 mm (Niimbot B1)“.</p>
+    <p class="hint"><b>DYMO LetraTag 200B</b> – umgesetzt nach dem Open-Source-Projekt <b>„dymo-bluetooth“</b> von ysfchn
+      (MIT-Lizenz); noch nicht selbst getestet. Das Band ist 12 mm breit, bedruckbar sind aber nur 3,8 mm (30 Punkte) in der
+      Mitte. Das Etikett ist darum 4 mm hoch, die Länge frei wählbar (z. B. 40 × 4 mm) – ideal für eine Zeile Text.
+      Den äußersten Rand oben und unten druckt der DYMO nicht, dort also nichts Wichtiges platzieren. Höhere Etiketten
+      verkleinert die App automatisch aufs Band. Passende Rolle: „40 × 4 mm (DYMO LetraTag)“.</p>
     <p class="hint">Drucker, die nur „klassisches“ Bluetooth können (z. B. PM-241), sowie Niimbot- und
       Brother-Geräte nutzen eigene Protokolle und gehen nur über den Windows-Druck.</p>
     <p><b>Dein Drucker fehlt?</b> <button class="primary" data-request>Drucker vorschlagen …</button></p>` },
@@ -3403,6 +3505,7 @@ function showModelTested(){
   const proto = printer().proto;
   $('align').closest('.field').hidden = !['mseries', 'm110'].includes(proto);
   $('feed').closest('.field').hidden = proto !== 'mseries';
+  $('density').closest('.field').hidden = proto === 'dymo';   // DYMO: Druckstärke lässt sich nicht einstellen
 }
 $('model').addEventListener('change', showModelTested);
 // Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
