@@ -17,6 +17,10 @@
 > Getestet wurde nur das, was in den Tabellen unten als „getestet“ markiert ist. Nutzung auf eigene Gefahr –
 > Fehler und Verbesserungen gerne als [Issue](https://github.com/Barry2040/open-label-studio/issues) melden.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="Label Studio: links das Etikett mit Werkzeugen, in der Mitte Element und Ebenen, rechts Drucken und Vorlagen" width="100%">
+</p>
+
 ---
 
 ## ✨ Funktionen
