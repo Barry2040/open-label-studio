@@ -627,7 +627,7 @@ const PRINTERS = {
   d30:   { name:'Phomemo D30 / D35', size:[40,12],  proto:'dseries', head:0, rotate90:true, widthText:'12 mm', prefixes:['D30', 'D35'] },
   q30:   { name:'Phomemo Q30 / Q30S', size:[40,14], proto:'dseries', head:0, rotate90:true, widthText:'12–15 mm', prefixes:['Q30'] },
   // Versanddrucker 4 × 6 Zoll (Daten aus phomymo): Befehlssatz TSPL, per USB oder „klassischem“ Bluetooth (Web Serial)
-  pm241: { name:'Phomemo PM-241-BT', size:[100,150], proto:'tspl', head:816, widthText:'102 mm' },
+  pm241: { name:'Phomemo PM-241-BT', size:[100,150], proto:'tspl', head:816, tested:'PC', widthText:'102 mm' },
   // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
   // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
   p15:   { name:'Marklife P15 / P7', size:[40,12],   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
