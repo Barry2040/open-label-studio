@@ -52,6 +52,7 @@
 | 🔋 **Druckerstatus** | Akku, Papier und Deckel per Bluetooth (Phomemo, Niimbot; Marklife meldet nur Probleme), mit Warnung vor dem Druck |
 | 🧩 **Arbeitsfläche** | Fenster frei anordnen und in der Breite ziehen, mit Einrasten an Kanten |
 | ❓ **Hilfe** | Anleitung, Treiber-Infos und Fehlerbehebung im Menü **„Label Studio“** oben links |
+| 🐞 **Fehlerprotokoll** | Alle Schritte, Meldungen und Fehler mit Zeitstempel – als Datei speichern, kopieren oder teilen, um Probleme schnell zu finden (ohne Etikett-Texte) |
 
 ## 🖨️ Unterstützte Drucker
 
@@ -59,6 +60,7 @@
 |---|---|---|
 | **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S, D30 / D35, Q30 / Q30S | Bluetooth, USB (Windows-Treiber) |
 | **Phomemo** (Versand) | PM-241-BT (100 × 150 mm) | Bluetooth (vorher koppeln), USB direkt oder Windows-Treiber |
+| **Zebra** (Versand) | ZD220 (bis 104 mm, ZPL) | USB direkt (ohne Treiber) oder Windows-Treiber |
 | **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
 | **Niimbot** | D101 ✅, D110, B1, B21 | Bluetooth |
 | **DYMO** | LetraTag 200B ✅ | Bluetooth |
@@ -108,6 +110,7 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo D30 / D35 | 12 mm | 40 × 12 mm | quer | ungetestet |
 | Phomemo Q30 / Q30S | 12–15 mm | 40 × 14 mm | quer | ungetestet |
 | Phomemo PM-241-BT | 102 mm | 100 × 150 mm | mittig | ✅ getestet (PC, Bluetooth „klassisch“: vorher koppeln) |
+| Zebra ZD220 | 104 mm | 100 × 150 mm | mittig | ungetestet (nur USB) |
 | Marklife P15 / P7 (auch LP15, S15 …) | 12–15 mm | 40 × 12 mm | quer | ✅ getestet (PC) |
 | Marklife P12 (auch LP90, P11) | 12–15 mm | 40 × 15 mm | quer | ungetestet |
 | Marklife M60 (auch X2) | bis 50 mm | 50 × 30 mm | quer | ungetestet |

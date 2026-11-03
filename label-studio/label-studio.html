@@ -197,7 +197,7 @@ details.subsec>summary::before{content:"▸";color:var(--muted);transition:trans
 details.subsec[open]>summary::before{transform:rotate(90deg)}
 details.subsec:not([open])>summary{margin-bottom:0}
 .diag{margin:10px 0 0;padding:8px 10px;max-height:200px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;white-space:pre-wrap;word-break:break-word}
+  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;white-space:pre-wrap;word-break:break-word}
 .badge{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
 .badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
@@ -410,6 +410,9 @@ progress{width:100%;height:8px}
         <p class="hint" id="usbHint" hidden><b>Bluetooth:</b> den PM-241 zuerst in den Bluetooth-Einstellungen von Handy bzw. PC
           koppeln (PIN meist 0000), dann hier drucken – in Chrome (Android oder PC). <b>USB:</b> Kabel anstecken, ohne Treiber
           (Chrome/Edge). Klappt beides nicht, den Phomemo-Treiber installieren und „Über Windows-Drucker drucken (USB)“ nutzen.</p>
+        <p class="hint" id="zplHint" hidden>Zebra-Tischdrucker haben kein Bluetooth. USB-Kabel anstecken und hier drucken – ohne
+          Treiber in Chrome oder Edge (Android mit USB-OTG-Adapter). Ist unter Windows der Zebra-Treiber installiert, belegt er den
+          Anschluss: dann „Über Windows-Drucker drucken (USB)“ nutzen und dort Etikett 100 × 150 mm einstellen.</p>
         <pre id="btDiag" class="diag" hidden></pre>
         <button id="btDiagCopy" hidden style="width:100%;margin-top:6px">Diagnose kopieren</button>
       </details>
@@ -536,6 +539,23 @@ progress{width:100%;height:8px}
     <input type="file" id="fileBackup" hidden>
   </div>
 </dialog>
+<dialog id="debug" class="modal">
+  <div class="help-head">
+    <b style="flex:1;padding:6px 4px">Fehlerprotokoll</b>
+    <button id="debugClose" aria-label="Schließen">✕</button>
+  </div>
+  <div class="request-body">
+    <p style="margin-top:0">Klappt etwas nicht? Den Fehler einmal nachstellen, dann das Protokoll speichern oder kopieren und mitschicken.
+      Es enthält Geräte- und Druckerdaten, aber keine Texte deiner Etiketten.</p>
+    <pre id="debugText" class="diag" style="max-height:45vh;white-space:pre-wrap"></pre>
+    <div class="row" style="margin-top:8px">
+      <button id="debugSave" class="primary" style="flex:1">Als Datei speichern</button>
+      <button id="debugCopy" style="flex:1">Kopieren</button>
+      <button id="debugShare" hidden style="flex:1">Teilen …</button>
+      <button id="debugClear" style="flex:1">Leeren</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="shipPick" class="modal">
   <div class="help-head">
     <b style="flex:1;padding:6px 4px">Welches ist das Versandlabel?</b>
@@ -611,6 +631,26 @@ progress{width:100%;height:8px}
 
 <script>
 'use strict';
+// ---------- Fehlerprotokoll: merkt sich die letzten Schritte, Meldungen und Fehler – nur auf diesem Gerät ----------
+const LS_DEBUG = 'ls-debuglog';   // bewusst ohne „labelstudio.“-Vorsilbe, damit es nicht in Sicherungen landet
+const debugLog = (() => { try { return JSON.parse(localStorage.getItem(LS_DEBUG)) || []; } catch(e){ return []; } })();
+let debugTimer = 0;
+function dbg(kind, msg){
+  debugLog.push([Date.now(), kind, String(msg).slice(0, 3000)]);
+  if (debugLog.length > 500) debugLog.splice(0, debugLog.length - 500);
+  clearTimeout(debugTimer);
+  debugTimer = setTimeout(() => { try { localStorage.setItem(LS_DEBUG, JSON.stringify(debugLog)); } catch(e){} }, 300);
+}
+const errText = e => e ? (e.stack && !e.stack.includes(e.message) ? `${e.name}: ${e.message}\n${e.stack}` : (e.stack || `${e.name}: ${e.message}`)) : String(e);
+addEventListener('error', ev => dbg('FEHLER', `${ev.message} @ ${ev.filename}:${ev.lineno}:${ev.colno}` + (ev.error && ev.error.stack ? '\n' + ev.error.stack : '')));
+addEventListener('unhandledrejection', ev => dbg('FEHLER', 'Unbehandelt: ' + errText(ev.reason)));
+for (const [f, kind] of [['error', 'Konsole-Fehler'], ['warn', 'Konsole-Warnung'], ['log', 'Konsole']]){
+  const o = console[f].bind(console);
+  console[f] = (...a) => { dbg(kind, a.map(x => x instanceof Error ? errText(x) : typeof x === 'object' ? (() => { try { return JSON.stringify(x); } catch(e){ return String(x); } })() : String(x)).join(' ')); o(...a); };
+}
+{ const o = window.alert.bind(window); window.alert = m => { dbg('Meldung', m); o(m); }; }
+dbg('Start', 'Seite geladen');
+
 // ---------- Konstanten ----------
 const PX_PER_MM = 8;          // 203 dpi
 const HEAD_PX = 576;          // 72 mm Druckkopf (M220), Obergrenze für Bild-Importe
@@ -628,6 +668,8 @@ const PRINTERS = {
   q30:   { name:'Phomemo Q30 / Q30S', size:[40,14], proto:'dseries', head:0, rotate90:true, widthText:'12–15 mm', prefixes:['Q30'] },
   // Versanddrucker 4 × 6 Zoll (Daten aus phomymo): Befehlssatz TSPL, per USB oder „klassischem“ Bluetooth (Web Serial)
   pm241: { name:'Phomemo PM-241-BT', size:[100,150], proto:'tspl', head:816, tested:'PC', widthText:'102 mm' },
+  // Zebra ZD220 (203 dpi, 104 mm Kopf): Befehlssatz ZPL, nur USB – ohne Treiber per WebUSB oder über den Windows-Treiber
+  zd220: { name:'Zebra ZD220', size:[100,150], proto:'zpl', head:832, widthText:'104 mm' },
   // Marklife (Daten aus github.com/tomLadder/thermoprint, MIT-Lizenz): Etiketten laufen quer durch den Kopf,
   // darum wird das Bild um 90° gedreht und ohne Auffüllen gesendet; Senden nur mit „Guthaben“ vom Drucker.
   p15:   { name:'Marklife P15 / P7', size:[40,12],   proto:'l11', head:0, align:'left', rotate90:true, packet:95, delay:30, densityCmd:'thickness',
@@ -662,6 +704,7 @@ const modelFromName = name => {
   return Object.keys(PRINTERS).find(k => (PRINTERS[k].prefixes || []).some(p => name.startsWith(p)));
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
+const isRawPrinter = () => ['tspl', 'zpl'].includes(printer().proto);   // Versanddrucker: Befehle als Text + Bild
 const PRESETS = [[30,4],[40,4],[60,4],[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50],[100,150],[103,199]];
 // Web-Schriften (Google Fonts) sehen auf PC und Handy gleich aus; Systemschriften gibt es oft nur unter Windows
 const WEB_FONTS = ['Roboto','Open Sans','Lato','Poppins','Montserrat','Raleway','Oswald','Roboto Condensed','Bebas Neue','Anton',
@@ -869,7 +912,14 @@ const EN = {
   'Dieser Browser kann nicht direkt per USB drucken – Chrome oder Edge nutzen':'This browser cannot print directly via USB – use Chrome or Edge',
   'Kein Druck-Anschluss am Gerät gefunden':'No print interface found on the device',
   'Windows gibt den Drucker nicht frei. Bitte den Phomemo-Treiber nutzen: „Über Windows-Drucker drucken (USB)“':'Windows does not release the printer. Please use the Phomemo driver: “Print via Windows printer (USB)”',
-  '💾 Sicherung':'💾 Backup', '💾 Sicherung & Umzug …':'💾 Backup & move …', 'Sicherung & Umzug':'Backup & move',
+  '💾 Sicherung':'💾 Backup', '🐞 Fehlerprotokoll …':'🐞 Error log …', 'Fehlerprotokoll':'Error log',
+  'Klappt etwas nicht? Den Fehler einmal nachstellen, dann das Protokoll speichern oder kopieren und mitschicken. Es enthält Geräte- und Druckerdaten, aber keine Texte deiner Etiketten.':'Something not working? Reproduce the problem once, then save or copy the log and send it along. It contains device and printer data, but none of your label texts.',
+  'Als Datei speichern':'Save as file', 'Leeren':'Clear', 'Teilen …':'Share …', 'Protokoll kopiert':'Log copied',
+  'Kopieren nicht möglich – bitte „Als Datei speichern“ nutzen':'Copying not possible – please use “Save as file”',
+  'Teilen nicht möglich – bitte „Als Datei speichern“ nutzen':'Sharing not possible – please use “Save as file”',
+  'Zebra-Tischdrucker haben kein Bluetooth. USB-Kabel anstecken und hier drucken – ohne Treiber in Chrome oder Edge (Android mit USB-OTG-Adapter). Ist unter Windows der Zebra-Treiber installiert, belegt er den Anschluss: dann „Über Windows-Drucker drucken (USB)“ nutzen und dort Etikett 100 × 150 mm einstellen.':'Zebra desktop printers have no Bluetooth. Plug in the USB cable and print here – without a driver in Chrome or Edge (Android with a USB-OTG adapter). If the Zebra driver is installed on Windows, it occupies the port: then use “Print via Windows printer (USB)” and set the label to 100 × 150 mm there.',
+  'Windows gibt den Drucker nicht frei (ein Treiber belegt ihn). Bitte über „Über Windows-Drucker drucken (USB)“ drucken':'Windows does not release the printer (a driver is using it). Please print via “Print via Windows printer (USB)”',
+  '💾 Sicherung & Umzug …':'💾 Backup & move …', 'Sicherung & Umzug':'Backup & move',
   'Alles als Datei sichern oder eine Sicherung laden – für Handywechsel oder neuen Browser, ohne Konto':'Save everything as a file or load a backup – for a new phone or browser, no account needed',
   'Alles bleibt auf deinem Gerät –':'Everything stays on your device –', 'ohne Konto, ohne Cloud':'no account, no cloud',
   '. Speichere eine Sicherungsdatei und lade sie auf dem neuen Handy oder im neuen Browser wieder.':'. Save a backup file and load it again on your new phone or in a new browser.',
@@ -2013,7 +2063,7 @@ $('fileLabel').addEventListener('change', async ev => {
   catch(err){ log('Import fehlgeschlagen: ' + err.message); }
 });
 
-$('btnUsbPrint').addEventListener('click', () => printTspl('usb'));
+$('btnUsbPrint').addEventListener('click', () => printRaw('usb'));
 
 // ---------- Versandlabel: Paketmarke (meist A4-PDF) automatisch finden, ausschneiden und auf 100 × 150 mm einpassen ----------
 // Seite in hoher Auflösung zeichnen; ppm = Bildpunkte pro mm
@@ -2699,7 +2749,7 @@ function setStatus(on, text){
   $('statusText').textContent = text || (on ? 'Verbunden' : 'Nicht verbunden');
   $('btnConnect').textContent = on ? 'Trennen' : 'Verbinden';
 }
-function log(t){ $('log').textContent = t; }
+function log(t){ $('log').textContent = t; if (t) dbg('Meldung', t); }
 
 async function connect(){
   if (bt.device && bt.device.gatt.connected){ bt.device.gatt.disconnect(); return; }
@@ -2791,7 +2841,7 @@ async function connect(){
 const withTimeout = (p, ms, what) => Promise.race([p,
   new Promise((_, rej) => setTimeout(() => rej(new Error(`${what}: keine Antwort nach ${ms / 1000} s`)), ms))]);
 const shortUuid = u => { const m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/i.exec(u); return m ? '0x' + m[1] : u; };
-function diag(line){ const d = $('btDiag'); d.hidden = false; $('btDiagCopy').hidden = false; d.textContent += line + '\n'; }
+function diag(line){ dbg('Bluetooth', line); const d = $('btDiag'); d.hidden = false; $('btDiagCopy').hidden = false; d.textContent += line + '\n'; }
 // ---- Druckerstatus: Antworten im Format 1A <Typ> <Wert> (Bedeutungen aus dem phomymo-Projekt) ----
 const printerInfo = {};
 function onNotify(ev){
@@ -2886,12 +2936,19 @@ function clearPrinterInfo(){
 }
 // solange verbunden, jede Minute nachfragen
 setInterval(() => { if (bt.char) queryStatus(); }, 60000);
-$('btnConnect').addEventListener('click', () => printer().proto === 'tspl' ? connectSerialPrinter() : connect());
+$('btnConnect').addEventListener('click', () => printer().proto === 'tspl' ? connectSerialPrinter()
+  : printer().proto === 'zpl' ? connectUsbPrinter() : connect());
+// Zebra: „Verbinden“ = USB-Kabel (Zebra-Tischdrucker ohne Bluetooth)
+async function connectUsbPrinter(){
+  if (usbPrn.dev){ try { await usbPrn.dev.close(); } catch(e){} usbPrn.dev = null; setStatus(false); return; }
+  try { setStatus(false, 'Suche …'); await usbConnect(); setStatus(true, printer().name); }
+  catch(err){ setStatus(false); dbg('USB', errText(err)); if (err.name !== 'NotFoundError') log('USB-Fehler: ' + err.message); }
+}
 // PM-241: „Verbinden“ nutzt Bluetooth „klassisch“ (vorher in den Bluetooth-Einstellungen koppeln)
 async function connectSerialPrinter(){
   if (serPrn.writer){ await serialClose(); setStatus(false); return; }
   try { setStatus(false, 'Suche …'); await serialConnect(); setStatus(true, printer().name); }
-  catch(err){ setStatus(false); if (err.name !== 'NotFoundError') log('Bluetooth-Fehler: ' + err.message); }
+  catch(err){ setStatus(false); dbg('Bluetooth', errText(err)); if (err.name !== 'NotFoundError') log('Bluetooth-Fehler: ' + err.message); }
 }
 $('btDiagCopy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('btDiag').textContent); $('btDiagCopy').textContent = 'Kopiert ✓'; }
@@ -3173,7 +3230,7 @@ function rotateCW(src){
 function rasterize(c){
   const head = printer().head || Math.ceil(c.width / 8) * 8;
   const w = c.width, h = c.height, bpr = head / 8;
-  const align = !printer().head ? 'left' : printer().proto === 'tspl' ? 'center' : $('align').value;
+  const align = !printer().head ? 'left' : isRawPrinter() ? 'center' : $('align').value;
   let startX = align === 'right' ? head - w : align === 'center' ? Math.floor((head - w) / 2) : 0;
   startX += Math.round((parseFloat($('offset').value) || 0) * PX_PER_MM);
   // Versatz Y: positiv = leere Zeilen davor (Druck rutscht nach unten), negativ = oben abschneiden
@@ -3332,13 +3389,18 @@ function recordPrint(){
   lsSet(LS_HIST, list.slice(0, 10));
 }
 
-// ---------- USB-Direktdruck (TSPL, z. B. Phomemo PM-241) – nach phomymo ----------
+// ---------- USB-Direktdruck (TSPL, z. B. Phomemo PM-241, und ZPL, Zebra) – nach phomymo ----------
 const usbPrn = { dev:null, ep:0 };
+const ZEBRA_VID = 0x0a5f;
+const hex4 = n => '0x' + n.toString(16).padStart(4, '0');
 async function usbConnect(){
   if (!navigator.usb) throw new Error('Dieser Browser kann nicht direkt per USB drucken – Chrome oder Edge nutzen');
-  if (usbPrn.dev && usbPrn.dev.opened) return;
-  let dev = (await navigator.usb.getDevices())[0];
-  if (!dev) dev = await navigator.usb.requestDevice({ filters:[] });
+  const zebra = printer().proto === 'zpl', fits = d => (d.vendorId === ZEBRA_VID) === zebra;
+  if (usbPrn.dev && usbPrn.dev.opened && fits(usbPrn.dev)) return;
+  if (usbPrn.dev){ try { await usbPrn.dev.close(); } catch(e){} usbPrn.dev = null; }   // anderes Druckermodell gewählt
+  let dev = (await navigator.usb.getDevices()).find(fits);
+  if (!dev) dev = await navigator.usb.requestDevice({ filters: zebra ? [{ vendorId:ZEBRA_VID }] : [] });
+  dbg('USB', `Gerät: ${dev.manufacturerName || '?'} ${dev.productName || '?'} (VID ${hex4(dev.vendorId)}, PID ${hex4(dev.productId)})`);
   try {
     await dev.open();
     if (!dev.configuration) await dev.selectConfiguration(1);
@@ -3347,9 +3409,12 @@ async function usbConnect(){
     const ep = iface.alternates[0].endpoints.find(e => e.direction === 'out');
     if (!ep) throw new Error('Kein Druck-Anschluss am Gerät gefunden');
     usbPrn.dev = dev; usbPrn.ep = ep.endpointNumber;
+    dbg('USB', `Schnittstelle ${iface.interfaceNumber} (Klasse ${iface.alternates[0].interfaceClass}), Endpunkt ${ep.endpointNumber}, Paket ${ep.packetSize} Byte`);
   } catch(e){
+    dbg('USB', 'Öffnen fehlgeschlagen: ' + errText(e));
+    try { await dev.close(); } catch(_){}
     if (/access|denied|SecurityError|NetworkError|Unable to claim/i.test(e.name + ' ' + e.message))
-      throw new Error('Windows gibt den Drucker nicht frei. Bitte den Phomemo-Treiber nutzen: „Über Windows-Drucker drucken (USB)“');
+      throw new Error('Windows gibt den Drucker nicht frei (ein Treiber belegt ihn). Bitte über „Über Windows-Drucker drucken (USB)“ drucken');
     throw e;
   }
 }
@@ -3364,6 +3429,7 @@ async function serialConnect(){
   if (!port) port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds:[SPP_UUID], filters:[{ bluetoothServiceClassId:SPP_UUID }] });
   await port.open({ baudRate:115200 });
   serPrn.port = port; serPrn.writer = port.writable.getWriter();
+  dbg('Bluetooth', 'Serieller Anschluss offen: ' + JSON.stringify(port.getInfo()));
 }
 async function serialClose(){
   try { serPrn.writer && serPrn.writer.releaseLock(); } catch(e){}
@@ -3381,19 +3447,32 @@ function tsplJob(c){
   return concatBytes(enc(`SIZE ${mmW} mm, ${mmH} mm\r\nGAP 3 mm, 0 mm\r\nOFFSET -3 mm\r\nDENSITY ${Math.round(d8 / 8 * 15)}\r\n`
     + `SPEED 4\r\nDIRECTION 0\r\nCLS\r\nBITMAP 0,0,${bpr},${h},0,`), inv, enc('\r\nPRINT 1\r\nEND\r\n'));
 }
-async function printTspl(via){
+// ZPL (Zebra): Breite und Länge in Punkten, Druckstärke relativ (^MD), das Bild als Hex-Grafik (^GFA, 1 = schwarz)
+const HEX2 = Array.from({ length:256 }, (_, i) => i.toString(16).padStart(2, '0').toUpperCase());
+function zplJob(c){
+  const { bits, bpr, h } = rasterize(c);
+  const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
+  const hex = new Array(bits.length);
+  for (let i = 0; i < bits.length; i++) hex[i] = HEX2[bits[i]];
+  const n = bpr * h;
+  return new TextEncoder().encode(`^XA^PW${bpr * 8}^LL${h}^LH0,0^MD${(d8 - 6) * 5}^PON^FO0,0^GFA,${n},${n},${bpr},${hex.join('')}^FS^PQ1^XZ\r\n`);
+}
+async function printRaw(via){
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
-  const btn = via === 'usb' ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
-  try { await (via === 'usb' ? usbConnect() : serialConnect()); if (via !== 'usb') setStatus(true, printer().name); }
-  catch(err){ if (err.name !== 'NotFoundError') log('Druckfehler: ' + err.message); return; }
+  const zpl = printer().proto === 'zpl';
+  const btn = via === 'usb' && !zpl ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
+  dbg('Druck', `${printer().name} (${printer().proto}) über ${via === 'usb' ? 'USB' : 'Bluetooth'}: ${copies} Etikett(en), ${design.w} × ${design.h} mm`);
+  try { await (via === 'usb' ? usbConnect() : serialConnect()); if (via !== 'usb' || zpl) setStatus(true, printer().name); }
+  catch(err){ dbg('Druck', 'Verbinden fehlgeschlagen: ' + errText(err)); if (err.name !== 'NotFoundError') log('Druckfehler: ' + err.message); return; }
   const chunk = via === 'usb' ? 4096 : 512;
   const send = via === 'usb' ? b => usbPrn.dev.transferOut(usbPrn.ep, b) : async b => { await serPrn.writer.write(b); await sleep(15); };
   btn.disabled = true; prog.hidden = false;
   try {
     for (let n = 0; n < copies; n++){
       log(`Drucke ${n+1} von ${copies} …`);
-      const data = tsplJob(jobCanvas(jobs[n]));
+      const data = (zpl ? zplJob : tsplJob)(jobCanvas(jobs[n]));
+      dbg('Druck', `Etikett ${n + 1}: ${data.length} Byte in Blöcken zu ${chunk}`);
       for (let i = 0; i < data.length; i += chunk){
         await send(data.slice(i, i + chunk));
         prog.value = (n + Math.min(1, (i + chunk) / data.length)) / copies;
@@ -3404,15 +3483,17 @@ async function printTspl(via){
     recordPrint();
     if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
   } catch(err){
+    dbg('Druck', 'Abgebrochen: ' + errText(err));
     log('Druckfehler: ' + err.message);
-    if (via === 'usb'){ try { await usbPrn.dev.close(); } catch(e){} usbPrn.dev = null; }
+    if (via === 'usb'){ try { await usbPrn.dev.close(); } catch(e){} usbPrn.dev = null; if (zpl) setStatus(false); }
     else await serialClose();
   } finally {
     btn.disabled = false; prog.hidden = true; prog.value = 0; savePrintSettings(); render();
   }
 }
 $('btnPrint').addEventListener('click', async () => {
-  if (printer().proto === 'tspl'){ await printTspl('bt'); return; }
+  if (isRawPrinter()){ await printRaw(printer().proto === 'zpl' ? 'usb' : 'bt'); return; }
+  dbg('Druck', `${printer().name} (${printer().proto}) über Bluetooth: ${design.w} × ${design.h} mm, Dichte ${$('density').value}`);
   if (!bt.char){ await connect(); if (!bt.char) return; }
   // vor dem Druck warnen, wenn der Drucker Papier leer oder Deckel offen meldet
   const warn = [printerInfo.paper === 'out' && 'kein Papier', printerInfo.cover === 'open' && 'Deckel offen'].filter(Boolean);
@@ -4084,6 +4165,7 @@ showTab('element');
 // ---------- Kurze Meldung unten am Bildschirm ----------
 let toastT;
 function toast(msg){
+  dbg('Hinweis', msg);
   const t = $('toast');
   t.textContent = msg; t.hidden = false;
   clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3500);
@@ -4590,6 +4672,8 @@ const HELP = {
       <li><b>Phomemo PM-241-BT</b> (Versandlabel 100 × 150 mm) – nutzt „klassisches“ Bluetooth: Drucker <b>zuerst in den
         Bluetooth-Einstellungen</b> von Handy oder PC koppeln (PIN meist 0000), dann „Per Bluetooth drucken“ in Chrome. Alternativ per
         USB-Kabel ohne Treiber oder über den Phomemo-Windows-Treiber.</li>
+      <li><b>Zebra ZD220</b> (Versandlabel bis 104 mm, ZPL) – nur USB, kein Bluetooth. Ohne Treiber direkt aus Chrome/Edge
+        (Android mit USB-OTG-Adapter). Ist der Zebra-Windows-Treiber installiert, über „Über Windows-Drucker drucken (USB)“ drucken.</li>
       <li><b>Phomemo D30, D35, Q30</b> – kleine Etiketten laufen quer durch den Drucker. Gestalte sie im Querformat (z. B. 40 × 12 mm), die App dreht das Bild selbst.</li>
       <li><b>Marklife</b> (P15, P7, P12, M60) – werden beim Verbinden erkannt, Etiketten laufen quer; die App dreht das Bild.
         Der Drucker fährt am Ende selbst zur nächsten Etikettenlücke.</li>
@@ -4618,6 +4702,8 @@ const HELP = {
         Hilft das nicht, per USB drucken.</li>
       <li><b>Verbunden, aber es kommt nichts</b> – im Fenster „Drucken“ das richtige <b>Druckermodell</b> wählen.
         Sonst „Diagnose kopieren“ und über „Drucker vorschlagen“ schicken.</li>
+      <li><b>Fehler melden</b> – den Fehler einmal nachstellen, dann im Menü „🐞 Fehlerprotokoll …“ öffnen und die Datei
+        speichern oder teilen. Darin stehen alle Schritte und Fehlermeldungen – damit lässt sich das Problem schnell finden.</li>
       <li><b>„Browser unterstützt kein Web Bluetooth“</b> – Chrome oder Edge nutzen, auf dem iPhone die App Bluefy.</li>
     </ul>
 
@@ -4804,6 +4890,8 @@ const HELP_EN = {
       <li><b>Phomemo PM-241-BT</b> (100 × 150 mm shipping labels) – uses “classic” Bluetooth: <b>pair it in the Bluetooth settings</b>
         of your phone or PC first (PIN usually 0000), then “Print via Bluetooth” in Chrome. Alternatively via USB cable without a driver
         or via the Phomemo Windows driver.</li>
+      <li><b>Zebra ZD220</b> (shipping labels up to 104 mm, ZPL) – USB only, no Bluetooth. Without a driver directly from Chrome/Edge
+        (Android with a USB-OTG adapter). If the Zebra Windows driver is installed, use “Print via Windows printer (USB)”.</li>
       <li><b>Phomemo D30, D35, Q30</b> – small labels run sideways through the printer. Design them in landscape (e.g. 40 × 12 mm), the app rotates the image.</li>
       <li><b>Marklife</b> (P15, P7, P12, M60) – recognised when connecting, labels run sideways; the app rotates the image.
         At the end the printer moves to the next label gap by itself.</li>
@@ -4832,6 +4920,8 @@ const HELP_EN = {
         If that doesn’t help, print via USB.</li>
       <li><b>Connected, but nothing comes out</b> – choose the right <b>printer model</b> in the “Print” panel.
         Otherwise use “Copy diagnostics” and send it via “Suggest a printer”.</li>
+      <li><b>Reporting a bug</b> – reproduce the problem once, then open “🐞 Error log …” in the menu and save or share the file.
+        It lists every step and error message, which makes the problem quick to find.</li>
       <li><b>“Browser does not support Web Bluetooth”</b> – use Chrome or Edge, on iPhone the Bluefy app.</li>
     </ul>
 
@@ -4878,7 +4968,7 @@ function openHelp(key){
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
 $('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-gallery>🖼️ Vorlagen-Galerie …</button>'
-  + '<button data-backup>💾 Sicherung &amp; Umzug …</button><button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button>'
+  + '<button data-backup>💾 Sicherung &amp; Umzug …</button><button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button><button data-debug>🐞 Fehlerprotokoll …</button>'
   + '<button data-install hidden>📲 Als App installieren …</button>'
   + `<hr><button data-lang>${LANG === 'en' ? '🌐 Deutsch' : '🌐 English'}</button>`;
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
@@ -4893,6 +4983,7 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   if (ev.target.closest('[data-fonts]')){ toggleMenu(false); openFonts(); }
   if (ev.target.closest('[data-install]')){ toggleMenu(false); installApp(); }
   if (ev.target.closest('[data-backup]')){ toggleMenu(false); openBackup(); }
+  if (ev.target.closest('[data-debug]')){ toggleMenu(false); if ($('help').open) $('help').close(); openDebug(); }
   if (ev.target.closest('[data-lang]')){ toggleMenu(false); setLang(LANG === 'en' ? 'de' : 'en'); }
 }));
 
@@ -4912,6 +5003,71 @@ async function installApp(){
 // Offline-Speicher nur online (http/https); als lokal geöffnete Datei geht das nicht
 if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+
+// ---------- Fehlerprotokoll: Umgebung, Einstellungen und Ablauf als Text ----------
+function debugReport(){
+  const p = printer(), yes = b => b ? 'ja' : 'nein', two = n => String(n).padStart(2, '0');
+  const time = t => { const d = new Date(t); return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`; };
+  const types = {};
+  for (const e of design.elements) types[e.type] = (types[e.type] || 0) + 1;
+  let lsBytes = 0;
+  try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); lsBytes += k.length + (localStorage.getItem(k) || '').length; } } catch(e){}
+  const conn = [bt.device && `Bluetooth LE „${bt.device.name || '?'}“ ${bt.device.gatt && bt.device.gatt.connected ? 'verbunden' : 'getrennt'}`,
+    serPrn.port && 'Bluetooth klassisch (Web Serial) offen', usbPrn.dev && `USB ${usbPrn.dev.productName || ''} ${usbPrn.dev.opened ? 'offen' : 'zu'}`].filter(Boolean);
+  const diagText = $('btDiag').textContent.trim();
+  return [
+    'Label Studio – Fehlerprotokoll',
+    'Erstellt: ' + time(Date.now()),
+    'Adresse: ' + location.origin + location.pathname,
+    'Stand der Seite: ' + document.lastModified,
+    'Browser: ' + navigator.userAgent,
+    'Sprache: ' + navigator.language + ', Oberfläche ' + LANG,
+    `Bildschirm: ${screen.width} × ${screen.height} (×${devicePixelRatio}), Fenster ${innerWidth} × ${innerHeight}`,
+    'Als App geöffnet: ' + yes(matchMedia('(display-mode: standalone)').matches),
+    `Schnittstellen: Web Bluetooth ${yes(navigator.bluetooth)}, Web Serial ${yes(navigator.serial)}, WebUSB ${yes(navigator.usb)}, BarcodeDetector ${yes(window.BarcodeDetector)}`,
+    `Speicher: ${Math.round(lsBytes / 1024)} KB im Browser`,
+    '',
+    `Drucker: ${p.name} (${$('model').value}, ${p.proto}, Kopf ${p.head || 'aus Bild'} Punkte${p.tested ? ', getestet ' + p.tested : ''})`,
+    'Verbindung: ' + (conn.join(', ') || 'keine'),
+    'Druckerstatus: ' + JSON.stringify(printerInfo),
+    'Druckeinstellungen: ' + JSON.stringify(lsGet(LS_PRINT, {})),
+    `Etikett: ${design.w} × ${design.h} mm, Elemente: ${JSON.stringify(types)}`,
+    ...(diagText ? ['', '--- Bluetooth-Diagnose ---', diagText] : []),
+    '', `--- Ablauf (${debugLog.length} Einträge, neueste unten) ---`,
+    ...debugLog.map(([t, k, m]) => `${time(t)} [${k}] ${m}`)
+  ].join('\n');
+}
+function debugFile(){
+  const d = new Date(), stamp = d.toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  return new File([debugReport()], `labelstudio-protokoll-${stamp}.txt`, { type:'text/plain' });
+}
+function openDebug(){
+  $('debugText').textContent = debugReport();
+  $('debugShare').hidden = !(navigator.canShare && navigator.canShare({ files:[new File(['x'], 'x.txt', { type:'text/plain' })] }));
+  $('debug').showModal();
+  $('debugText').scrollTop = $('debugText').scrollHeight;
+}
+$('debugSave').addEventListener('click', () => {
+  const f = debugFile(), a = document.createElement('a');
+  a.download = f.name; a.href = URL.createObjectURL(f); a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+$('debugCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(debugReport()); toast('Protokoll kopiert'); }
+  catch(e){ toast('Kopieren nicht möglich – bitte „Als Datei speichern“ nutzen'); }
+});
+$('debugShare').addEventListener('click', async () => {
+  try { await navigator.share({ files:[debugFile()], title:'Label Studio – Fehlerprotokoll' }); }
+  catch(e){ if (e.name !== 'AbortError') toast('Teilen nicht möglich – bitte „Als Datei speichern“ nutzen'); }
+});
+$('debugClear').addEventListener('click', () => {
+  debugLog.length = 0;
+  try { localStorage.removeItem(LS_DEBUG); } catch(e){}
+  dbg('Start', 'Protokoll geleert');
+  $('debugText').textContent = debugReport();
+});
+$('debugClose').addEventListener('click', () => $('debug').close());
+$('debug').addEventListener('click', ev => { if (ev.target === $('debug')) $('debug').close(); });
 
 // ---------- Drucker vorschlagen (GitHub-Issue, auf Netlify über Netlify Forms) ----------
 function openRequest(){
@@ -4983,6 +5139,8 @@ function showModelTested(){
   const usb = proto === 'tspl';
   $('usbHint').hidden = !usb;
   $('btnUsbPrint').hidden = !usb;
+  $('zplHint').hidden = proto !== 'zpl';
+  $('btnPrint').textContent = proto === 'zpl' ? 'Per USB-Kabel drucken (ohne Treiber)' : 'Per Bluetooth drucken';
 }
 $('model').addEventListener('change', showModelTested);
 // Anderes Druckermodell gewählt (oder beim Verbinden erkannt): passende Rolle bzw. Standard-Etikett einstellen,
@@ -5001,7 +5159,7 @@ function adaptLabelToModel(){
   // keine passende Rolle: Auswahl leeren, damit keine Rolle eines anderen Druckers angezeigt wird
   $('rollSel').value = ''; $('rollDel').disabled = true; lsSet(LS_ROLL, '');
   if (p.align) $('align').value = p.align;
-  if (p.proto === 'tspl') $('sysPaper').value = 'label';   // Versanddrucker: Windows-Seite = Etikett (100 × 150)
+  if (isRawPrinter()) $('sysPaper').value = 'label';   // Versanddrucker: Windows-Seite = Etikett (100 × 150)
   savePrintSettings();
   if (p.size && (design.w !== p.size[0] || design.h !== p.size[1])){
     setLabelSize(p.size[0], p.size[1]);
