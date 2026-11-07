@@ -365,7 +365,6 @@ progress{width:100%;height:8px}
         <div class="field"><label for="offset">Versatz X (mm)</label><input id="offset" type="number" step="0.5" value="0"></div>
         <div class="field"><label for="offsetY">Versatz Y (mm)</label><input id="offsetY" type="number" step="0.5" value="0"></div>
       </div>
-      <label class="check"><input type="checkbox" id="rotate"> Um 90° drehen</label>
 
       <details class="subsec" id="serialSection">
         <summary>Seriendruck (Liste)</summary>
@@ -389,6 +388,8 @@ progress{width:100%;height:8px}
             <option value="label">Wie Etikett</option>
           </select>
         </div>
+        <label class="check" title="Nur für den Druck über den Windows-Treiber: dreht das Etikett auf der Seite, falls der Treiber es quer erwartet. Bluetooth und USB direkt drehen selbst richtig.">
+          <input type="checkbox" id="rotate"> Um 90° drehen</label>
         <button class="primary" id="btnSysPrint" style="width:100%">Über Windows-Drucker drucken (USB)</button>
         <p class="hint">Im Druckfenster dasselbe Papierformat wählen, Ränder „Keine“, Skalierung 100.</p>
       </div>
@@ -705,6 +706,22 @@ const modelFromName = name => {
 };
 const printer = () => PRINTERS[$('model').value] || PRINTERS.m220;
 const isRawPrinter = () => ['tspl', 'zpl'].includes(printer().proto);   // Versanddrucker: Befehle als Text + Bild
+// Wie breit (quer zur Laufrichtung) der Drucker höchstens druckt, und wie breit das Etikett dort ist – beides in mm.
+// Drucker ohne feste Kopfbreite (head 0) nach Bandbreite; Versanddrucker drehen quer gestaltete Etiketten selbst.
+const HEAD0_MM = { d30:15, q30:15, p15:15, p12:15, m60:50 };
+function widthCheck(){
+  const p = printer(), key = $('model').value;
+  if (p.proto === 'dymo' || p.continuous) return null;
+  const max = p.head ? p.head / PX_PER_MM : HEAD0_MM[key];
+  if (!max) return null;
+  let cross = p.rotate90 || ['l11', 'x2'].includes(p.proto) ? design.h : design.w;
+  if (isRawPrinter() && design.w > max && design.h <= max) cross = design.h;
+  return cross > max + 3 ? { cross, max } : null;   // 3 mm Spielraum (z. B. 50-mm-Rolle auf 48-mm-Kopf)
+}
+function confirmWidth(){
+  const w = widthCheck();
+  return !w || confirm(`Das Etikett ist ${w.cross} mm breit, der ${printer().name} druckt aber höchstens ${w.max} mm breit – ein Teil wird abgeschnitten.\n\nTipp: oben die passende Rolle bzw. Etikettgröße wählen.\nTrotzdem drucken?`);
+}
 const PRESETS = [[30,4],[40,4],[60,4],[30,12],[40,12],[40,15],[50,15],[30,20],[40,20],[40,30],[50,30],[50,50],[60,40],[70,40],[72,50],[100,150],[103,199]];
 // Web-Schriften (Google Fonts) sehen auf PC und Handy gleich aus; Systemschriften gibt es oft nur unter Windows
 const WEB_FONTS = ['Roboto','Open Sans','Lato','Poppins','Montserrat','Raleway','Oswald','Roboto Condensed','Bebas Neue','Anton',
@@ -776,7 +793,7 @@ const EN = {
   'Gefüllt':'Filled', 'Linienstärke (px)':'Line width (px)', 'Eckenradius (px)':'Corner radius (px)',
   'Kreis / Ellipse':'Circle / ellipse', 'Dreieck':'Triangle', 'Raute':'Diamond', 'Sechseck':'Hexagon', 'Stern':'Star', 'Herz':'Heart',
   'Pfeil':'Arrow', 'Sprechblase':'Speech bubble',
-  '↔ Mitte':'↔ Centre', '↕ Mitte':'↕ Centre', '⤢ Einpassen':'⤢ Fit', 'Zurücksetzen':'Reset', 'Duplizieren':'Duplicate',
+  '↔ Mitte':'↔ Centre', '↕ Mitte':'↕ Centre', '⤢ Einpassen':'⤢ Fit', '⇔ Strecken':'⇔ Stretch', 'Auf Etikett strecken':'Stretch to label', 'Zurücksetzen':'Reset', 'Duplizieren':'Duplicate',
   'Nach vorne':'Bring forward', 'Nach hinten':'Send backward', 'Löschen':'Delete',
   '{ } Platzhalter ▾':'{ } Placeholder ▾', 'Datum, Uhrzeit, Nummer … einfügen – wird beim Drucken ersetzt':'Insert date, time, number … – replaced when printing',
   'Datum':'Date', 'Heute':'Today', 'In 7 Tagen':'In 7 days', 'In 1 Monat':'In 1 month', 'In 1 Jahr':'In 1 year', 'Gestern':'Yesterday',
@@ -794,7 +811,8 @@ const EN = {
   'Alles auswählen':'Select all', 'Links ausrichten':'Align left', 'Rechts ausrichten':'Align right', 'Oben ausrichten':'Align top', 'Unten ausrichten':'Align bottom',
   'Horizontal mittig':'Centre horizontally', 'Vertikal mittig':'Centre vertically', 'Auf dem Etikett zentrieren':'Centre on the label',
   'Auf Etikett einpassen':'Fit to label', 'Ausblenden':'Hide', 'Duplizieren (Strg+D)':'Duplicate (Ctrl+D)', 'Ganz nach vorne':'Bring to front',
-  'Ganz nach hinten':'Send to back', 'Sperren':'Lock', 'Entsperren':'Unlock', 'Um 90° drehen':'Rotate 90°', 'Form …':'Shape …', 'Symbol …':'Symbol …',
+  'Ganz nach hinten':'Send to back', 'Sperren':'Lock', 'Entsperren':'Unlock', 'Um 90° drehen':'Rotate 90°',
+  'Nur für den Druck über den Windows-Treiber: dreht das Etikett auf der Seite, falls der Treiber es quer erwartet. Bluetooth und USB direkt drehen selbst richtig.':'Only for printing via the Windows driver: rotates the label on the page if the driver expects it sideways. Bluetooth and direct USB rotate correctly by themselves.', 'Form …':'Shape …', 'Symbol …':'Symbol …',
   // Symbole
   'Achtung':'Warning', 'Strom':'Electricity', 'Radioaktiv':'Radioactive', 'Biogefahr':'Biohazard', 'Heiß':'Hot', 'Kalt / gefroren':'Cold / frozen',
   'Sonne':'Sun', 'Trocken lagern':'Keep dry', 'Recycling':'Recycling', 'Schneiden':'Cut', 'Technik':'Engineering', 'Werkzeug':'Tools', 'Ein/Aus':'On/off',
@@ -954,6 +972,8 @@ const EN_RE = [
   [/^Import fehlgeschlagen: (.*)$/s, (m, e) => 'Import failed: ' + tr(e)], [/^Importiert: (.*)$/, 'Imported: $1'],
   [/^Fehler: (.*)$/, (m, e) => 'Error: ' + tr(e)], [/^Bluetooth-Fehler bei „(.+)“: (.*)$/s, (m, a, b) => `Bluetooth error during “${tr(a)}”: ${b}`],
   [/^Verbinde … \((\d)\/4\)$/, 'Connecting … ($1/4)'],
+  [/^Das Etikett ist (.+) mm breit, der (.+) druckt aber höchstens (.+) mm breit – ein Teil wird abgeschnitten\.\n\nTipp: oben die passende Rolle bzw\. Etikettgröße wählen\.\nTrotzdem drucken\?$/s,
+    (m, a, b, c) => `The label is ${a} mm wide, but the ${b} prints at most ${c} mm wide – part of it will be cut off.\n\nTip: choose the matching roll or label size above.\nPrint anyway?`],
   [/^Der Drucker meldet: (.+)\.\nTrotzdem drucken\?$/s, (m, a) => `The printer reports: ${a.split(', ').map(tr).join(', ')}.\nPrint anyway?`],
   [/^✓ getestet \((.+)\)$/, '✓ tested ($1)'], [/^(.+) · ✓ getestet \((.+)\)$/, '$1 · ✓ tested ($2)'], [/^(.+) mm · ✓ getestet$/, '$1 mm · ✓ tested'],
   [/^Bluetooth-Druck mit (.+) über (.+) erfolgreich ausprobiert$/, 'Bluetooth printing with $1 via $2 successfully tried'],
@@ -1263,6 +1283,19 @@ function fitText(e, box = { x:0, y:0, w:design.autoLen ? 8000 : W(), h:H() }, ma
   const b = bbox(e);
   e.x = Math.round(box.x + (box.w - b.w) / 2); e.y = Math.round(box.y + (box.h - b.h) / 2);
   return e;
+}
+// Bild aufs Etikett bringen: einpassen (Seitenverhältnis des Bildes bleibt, mittig) oder strecken (füllt das ganze Etikett)
+function fitImage(e, stretch){
+  const q = quarterTurn(e), im = getImg(e.src);
+  const lw = design.autoLen ? (q ? e.h : e.w) : W(), lh = H();
+  let vw = lw, vh = lh;
+  if (!stretch){
+    const raw = im.naturalWidth ? im.naturalHeight / im.naturalWidth : e.h / e.w;   // Höhe/Breite vor dem Drehen
+    const r = q ? 1 / raw : raw, k = Math.min(lw, lh / r);
+    vw = Math.round(k); vh = Math.round(k * r);
+  }
+  e.w = q ? vh : vw; e.h = q ? vw : vh; e.ratio = e.h / e.w;
+  e.x = Math.round((lw - vw) / 2); e.y = Math.round((lh - vh) / 2);
 }
 
 function drawQR(c, e){
@@ -1835,6 +1868,8 @@ cv.addEventListener('contextmenu', ev => {
              { ico:'↔', label:'Horizontal mittig', fn:() => alignSel('hcenter') }, { ico:'↕', label:'Vertikal mittig', fn:() => alignSel('vcenter') },
              { ico:'↻', label:'Um 90° drehen', fn:() => rotateEl(e) }];
     if (e.type === 'text') items.push({ ico:'⤢', label:'Auf Etikett einpassen', fn:() => { fitText(e); changed(); } });
+    if (e.type === 'image') items.push({ ico:'⤢', label:'Auf Etikett einpassen', fn:() => { fitImage(e, false); changed(); } },
+                                       { ico:'⇔', label:'Auf Etikett strecken', fn:() => { fitImage(e, true); changed(); } });
     items.push('-', { ico:'⬆', label:'Ganz nach vorne', fn:() => toFront(e) }, { ico:'⬇', label:'Ganz nach hinten', fn:() => toBack(e) },
                { ico:e.locked ? '🔓' : '🔒', label:e.locked ? 'Entsperren' : 'Sperren', fn:() => { e.locked = !e.locked; changed(); } },
                { ico:'👁', label:'Ausblenden', fn:() => { e.hidden = true; setSel([]); changed(); } }, '-',
@@ -2363,8 +2398,10 @@ async function importShipping(file){
     const hi = Math.min(24, ppm * Math.sqrt(16e6 / (cw * ch)));
     if (hi > ppm * 1.2) crop = await hiRes({ x, y, w:cw, h:ch }, hi).catch(() => crop);
   }
-  // Ziel: Versandetikett (mindestens 90 mm breit) behalten, sonst 100 × 150 mm
-  const [lw, lh] = Math.min(design.w, design.h) >= 90 ? [design.w, design.h] : [100, 150];
+  // Ziel: Versandetikett (mindestens 90 mm breit) behalten, sonst 100 × 150 mm – außer der gewählte Drucker kann
+  // gar nicht so breit drucken (z. B. M220): dann aufs gewählte Etikett einpassen (z. B. Internetmarke auf 40 × 30)
+  const wide = isRawPrinter() || (printer().head || 0) >= 90 * PX_PER_MM;
+  const [lw, lh] = Math.min(design.w, design.h) >= 90 || !wide ? [design.w, design.h] : [100, 150];
   loadDesign({ w:lw, h:lh, elements:[] });
   const rot = cw !== ch && (cw > ch) !== (W() > H());
   const iw = rot ? ch : cw, ih = rot ? cw : ch, k = Math.min(W() / iw, H() / ih);
@@ -2455,6 +2492,7 @@ function buildProps(){
   mk('↕ Mitte', () => { const b = bbox(sel); sel.y = Math.round((H()-b.h)/2); changed(); });
   mk('↻ 90°', () => rotateEl(sel));
   if (sel.type === 'text') mk('⤢ Einpassen', () => { fitText(sel); changed(); });
+  if (sel.type === 'image'){ mk('⤢ Einpassen', () => { fitImage(sel, false); changed(); }); mk('⇔ Strecken', () => { fitImage(sel, true); changed(); }); }
   if (sel.type === 'image') mk('Zurücksetzen', () => resetImageEl(sel));
   mk('Duplizieren', duplicateSel);
   mk('Nach vorne', () => toFront(sel));
@@ -3209,13 +3247,13 @@ async function printNiimbot(c, onProgress){
 }
 
 // ---------- Druckdaten ----------
-function printCanvas(){
+function printCanvas(rot = false){
   const w = W(), h = H();
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const cc = c.getContext('2d');
   paintLabel(cc);
   threshold1bit(cc, w, h);
-  return $('rotate').checked ? rotateCW(c) : c;
+  return rot ? rotateCW(c) : c;   // nur der Windows-Druck dreht („Um 90° drehen“), Direktdruck dreht je Drucker selbst
 }
 // Canvas um 90° im Uhrzeigersinn drehen
 function rotateCW(src){
@@ -3362,11 +3400,16 @@ const LS_HIST = 'labelstudio.history';
 // (Seriendruck: kurze Namen = kurzes Band); das eigentliche Etikett im Editor bleibt dabei unverändert.
 function jobCanvas(job){
   curNr = job.nr; curRow = job.row;
-  if (!design.autoLen) return printCanvas();
+  if (!design.autoLen) return fitHead(printCanvas());
   const ref = scaleRef;
   const c = withDesign(JSON.parse(JSON.stringify(design)), () => { autoLength(); return printCanvas(); });
   scaleRef = ref; syncLabelControls(); fitCanvas();   // Anzeige wieder auf das echte Etikett
   return c;
+}
+// Versanddrucker (PM-241, Zebra): quer gestaltetes Etikett (z. B. 150 × 100) passt nur gedreht unter den Kopf
+function fitHead(c){
+  const p = printer();
+  return isRawPrinter() && c.width > p.head + PX_PER_MM && c.height <= p.head + PX_PER_MM ? rotateCW(c) : c;
 }
 // Endlosband: mehrere Etiketten hintereinander, dazwischen eine gestrichelte Schnittmarke (1 Punkt breit)
 function stripCanvas(list){
@@ -3443,7 +3486,7 @@ function tsplJob(c){
   const d8 = Math.min(8, Math.max(1, parseInt($('density').value) || 6));
   const enc = t => new TextEncoder().encode(t);
   const inv = bits.map(b => b ^ 0xff);
-  const mmW = Math.round(c.width / PX_PER_MM), mmH = Math.round(c.height / PX_PER_MM);   // „Um 90° drehen“ tauscht die Seiten
+  const mmW = Math.round(c.width / PX_PER_MM), mmH = Math.round(c.height / PX_PER_MM);   // gedrehtes Etikett: Seiten getauscht
   return concatBytes(enc(`SIZE ${mmW} mm, ${mmH} mm\r\nGAP 3 mm, 0 mm\r\nOFFSET -3 mm\r\nDENSITY ${Math.round(d8 / 8 * 15)}\r\n`
     + `SPEED 4\r\nDIRECTION 0\r\nCLS\r\nBITMAP 0,0,${bpr},${h},0,`), inv, enc('\r\nPRINT 1\r\nEND\r\n'));
 }
@@ -3460,6 +3503,7 @@ function zplJob(c){
 async function printRaw(via){
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
+  if (!confirmWidth()) return;
   const zpl = printer().proto === 'zpl';
   const btn = via === 'usb' && !zpl ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
   dbg('Druck', `${printer().name} (${printer().proto}) über ${via === 'usb' ? 'USB' : 'Bluetooth'}: ${copies} Etikett(en), ${design.w} × ${design.h} mm`);
@@ -3498,6 +3542,7 @@ $('btnPrint').addEventListener('click', async () => {
   // vor dem Druck warnen, wenn der Drucker Papier leer oder Deckel offen meldet
   const warn = [printerInfo.paper === 'out' && 'kein Papier', printerInfo.cover === 'open' && 'Deckel offen'].filter(Boolean);
   if (warn.length && !confirm(`Der Drucker meldet: ${warn.join(', ')}.\nTrotzdem drucken?`)) return;
+  if (!confirmWidth()) return;
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
   const btn = $('btnPrint'), prog = $('prog');
@@ -3574,7 +3619,7 @@ $('btnSysPrint').addEventListener('click', async () => {
     pg.className = 'pg';
     pg.style.width = pw + 'mm'; pg.style.height = ph + 'mm';
     const img = document.createElement('img');
-    img.src = printCanvas().toDataURL('image/png');
+    img.src = printCanvas(rot).toDataURL('image/png');
     img.style.width = lw + 'mm'; img.style.height = lh + 'mm'; img.style.left = left + 'mm';
     img.style.top = (parseFloat($('offsetY').value) || 0) + 'mm';
     pg.appendChild(img);
@@ -4722,7 +4767,8 @@ const HELP = {
       <li><b>Druck zu hoch oder zu tief</b> – „Versatz Y (mm)“: positiv schiebt nach unten, negativ nach oben.
         Beim ersten Druck nach dem Einschalten sucht der Drucker oft noch die Etikettenlücke.</li>
       <li><b>Druck verteilt sich auf zwei Etiketten (USB)</b> – im Druckfenster ist ein anderes Papierformat gewählt als in der App.</li>
-      <li><b>Etikett steht falsch herum</b> – im Fenster „Drucken“ „Um 90° drehen“ oder beim Element „↻ 90°“.</li>
+      <li><b>Etikett steht falsch herum</b> – beim Element „↻ 90°“. Nur beim Druck über den Windows-Treiber gibt es zusätzlich
+        „Um 90° drehen“ (unter „Windows-Drucker“) – Bluetooth und USB direkt drehen je nach Drucker selbst richtig.</li>
     </ul>
 
     <h3>Bedienung</h3>
@@ -4940,7 +4986,8 @@ const HELP_EN = {
       <li><b>Print too high or too low</b> – “Offset Y (mm)”: positive moves down, negative up.
         On the first print after switching on, the printer often still searches for the label gap.</li>
       <li><b>Print spreads over two labels (USB)</b> – the print dialog uses a different paper size than the app.</li>
-      <li><b>Label is the wrong way round</b> – “Rotate 90°” in the “Print” panel or “↻ 90°” on the element.</li>
+      <li><b>Label is the wrong way round</b> – “↻ 90°” on the element. Only for printing via the Windows driver there is also
+        “Rotate 90°” (under “Windows printer”) – Bluetooth and direct USB rotate correctly for each printer by themselves.</li>
     </ul>
 
     <h3>Using the app</h3>
@@ -5032,6 +5079,10 @@ function debugReport(){
     'Druckerstatus: ' + JSON.stringify(printerInfo),
     'Druckeinstellungen: ' + JSON.stringify(lsGet(LS_PRINT, {})),
     `Etikett: ${design.w} × ${design.h} mm, Elemente: ${JSON.stringify(types)}`,
+    // Lage und Größe in Bildpunkten (8 je mm), ohne Inhalte
+    ...design.elements.map((e, i) => { const z = rawSize(e); return `  ${i + 1}. ${e.type}: x ${Math.round(e.x)}, y ${Math.round(e.y)}, ${Math.round(z.w)} × ${Math.round(z.h)}`
+      + `${e.rot ? `, gedreht ${e.rot}°` : ''}${e.hidden ? ', ausgeblendet' : ''}${e.type === 'image' ? `, Schwärzung ${e.threshold}, Raster ${e.dither || 'aus'}` : ''}`; }),
+    `Druck-Optionen: um 90° drehen ${yes($('rotate').checked)}, Versatz ${$('offset').value} / ${$('offsetY').value} mm`,
     ...(diagText ? ['', '--- Bluetooth-Diagnose ---', diagText] : []),
     '', `--- Ablauf (${debugLog.length} Einträge, neueste unten) ---`,
     ...debugLog.map(([t, k, m]) => `${time(t)} [${k}] ${m}`)
