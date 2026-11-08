@@ -58,7 +58,7 @@
 
 | Hersteller | Modelle | Verbindung |
 |---|---|---|
-| **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S, D30 / D35, Q30 / Q30S | Bluetooth, USB (Windows-Treiber) |
+| **Phomemo** | M220 ✅, M221, M200, M110 / M120, M110S, M108, D30 / D35, Q30 / Q30S | Bluetooth, USB (Windows-Treiber) |
 | **Phomemo** (Versand) | PM-241-BT (100 × 150 mm) | Bluetooth (vorher koppeln), USB direkt oder Windows-Treiber |
 | **Zebra** (Versand) | ZD220 (bis 104 mm, ZPL) | USB direkt (ohne Treiber) oder Windows-Treiber |
 | **Marklife** | P15 / P7 ✅, P12, M60 | Bluetooth |
@@ -107,6 +107,7 @@ Funktioniert in **Chrome/Edge** am PC, **Chrome** auf Android und mit der App **
 | Phomemo M200 | 76 mm | 50 × 30 mm | mittig | ungetestet |
 | Phomemo M110 / M120 | 48 mm | 40 × 30 mm | mittig | ungetestet |
 | Phomemo M110S | 48 mm | 40 × 30 mm | rechts | ungetestet |
+| Phomemo M108 | 48 mm | 40 × 30 mm | mittig | ungetestet |
 | Phomemo D30 / D35 | 12 mm | 40 × 12 mm | quer | ungetestet |
 | Phomemo Q30 / Q30S | 12–15 mm | 40 × 14 mm | quer | ungetestet |
 | Phomemo PM-241-BT | 102 mm | 100 × 150 mm | mittig | ✅ getestet (PC, Bluetooth „klassisch“: vorher koppeln) |

@@ -669,6 +669,9 @@ const PRINTERS = {
   m200:  { name:'Phomemo M200', size:[50,30],        proto:'mseries', head:608, align:'center' },
   m110:  { name:'Phomemo M110 / M120', size:[40,30], proto:'m110',    head:384, align:'center' },
   m110s: { name:'Phomemo M110S', size:[40,30],       proto:'m110',    head:384, align:'right'  },
+  // M108: nicht in phomymo; laut Datenblatt wie der M110 (48 mm, 203 dpi, App „Print Master“) – darum dessen Befehlssatz.
+  // Steht vor den Marklife-Modellen, damit der Bluetooth-Name „M108…“ nicht als Marklife („M1…“) erkannt wird.
+  m108:  { name:'Phomemo M108', size:[40,30],        proto:'m110',    head:384, align:'center', widthText:'48 mm', prefixes:['M108'] },
   // D-Serie (Daten aus phomymo): kleine Etiketten laufen quer durch den Kopf, das Bild wird gedreht und so breit
   // gesendet wie das Etikett hoch ist (head 0 = Breite aus dem Bild)
   d30:   { name:'Phomemo D30 / D35', size:[40,12],  proto:'dseries', head:0, rotate90:true, widthText:'12 mm', prefixes:['D30', 'D35'] },
