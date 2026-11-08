@@ -34,7 +34,8 @@
 | 🖱️ **Bedienung** | Mehrfachauswahl mit Ausrichten/Verteilen, Rechtsklick-Menü, auf dem Handy Fenster als Tabs, Hell/Dunkel umschaltbar |
 | 🗂️ **Ebenen** | Alle Elemente als Liste wie in Photoshop: auswählen, ausblenden, sperren, umsortieren, umbenennen |
 | 📐 **Präzise** | Lineal in mm, zuschaltbares Raster (1/2/5 mm) mit Einrasten, Rückgängig/Wiederholen (Strg+Z/Y) |
-| 📦 **Versandlabel** | DHL-, Hermes- oder DPD-PDF einlesen: Das Label wird auf der Seite automatisch gefunden, ausgeschnitten, gedreht und auf 100 × 150 mm eingepasst – kein Zuschneiden von Hand |
+| 📦 **Versandlabel** | DHL-, Hermes- oder DPD-PDF einlesen: Das Label wird auf der Seite automatisch gefunden, ausgeschnitten, gedreht und auf 100 × 150 mm eingepasst – kein Zuschneiden von Hand. Bei kleinen Druckern kommt es aufs gewählte Etikett |
+| ✉️ **Briefmarken** | Internetmarke als PDF einlesen: ohne Schnittmarken groß und mittig aufs Etikett (z. B. 40 × 30 mm); mehrere Marken auf einem Bogen kommen je auf ein eigenes Etikett und werden nacheinander gedruckt |
 | 📥 **Importieren** | Fertige Etiketten als PNG, SVG oder PDF, z. B. von [3dfilamentprofiles.com](https://3dfilamentprofiles.com) |
 | 🔢 **Platzhalter** | `{datum}`, `{datum+7}` (auch Wochen/Monate/Jahre), `{kw}`, `{wochentag}`, `{monat}`, `{jahr}`, `{zeit}` und `{nr}` – per Knopf „{ } Platzhalter“ einfügen |
 | 📷 **Scannen & Einfügen** | QR-Code/Barcode mit der Kamera einlesen oder ein geteiltes Etikett direkt öffnen; Bilder und Text mit Strg+V einfügen oder aufs Etikett ziehen |
@@ -53,6 +54,7 @@
 | 🧩 **Arbeitsfläche** | Fenster frei anordnen und in der Breite ziehen, mit Einrasten an Kanten |
 | ❓ **Hilfe** | Anleitung, Treiber-Infos und Fehlerbehebung im Menü **„Label Studio“** oben links |
 | 🐞 **Fehlerprotokoll** | Alle Schritte, Meldungen und Fehler mit Zeitstempel – als Datei speichern, kopieren oder teilen, um Probleme schnell zu finden (ohne Etikett-Texte) |
+| 🧹 **Zurücksetzen** | Alle gespeicherten Daten im Browser mit einem Klick löschen – die App startet wie neu |
 
 ## 🖨️ Unterstützte Drucker
 
