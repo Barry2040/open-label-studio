@@ -950,7 +950,9 @@ const EN = {
   'Dieser Browser kann nicht direkt per USB drucken – Chrome oder Edge nutzen':'This browser cannot print directly via USB – use Chrome or Edge',
   'Kein Druck-Anschluss am Gerät gefunden':'No print interface found on the device',
   'Windows gibt den Drucker nicht frei. Bitte den Phomemo-Treiber nutzen: „Über Windows-Drucker drucken (USB)“':'Windows does not release the printer. Please use the Phomemo driver: “Print via Windows printer (USB)”',
-  '💾 Sicherung':'💾 Backup', '🐞 Fehlerprotokoll …':'🐞 Error log …', 'Fehlerprotokoll':'Error log',
+  '💾 Sicherung':'💾 Backup', '🐞 Fehlerprotokoll …':'🐞 Error log …', '🧹 Browser-Daten zurücksetzen …':'🧹 Reset browser data …',
+  'Wirklich alles löschen? Das lässt sich nicht rückgängig machen.':'Really delete everything? This cannot be undone.',
+  'Alle Daten von Label Studio in diesem Browser löschen?\n\nDas sind: aktuelles Etikett, Vorlagen, Rollen, Druckeinstellungen, Schriften und das Fehlerprotokoll. Die App lädt danach neu wie beim ersten Start.\n\nTipp: Vorher über „💾 Sicherung & Umzug“ eine Sicherung speichern.':'Delete all Label Studio data in this browser?\n\nThat is: the current label, templates, rolls, print settings, fonts and the error log. The app then reloads as on first start.\n\nTip: save a backup first via “💾 Backup & move”.', 'Fehlerprotokoll':'Error log',
   'Klappt etwas nicht? Den Fehler einmal nachstellen, dann das Protokoll speichern oder kopieren und mitschicken. Es enthält Geräte- und Druckerdaten, aber keine Texte deiner Etiketten.':'Something not working? Reproduce the problem once, then save or copy the log and send it along. It contains device and printer data, but none of your label texts.',
   'Als Datei speichern':'Save as file', 'Leeren':'Clear', 'Teilen …':'Share …', 'Protokoll kopiert':'Log copied',
   'Kopieren nicht möglich – bitte „Als Datei speichern“ nutzen':'Copying not possible – please use “Save as file”',
@@ -5140,7 +5142,7 @@ function openHelp(key){
 }
 $('helpTabs').innerHTML = Object.entries(HELP).map(([k, h]) => `<button data-help="${k}">${h.title}</button>`).join('');
 $('menuList').innerHTML = $('helpTabs').innerHTML + '<hr><button data-gallery>🖼️ Vorlagen-Galerie …</button>'
-  + '<button data-backup>💾 Sicherung &amp; Umzug …</button><button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button><button data-debug>🐞 Fehlerprotokoll …</button>'
+  + '<button data-backup>💾 Sicherung &amp; Umzug …</button><button data-fonts>🔤 Schriften …</button><button data-setup>⚙️ Drucker einrichten …</button><button data-request>🖨️ Drucker vorschlagen …</button><button data-debug>🐞 Fehlerprotokoll …</button><button data-wipe>🧹 Browser-Daten zurücksetzen …</button>'
   + '<button data-install hidden>📲 Als App installieren …</button>'
   + `<hr><button data-lang>${LANG === 'en' ? '🌐 Deutsch' : '🌐 English'}</button>`;
 const toggleMenu = open => { $('menuList').hidden = !open; $('btnMenu').setAttribute('aria-expanded', open); };
@@ -5155,6 +5157,7 @@ document.querySelectorAll('#menuList, #helpTabs, #helpBody').forEach(el => el.ad
   if (ev.target.closest('[data-fonts]')){ toggleMenu(false); openFonts(); }
   if (ev.target.closest('[data-install]')){ toggleMenu(false); installApp(); }
   if (ev.target.closest('[data-backup]')){ toggleMenu(false); openBackup(); }
+  if (ev.target.closest('[data-wipe]')){ toggleMenu(false); wipeData(); }
   if (ev.target.closest('[data-debug]')){ toggleMenu(false); if ($('help').open) $('help').close(); openDebug(); }
   if (ev.target.closest('[data-lang]')){ toggleMenu(false); setLang(LANG === 'en' ? 'de' : 'en'); }
 }));
@@ -5171,6 +5174,21 @@ async function installApp(){
   installPrompt.prompt();
   await installPrompt.userChoice.catch(() => {});
   installPrompt = null; showInstallEntry();
+}
+// Alles löschen, was die App in diesem Browser gespeichert hat (Etiketten, Vorlagen, Rollen, Einstellungen, Schriften,
+// Protokoll, Offline-Kopie) – danach lädt die Seite frisch wie beim ersten Besuch. Nur die Sprache bleibt.
+async function wipeData(){
+  if (!confirm('Alle Daten von Label Studio in diesem Browser löschen?\n\nDas sind: aktuelles Etikett, Vorlagen, Rollen, Druckeinstellungen, Schriften und das Fehlerprotokoll. Die App lädt danach neu wie beim ersten Start.\n\nTipp: Vorher über „💾 Sicherung & Umzug“ eine Sicherung speichern.')) return;
+  if (!confirm('Wirklich alles löschen? Das lässt sich nicht rückgängig machen.')) return;
+  try { if (bt.device && bt.device.gatt && bt.device.gatt.connected) bt.device.gatt.disconnect(); } catch(e){}
+  try {
+    for (const k of Object.keys(localStorage)) if (k !== LS_LANG) localStorage.removeItem(k);
+    sessionStorage.clear();
+  } catch(e){}
+  try { await new Promise(res => { const r = indexedDB.deleteDatabase('labelstudio'); r.onsuccess = r.onerror = r.onblocked = res; }); } catch(e){}
+  try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch(e){}
+  try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch(e){}
+  location.replace(location.pathname);
 }
 // Offline-Speicher nur online (http/https); als lokal geöffnete Datei geht das nicht
 if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
