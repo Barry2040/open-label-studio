@@ -1006,6 +1006,8 @@ const EN_RE = [
     (m, a, b) => `Offset ${a} is set to ${b} mm – the print would land next to the label.\n\nOK = reset to 0 mm and print\nCancel = don't print`],
   [/^Es werden (\d+) Etiketten gedruckt\. Wirklich so viele\?\n\n\(Die Anzahl stellst du unter „Kopien“ ein\.\)$/s,
     (m, a) => `${a} labels will be printed. Really that many?\n\n(Set the number under “Copies”.)`],
+  [/^Das Etikett \((.+)\) ist größer als das Papierformat im Treiber \((.+)\)\.\n\nOK = Papierformat „Wie Etikett“ verwenden\nAbbrechen = so lassen$/s,
+    (m, a, b) => `The label (${a}) is larger than the paper size in the driver (${b}).\n\nOK = use paper size “Like label”\nCancel = leave it`],
   [/^Der Drucker meldet: (.+)\.\nTrotzdem drucken\?$/s, (m, a) => `The printer reports: ${a.split(', ').map(tr).join(', ')}.\nPrint anyway?`],
   [/^✓ getestet \((.+)\)$/, '✓ tested ($1)'], [/^(.+) · ✓ getestet \((.+)\)$/, '$1 · ✓ tested ($2)'], [/^(.+) mm · ✓ getestet$/, '$1 mm · ✓ tested'],
   [/^Bluetooth-Druck mit (.+) über (.+) erfolgreich ausprobiert$/, 'Bluetooth printing with $1 via $2 successfully tried'],
@@ -2376,14 +2378,14 @@ function findFrames(c, ppm){
 }
 // Mehrere gleich große Marken in einem Bereich (z. B. Internetmarke mit 4 Briefmarken nebeneinander): einzeln finden.
 // Lücke = 2 mm, in denen höchstens 3 Bildpunkt-Linien Tinte tragen – so zählen dünne Schnittmarken nicht als Inhalt.
-function splitPieces(c, ppm, r){
+function splitPieces(c, ppm, r, out){
   const x0 = Math.max(0, Math.round(r.x)), y0 = Math.max(0, Math.round(r.y));
   const w = Math.min(c.width - x0, Math.round(r.w)), h = Math.min(c.height - y0, Math.round(r.h));
   if (w < 20 * ppm && h < 20 * ppm) return [];
   const d = c.getContext('2d', { willReadFrequently:true }).getImageData(x0, y0, w, h).data;
   const dark = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) dark[i] = (d[i*4]*0.299 + d[i*4+1]*0.587 + d[i*4+2]*0.114) < 200 ? 1 : 0;
-  const T = Math.max(2, Math.round(ppm / 2)), minLen = 5 * ppm;
+  const T = Math.max(2, Math.round(ppm / 2)), minLen = 5 * ppm, minRun = Math.round(0.8 * ppm);
   let win = 0;
   const runs = (n, a0, a1) => {
     const inked = i => n[i] > T, out = [];
@@ -2399,7 +2401,7 @@ function splitPieces(c, ppm, r){
         let s = st + a0, e = i - 1 + a0;
         while (s < e && !inked(s)) s++;
         while (e > s && !inked(e)) e--;
-        if (e - s + 1 >= minLen) out.push([s, e + 1]);
+        if (e - s + 1 >= minRun) out.push([s, e + 1]);
         st = -1;
       }
     }
@@ -2408,10 +2410,16 @@ function splitPieces(c, ppm, r){
   const colN = (ys, ye, xs, xe) => { const n = new Int32Array(w); for (let y = ys; y < ye; y++) for (let x = xs; x < xe; x++) n[x] += dark[y*w + x]; return n; };
   const rowN = (xs, xe) => { const n = new Int32Array(h); for (let y = 0; y < h; y++){ let k = 0; for (let x = xs; x < xe; x++) k += dark[y*w + x]; n[y] = k; } return n; };
   // erst 2 mm Lücke, dann größer – damit Lücken innerhalb einer Marke (Code neben Text) nicht trennen
+  let first = null;
   for (const mm of [2, 3, 4, 5]){
     win = Math.round(mm * ppm);
     const res = splitWith();
     if (res.length) return res;
+  }
+  // keine Trennung: Umriss des eigentlichen Inhalts merken (ohne Schnittmarken und leeren Rand) – zum Zentrieren
+  if (out && first && first.length){
+    const x1 = Math.min(...first.map(p => p.x)), y1 = Math.min(...first.map(p => p.y));
+    out.box = { x:x1, y:y1, w:Math.max(...first.map(p => p.x + p.w)) - x1, h:Math.max(...first.map(p => p.y + p.h)) - y1 };
   }
   return [];
   function splitWith(){
@@ -2423,9 +2431,12 @@ function splitPieces(c, ppm, r){
       const cr = runs(colN(ys, ye, xs, xe), xs, xe);   // auf den Inhalt dieser Zeile zuschneiden
       if (!cr.length) continue;
       const a = cr[0][0], b = cr[cr.length - 1][1];
+      // mind. 0,8 mm dick und 5 mm lang – dünne Schnittmarken fallen weg, eine Textzeile („PRIORITY“) bleibt
+      if (Math.max(b - a, ye - ys) < minLen) continue;
       pieces.push({ x:x0 + a, y:y0 + ys, w:b - a, h:ye - ys });
     }
   }
+  if (!first) first = pieces.slice();
   if (pieces.length < 2) return [];
   const med = k => pieces.map(p => p[k]).sort((a, b) => a - b)[pieces.length >> 1];
   const mw = med('w'), mh = med('h');
@@ -2496,11 +2507,14 @@ async function importShipping(file){
   const wide = isRawPrinter() || (printer().head || 0) >= 90 * PX_PER_MM;
   const [lw, lh] = Math.min(design.w, design.h) >= 90 || !wide ? [design.w, design.h] : [100, 150];
   // kleine Etiketten: mehrere Marken auf der Seite (z. B. 4 Briefmarken) kommen je auf ein eigenes Etikett
-  const parts = Math.min(lw, lh) < 90 ? splitPieces(c, ppm, r) : [];
+  const found = {};
+  const parts = Math.min(lw, lh) < 90 ? splitPieces(c, ppm, r, found) : [];
+  // eine einzelne Marke: nur den Inhalt ausschneiden (ohne Schnittmarken), damit sie groß und mittig sitzt
+  if (!parts.length && found.box) r = found.box;
   loadDesign({ w:lw, h:lh, elements:[] });
-  const place = async (r, pg) => {
-    // Rand dazu, damit Rahmenlinien nicht abgeschnitten werden (getrennte Marken: knapp, sonst kommen Schnittmarken mit)
-    const m = Math.round((pg ? 0.5 : 1.5) * ppm), x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
+  const place = async (r, pg, tight = !!pg) => {
+    // Rand dazu, damit Rahmenlinien nicht abgeschnitten werden (Marken: knapp, sonst kommen Schnittmarken mit)
+    const m = Math.round((tight ? 0.5 : 1.5) * ppm), x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
     const cw = Math.min(c.width - x, r.w + 2*m), ch = Math.min(c.height - y, r.h + 2*m);
     let crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
     crop.getContext('2d').drawImage(c, x, y, cw, ch, 0, 0, cw, ch);
@@ -2511,7 +2525,7 @@ async function importShipping(file){
     }
     const rot = cw !== ch && (cw > ch) !== (W() > H());
     // getrennte Marken: 1 mm Luft rundherum, damit am Rand nichts abgeschnitten wird
-    const pad = pg ? 2 * PX_PER_MM : 0;
+    const pad = tight ? 2 * PX_PER_MM : 0;
     const iw = rot ? ch : cw, ih = rot ? cw : ch, k = Math.min((W() - pad) / iw, (H() - pad) / ih);
     // gespeichert wird bis zur dreifachen Druckauflösung – gedruckt wird ohnehin mit 8 Punkten/mm
     const sw = rot ? crop.height : crop.width;
@@ -2525,7 +2539,7 @@ async function importShipping(file){
     for (let i = 0; i < parts.length; i++) await place(parts[i], i + 1);
     viewPage = 1; setSel([]);
     dbg('Import', `${parts.length} gleiche Marken erkannt und getrennt: ` + parts.map(p => `${Math.round(p.w / ppm)} × ${Math.round(p.h / ppm)} mm`).join(', '));
-  } else await place(r, 0);
+  } else await place(r, 0, !!found.box);
   return parts.length || 1;
 }
 $('btnShip').addEventListener('click', () => $('fileShip').click());
@@ -3728,9 +3742,12 @@ $('btnPng').addEventListener('click', () => {
 
 // Nullpunkt für den Windows-Druck: der M220-Treiber druckt sonst ca. 2 mm zu weit links (per Testdruck ermittelt)
 const SYS_ZERO_X_MM = 2;
+// … aber nur beim M220/M221-Treiber; andere Treiber (z. B. „M108 Printer“) drucken die Seite ohne Versatz
+const sysZeroX = () => ['m220', 'm221'].includes($('model').value) ? SYS_ZERO_X_MM : 0;
 
 // Druck über den Systemdrucker (z. B. Phomemo-Treiber per USB): eine Seite pro Kopie in Etikettengröße
-$('btnSysPrint').addEventListener('click', async () => {
+$('btnSysPrint').addEventListener('click', () => sysPrint());
+async function sysPrint(){
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
   if (!confirmSettings(jobs)) return;
@@ -3739,7 +3756,12 @@ $('btnSysPrint').addEventListener('click', async () => {
   // Der Treiber kennt nur feste Formate: Etikett horizontal mittig auf die Seite setzen
   const paper = $('sysPaper').value;
   const [pw, ph] = paper === 'label' ? [lw, lh] : paper.split('x').map(Number);
-  const left = (pw - lw) / 2 + SYS_ZERO_X_MM + (parseFloat($('offset').value) || 0);
+  const left = (pw - lw) / 2 + sysZeroX() + (parseFloat($('offset').value) || 0);
+  // Treiber-Papier schmaler als das Etikett: Chrome verteilt den Rest auf eine zweite (leere) Seite – vorher fragen
+  if (paper !== 'label' && (lw > pw + 0.5 || lh > ph + 0.5)
+      && confirm(`Das Etikett (${lw} × ${lh} mm) ist größer als das Papierformat im Treiber (${pw} × ${ph} mm).\n\nOK = Papierformat „Wie Etikett“ verwenden\nAbbrechen = so lassen`)){
+    $('sysPaper').value = 'label'; savePrintSettings(); return sysPrint();
+  }
   $('pageStyle').textContent = `@page{size:${pw}mm ${ph}mm;margin:0}`;
   const area = $('printArea');
   area.innerHTML = '';
@@ -3761,7 +3783,7 @@ $('btnSysPrint').addEventListener('click', async () => {
   recordPrint();
   if (/\{nr\}/i.test(JSON.stringify(design.elements))) $('startNr').value = start + copies;
   savePrintSettings(); render();
-});
+}
 
 const PRINT_KEYS =['copies','density','feed','align','offset','rotate','startNr','model','sysPaper','offsetY','strip'];
 function savePrintSettings(){
@@ -5356,7 +5378,8 @@ function adaptLabelToModel(){
   // keine passende Rolle: Auswahl leeren, damit keine Rolle eines anderen Druckers angezeigt wird
   $('rollSel').value = ''; $('rollDel').disabled = true; lsSet(LS_ROLL, '');
   if (p.align) $('align').value = p.align;
-  if (isRawPrinter()) $('sysPaper').value = 'label';   // Versanddrucker: Windows-Seite = Etikett (100 × 150)
+  // Windows-Seite: der M220/M221-Treiber kennt 50 × 30 mm, alle anderen bekommen eine Seite so groß wie das Etikett
+  $('sysPaper').value = ['m220', 'm221'].includes(key) ? '50x30' : 'label';
   savePrintSettings();
   if (p.size && (design.w !== p.size[0] || design.h !== p.size[1])){
     setLabelSize(p.size[0], p.size[1]);
