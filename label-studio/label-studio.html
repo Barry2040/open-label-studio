@@ -724,6 +724,18 @@ function widthCheck(){
   if (isRawPrinter() && design.w > max && design.h <= max) cross = design.h;
   return cross > max + 3 ? { cross, max } : null;   // 3 mm Spielraum (z. B. 50-mm-Rolle auf 48-mm-Kopf)
 }
+// Unplausible Einstellungen vor dem Druck abfangen (z. B. versehentlich 181 Kopien oder 160 mm Versatz)
+function confirmSettings(jobs){
+  for (const [id, name] of [['offset', 'Versatz X'], ['offsetY', 'Versatz Y']]){
+    const v = parseFloat($(id).value) || 0;
+    if (Math.abs(v) <= 20) continue;
+    dbg('Hinweis', `${name} steht auf ${v} mm`);
+    if (!confirm(`${name} steht auf ${v} mm – damit landet der Druck neben dem Etikett.\n\nOK = auf 0 mm zurücksetzen und drucken\nAbbrechen = nicht drucken`)) return false;
+    $(id).value = 0; savePrintSettings();
+  }
+  if (jobs.length > 10 && !confirm(`Es werden ${jobs.length} Etiketten gedruckt. Wirklich so viele?\n\n(Die Anzahl stellst du unter „Kopien“ ein.)`)) return false;
+  return true;
+}
 function confirmWidth(){
   const w = widthCheck();
   return !w || confirm(`Das Etikett ist ${w.cross} mm breit, der ${printer().name} druckt aber höchstens ${w.max} mm breit – ein Teil wird abgeschnitten.\n\nTipp: oben die passende Rolle bzw. Etikettgröße wählen.\nTrotzdem drucken?`);
@@ -985,6 +997,10 @@ const EN_RE = [
   [/^Etikett (\d+) von (\d+)$/, 'Label $1 of $2'], [/^Gedruckt werden alle (\d+)$/, 'All $1 will be printed'],
   [/^Nur Etikett (\d+) behalten und die anderen (\d+) verwerfen\?$/, 'Keep only label $1 and discard the other $2?'],
   [/^(\d+) Marken erkannt – jede kommt auf ein eigenes Etikett \(mit ◀ ▶ blättern\)$/, '$1 stamps found – each goes on its own label (browse with ◀ ▶)'],
+  [/^Versatz (X|Y) steht auf (.+) mm – damit landet der Druck neben dem Etikett\.\n\nOK = auf 0 mm zurücksetzen und drucken\nAbbrechen = nicht drucken$/s,
+    (m, a, b) => `Offset ${a} is set to ${b} mm – the print would land next to the label.\n\nOK = reset to 0 mm and print\nCancel = don't print`],
+  [/^Es werden (\d+) Etiketten gedruckt\. Wirklich so viele\?\n\n\(Die Anzahl stellst du unter „Kopien“ ein\.\)$/s,
+    (m, a) => `${a} labels will be printed. Really that many?\n\n(Set the number under “Copies”.)`],
   [/^Der Drucker meldet: (.+)\.\nTrotzdem drucken\?$/s, (m, a) => `The printer reports: ${a.split(', ').map(tr).join(', ')}.\nPrint anyway?`],
   [/^✓ getestet \((.+)\)$/, '✓ tested ($1)'], [/^(.+) · ✓ getestet \((.+)\)$/, '$1 · ✓ tested ($2)'], [/^(.+) mm · ✓ getestet$/, '$1 mm · ✓ tested'],
   [/^Bluetooth-Druck mit (.+) über (.+) erfolgreich ausprobiert$/, 'Bluetooth printing with $1 via $2 successfully tried'],
@@ -2997,7 +3013,7 @@ function onNotify(ev){
   if (d.length < 3 || d[0] !== 0x1a) return;
   const v = d[2];
   if (d[1] === 0x04) printerInfo.battery = ({ 0xa4:0, 0xa3:3, 0xa2:5, 0xa1:10 })[v] ?? v;
-  else if (d[1] === 0x05) printerInfo.cover = v === 0x98 ? 'open' : v === 0x99 ? 'closed' : printerInfo.cover;
+  else if (d[1] === 0x05) printerInfo.cover = v === 0x99 ? 'open' : v === 0x98 ? 'closed' : printerInfo.cover;   // per M220 geprüft: 98 = zu, 99 = offen
   else if (d[1] === 0x06) printerInfo.paper = v === 0x88 ? 'out' : 'ok';
   else if (d[1] === 0x07) printerInfo.firmware = [...d.slice(2)].join('.');
   else return;
@@ -3610,7 +3626,7 @@ function zplJob(c){
 async function printRaw(via){
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
-  if (!confirmWidth()) return;
+  if (!confirmWidth() || !confirmSettings(jobs)) return;
   const zpl = printer().proto === 'zpl';
   const btn = via === 'usb' && !zpl ? $('btnUsbPrint') : $('btnPrint'), prog = $('prog');
   dbg('Druck', `${printer().name} (${printer().proto}) über ${via === 'usb' ? 'USB' : 'Bluetooth'}: ${copies} Etikett(en), ${design.w} × ${design.h} mm`);
@@ -3652,6 +3668,7 @@ $('btnPrint').addEventListener('click', async () => {
   if (!confirmWidth()) return;
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
+  if (!confirmSettings(jobs)) return;
   const btn = $('btnPrint'), prog = $('prog');
   btn.disabled = true; prog.hidden = false; bt.busy = true;
   try {
@@ -3711,6 +3728,7 @@ const SYS_ZERO_X_MM = 2;
 $('btnSysPrint').addEventListener('click', async () => {
   const jobs = printJobs(), copies = jobs.length, start = parseInt($('startNr').value) || 1;
   if ($('serialOn').checked && !serialRows().length){ alert('Seriendruck ist an, aber die Liste ist leer.'); return; }
+  if (!confirmSettings(jobs)) return;
   const rot = $('rotate').checked;
   const lw = rot ? design.h : design.w, lh = rot ? design.w : design.h;
   // Der Treiber kennt nur feste Formate: Etikett horizontal mittig auf die Seite setzen
