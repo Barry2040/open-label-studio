@@ -2420,6 +2420,7 @@ function splitPieces(c, ppm, r, out){
   if (out && first && first.length){
     const x1 = Math.min(...first.map(p => p.x)), y1 = Math.min(...first.map(p => p.y));
     out.box = { x:x1, y:y1, w:Math.max(...first.map(p => p.x + p.w)) - x1, h:Math.max(...first.map(p => p.y + p.h)) - y1 };
+    out.pieces = first;
   }
   return [];
   function splitWith(){
@@ -2445,6 +2446,19 @@ function splitPieces(c, ppm, r, out){
   if (same.length < 2 || same.length < 0.75 * pieces.length || Math.max(mw, mh) < 15 * ppm || Math.min(mw, mh) < 10 * ppm) return [];
   return same.sort((a, b) => Math.abs(a.y - b.y) > mh / 2 ? a.y - b.y : a.x - b.x);
   }
+}
+// Einzelne Marke mit Zusatz links daneben (z. B. „PRIORITY P.P.“ neben der Internetmarke): den Zusatz über die Marke
+// setzen, wenn die Marke auf dem Etikett (lw × lh mm) dadurch deutlich größer wird
+function stackLayout(pieces, ppm, lw, lh){
+  if (!pieces || pieces.length < 2) return null;
+  const big = pieces.reduce((a, p) => p.h > a.h ? p : a);   // höchstes Stück = Kern der Marke (z. B. der Matrixcode)
+  const left = pieces.filter(p => p.x + p.w <= big.x - ppm), rest = pieces.filter(p => !left.includes(p));
+  if (!left.length) return null;
+  const U = l => { const x = Math.min(...l.map(p => p.x)), y = Math.min(...l.map(p => p.y));
+    return { x, y, w:Math.max(...l.map(p => p.x + p.w)) - x, h:Math.max(...l.map(p => p.y + p.h)) - y }; };
+  const main = U(rest), extra = U(left), all = U(pieces), gap = Math.round(1.5 * ppm);
+  const fit = (w, h) => { const [a, b] = (w > h) === (lw > lh) ? [lw, lh] : [lh, lw]; return Math.min((a - 2) * ppm / w, (b - 2) * ppm / h); };
+  return fit(Math.max(main.w, extra.w), extra.h + gap + main.h) > 1.15 * fit(all.w, all.h) ? { main, extra, gap } : null;
 }
 // Kandidaten bewerten: Barcodes zählen stark, Abschnitte für die eigenen Unterlagen scheiden aus
 const NOT_LABEL = /unterlagen|einlieferungsbeleg|quittung|sendungsinformation|ihr beleg|for your records|receipt/i;
@@ -2508,21 +2522,27 @@ async function importShipping(file){
   const [lw, lh] = Math.min(design.w, design.h) >= 90 || !wide ? [design.w, design.h] : [100, 150];
   // kleine Etiketten: mehrere Marken auf der Seite (z. B. 4 Briefmarken) kommen je auf ein eigenes Etikett
   const found = {};
+  let stack = null;
   const parts = Math.min(lw, lh) < 90 ? splitPieces(c, ppm, r, found) : [];
   // eine einzelne Marke: nur den Inhalt ausschneiden (ohne Schnittmarken), damit sie groß und mittig sitzt
   if (!parts.length && found.box) r = found.box;
   loadDesign({ w:lw, h:lh, elements:[] });
-  const place = async (r, pg, tight = !!pg) => {
-    // Rand dazu, damit Rahmenlinien nicht abgeschnitten werden (Marken: knapp, sonst kommen Schnittmarken mit)
-    const m = Math.round((tight ? 0.5 : 1.5) * ppm), x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
+  // Ausschnitt r (Bildpunkte der Seite) mit Rand m holen – bei PDF scharf mit bis zu 24 Punkten/mm (höchstens ca. 16 Mio. Bildpunkte)
+  const grab = async (r, m) => {
+    const x = Math.max(0, r.x - m), y = Math.max(0, r.y - m);
     const cw = Math.min(c.width - x, r.w + 2*m), ch = Math.min(c.height - y, r.h + 2*m);
     let crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
     crop.getContext('2d').drawImage(c, x, y, cw, ch, 0, 0, cw, ch);
-    // PDF: den Ausschnitt mit 24 Punkten/mm neu zeichnen (höchstens ca. 16 Mio. Bildpunkte)
     if (hiRes){
       const hi = Math.min(24, ppm * Math.sqrt(16e6 / (cw * ch)));
       if (hi > ppm * 1.2) crop = await hiRes({ x, y, w:cw, h:ch }, hi).catch(() => crop);
     }
+    return crop;
+  };
+  // Rand dazu, damit Rahmenlinien nicht abgeschnitten werden (Marken: knapp, sonst kommen Schnittmarken mit)
+  const place = async (r, pg, tight = !!pg) => put(await grab(r, Math.round((tight ? 0.5 : 1.5) * ppm)), pg, tight);
+  const put = (crop, pg, tight) => {
+    const cw = crop.width, ch = crop.height;
     const rot = cw !== ch && (cw > ch) !== (W() > H());
     // getrennte Marken: 1 mm Luft rundherum, damit am Rand nichts abgeschnitten wird
     const pad = tight ? 2 * PX_PER_MM : 0;
@@ -2539,6 +2559,17 @@ async function importShipping(file){
     for (let i = 0; i < parts.length; i++) await place(parts[i], i + 1);
     viewPage = 1; setSel([]);
     dbg('Import', `${parts.length} gleiche Marken erkannt und getrennt: ` + parts.map(p => `${Math.round(p.w / ppm)} × ${Math.round(p.h / ppm)} mm`).join(', '));
+  } else if (found.box && (stack = stackLayout(found.pieces, ppm, lw, lh))){
+    // Zusatz („PRIORITY P.P.“) links bündig über die Marke setzen – beide Teile im selben Maßstab
+    // Zusatz mit etwas mehr Rand, damit dünne Schrift am Anfang (das „P“) nicht angeschnitten wird
+    const m = Math.round(0.5 * ppm), ma = ppm, a = await grab(stack.extra, ma), b = await grab(stack.main, m);
+    const f = b.width / (stack.main.w + 2*m), aw = Math.round((stack.extra.w + 2*ma) * f), ah = Math.round((stack.extra.h + 2*ma) * f);
+    const comp = document.createElement('canvas');
+    comp.width = Math.max(b.width, aw); comp.height = ah + Math.round(stack.gap * f) + b.height;
+    const cc = comp.getContext('2d'); cc.fillStyle = '#fff'; cc.fillRect(0, 0, comp.width, comp.height);
+    cc.drawImage(a, 0, 0, aw, ah); cc.drawImage(b, 0, comp.height - b.height);
+    put(comp, 0, true);
+    dbg('Import', 'Zusatz links neben der Marke darübergesetzt, damit die Marke größer wird');
   } else await place(r, 0, !!found.box);
   return parts.length || 1;
 }
@@ -3742,8 +3773,9 @@ $('btnPng').addEventListener('click', () => {
 
 // Nullpunkt für den Windows-Druck: der M220-Treiber druckt sonst ca. 2 mm zu weit links (per Testdruck ermittelt)
 const SYS_ZERO_X_MM = 2;
-// … aber nur beim M220/M221-Treiber; andere Treiber (z. B. „M108 Printer“) drucken die Seite ohne Versatz
-const sysZeroX = () => ['m220', 'm221'].includes($('model').value) ? SYS_ZERO_X_MM : 0;
+// … aber nur beim M220/M221-Treiber mit seinem 50-mm-Papier; „Wie Etikett“ (z. B. „M108 Printer“) druckt ohne Versatz.
+// Nicht nur am Modell festmachen: über Windows wird oft ein anderer Drucker genutzt als oben für Bluetooth gewählt.
+const sysZeroX = () => $('sysPaper').value !== 'label' && ['m220', 'm221'].includes($('model').value) ? SYS_ZERO_X_MM : 0;
 
 // Druck über den Systemdrucker (z. B. Phomemo-Treiber per USB): eine Seite pro Kopie in Etikettengröße
 $('btnSysPrint').addEventListener('click', () => sysPrint());
@@ -3769,7 +3801,8 @@ async function sysPrint(){
     curNr = jobs[n].nr; curRow = jobs[n].row; curPage = jobs[n].pg || 1;
     const pg = document.createElement('div');
     pg.className = 'pg';
-    pg.style.width = pw + 'mm'; pg.style.height = ph + 'mm';
+    // minimal kürzer als die Seite: sonst rundet Chrome mm → Bildpunkte auf und hängt eine leere Seite an
+    pg.style.width = pw + 'mm'; pg.style.height = (ph - 0.3) + 'mm';
     const img = document.createElement('img');
     img.src = printCanvas(rot).toDataURL('image/png');
     img.style.width = lw + 'mm'; img.style.height = lh + 'mm'; img.style.left = left + 'mm';
